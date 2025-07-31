@@ -1,0 +1,33 @@
+[project]
+name = "wiredwolf"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Nicolo Guerra",email = "nicolo.guerra@studio.unibo.it"}
+]
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+]
+
+[tool.poetry]
+packages = [{include = "wiredwolf", from = "src"}]
+
+# dependencies (Python is a dependency)
+[tool.poetry.dependencies]
+python = "^3.13.0"
+
+# development dependencies
+[tool.poetry.group.dev.dependencies]
+poetry = "^1.7.0"
+pytest = "^8.1.0"
+coverage = "^7.4.0"
+mypy = "^1.9.0"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[[tool.poetry.source]]
+name = "PyPI"
+priority = "primary"
