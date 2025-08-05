@@ -36,6 +36,9 @@ class Player:
         
     def is_alive(self) -> bool:
         return self._status != Status.DEAD
+    
+    def is_evil(self) -> bool:
+        return self._role == Role.WEREWOLF
         
     def __str__(self) -> str:
         return f"Player(id={self._id}, role={self._role}, status={self._status})"
