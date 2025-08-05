@@ -1,5 +1,6 @@
 import unittest
 from wiredwolf.model.game import Game, GamePhase
+from wiredwolf.model.game_modifiers import BasicGameInfoFactory
 from wiredwolf.model.player import Player, Role, Status
 
 def populate_players() -> list[Player]:
@@ -30,7 +31,7 @@ class GameTest(unittest.TestCase):
     def setUp(self):
 
         self.players = populate_players()
-        self.game = Game(self.players)
+        self.game = Game(self.players, BasicGameInfoFactory.build())
         
     def test_initial_state(self):
         self.assertEqual(self.game.phase, GamePhase.DAY_DISCUSSION)

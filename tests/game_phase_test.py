@@ -1,12 +1,13 @@
 import unittest
 from wiredwolf.model.game import Game, GamePhase
+from wiredwolf.model.game_modifiers import BasicGameInfoFactory
 from wiredwolf.model.player import Status
 from tests.game_test import populate_players, get_index_by_name
 
 class GamePhaseTest(unittest.TestCase):
     def setUp(self):
         self.players = populate_players()
-        self.game = Game(self.players)
+        self.game = Game(self.players, BasicGameInfoFactory.build())
         
     def test_skip_ballot_vote_draw(self):
             self.game.advance_phase()

@@ -1,12 +1,13 @@
 import unittest
 from wiredwolf.model.game import Game
+from wiredwolf.model.game_modifiers import BasicGameInfoFactory
 from wiredwolf.model.player import Status
 from tests.game_test import populate_players, get_index_by_name
 
 class GameActionsTest(unittest.TestCase):
     def setUp(self):
         self.players = populate_players()
-        self.game = Game(self.players)
+        self.game = Game(self.players, BasicGameInfoFactory.build())
 
     # Test Werewolves Actions    
         
