@@ -1,6 +1,8 @@
+from time import sleep
 import pygame
 from pygame.locals import *
 import abc
+from typing import Sequence
 
 #App colors
 backgroundColor="#C5C5BF"
@@ -8,13 +10,14 @@ textColor="#1A1A1A"
 buttonColor="#F3A6A6"
 buttonHoverColor="#DA0000"
 buttonBorderColor="#372626"
+FPS=60
 
 class App:
     def __init__(self):
         pygame.init() #initializes pygame modules
         pygame.font.init()
-        self._size=self.weight, self.height = 640, 400
-        self._displayScreen = pygame.display.set_mode(self._size, pygame.HWSURFACE | pygame.DOUBLEBUF) #window size
+        self._size=self.weight, self.height = 640, 400 #default starting values
+        self._displayScreen = pygame.display.set_mode(self._size, pygame.RESIZABLE) #the window is resizable
         pygame.display.set_caption("Wirewolf") #window title
         self._running = True
         
@@ -39,19 +42,41 @@ class App:
             #closes the window
             self._running = False
             pygame.quit()
+        else:
+            if event.type == pygame.WINDOWRESIZED:
+                #when the window is resized, the local variable value is changed
+                self._size=pygame.display.get_surface().get_size()
             
 class AbstractButton:
     def __init__(self, text: str, width:int, height:int, position:tuple[int, int]):
         pygame.font.init() #initializes pygame modules
         self._buttonRect=pygame.Rect(position, (width, height)) #position is for top left
         self._buttonRectColor=buttonColor #default color when unpressed
-        guiFont=pygame.font.Font(None, 30) #generates font
-        self._textSurface=guiFont.render(text, True, textColor) #renders the text
+        self.guiFont=pygame.font.Font(None, 30) #generates font
+        self._textSurface=self.guiFont.render(text, True, textColor) #renders the text
         self._textRect=self._textSurface.get_rect(center=self._buttonRect.center) #centers the text in the button
         self._buttonClicked=False #sets the button as not clicked
+    
+    @property
+    def size(self)->tuple[int, int]:
+        """Returns a button size as (width, height)"""
+        return (self._buttonRect.width, self._buttonRect.height)
+    
+    @property
+    def position(self)->tuple[int, int]:
+        """Returns a the top left coords of the button position"""
+        return (self._buttonRect.x, self._buttonRect.y)
+    
+    @position.setter
+    def position(self, value:tuple[int, int]):
+        """Sets the button position as a the top left coords of the button position"""
+        self._buttonRect.x=value[0]
+        self._buttonRect.y=value[1]
 
     def draw(self, screen: pygame.Surface):
         """Draws the button on the given surface"""
+        #Since the window is resizable, the button position is calculated as centered.
+        self._textRect=self._textSurface.get_rect(center=self._buttonRect.center) #re-centers the text in the button
         #draws the button as a rectangle with rounded corners
         pygame.draw.rect(screen, self._buttonRectColor, self._buttonRect, border_radius=12) #border radius is for rounded corners
         screen.blit(self._textSurface, self._textRect) #draws the rectangle on the given screen
@@ -78,6 +103,72 @@ class AbstractButton:
         """This is the action done when the button is pressed, implement this in your button class"""
         raise NotImplementedError("Please implement this method")
 
+
+class ButtonVContainer:
+    def __init__(self, vertDiv:int, buttons:Sequence[AbstractButton], winSize:tuple[int, int], color:str=backgroundColor):
+        if len(buttons)==0:
+            raise ValueError("Must contain at least a button")
+        pygame.font.init() #initializes pygame modules
+        self.divider=vertDiv
+        self.topLeftPos=(0,0)
+        self.buttons=buttons
+        self.winSize=winSize
+        self.color=color
+        self._setDimensions() #these are the dimensions of the container, calculated with the buttons list and the vertical divider
+        #the top left corner of the container is at total window size/2 (which would be the center of the window) - container size/2
+        #this operation is done on both axis, to derive the position for the top left corner
+        self._setTopLeftPos() #this is the position of the top left corner of the container 
+        self._rect=pygame.Rect(self.topLeftPos, self.dimensions)
+        self._centerButtons()
+
+    def _centerButtons(self):
+        """Sets button position as:
+            x-> x coord of container
+            y-> y coord of container + size of buttons before + n-1 dividers"""
+        #y coord = top left coord + button size + div
+        #x coord = top left coord
+        ycoord=self.topLeftPos[1]
+        xcoord=self.topLeftPos[0]
+        for button in self.buttons:
+            button.position=(xcoord, ycoord)
+            ycoord=ycoord+button.size[1]+self.divider
+        
+    def _setDimensions(self):
+        """Sets container dimensions:
+            x-> max x of buttons contained
+            y-> sum of y of buttons contained + n-1 * vertical divider spacer
+            This allows the container to have the buttons aligned with some vertical separation"""
+        dimensionsX=0
+        dimensionsY=0
+        for button in self.buttons:
+            #the button container will have size defined as such:
+            #x: max of button x in given list
+            #y: sum of button y in given list + n-1 *vertDiv
+            #this should permit the container to have the buttons aligned with some vertical separation
+            dimensionsY=dimensionsY+button.size[1]
+            dimensionsX=max(dimensionsX, button.size[0])
+        dimensionsY=dimensionsY+(len(self.buttons)-1)*self.divider
+        self.dimensions=(dimensionsX, dimensionsY)
+    
+    def _setTopLeftPos(self):
+        """Sets container position, knowing container dimensions and window dimension"""
+        self.topLeftPos=(int((self.winSize[0]/2)-(self.dimensions[0]/2)), int((self.winSize[1]/2)-(self.dimensions[1]/2)))
+
+    def draw(self, screen: pygame.Surface, winSize:tuple[int, int]):
+        """Draws the button container centered on the given surface"""
+        if winSize!=self.winSize:
+            self.winSize=winSize
+            #window size was changed, re-center container
+            self._setTopLeftPos()
+            self._rect.x=self.topLeftPos[0]
+            self._rect.y=self.topLeftPos[1]
+            #re-centers buttons inside the new container
+            self._centerButtons()
+        pygame.draw.rect(screen, self.color, self._rect)
+        for button in self.buttons:
+            button.draw(screen)
+        pygame.display.flip() #draws the elements on the screen
+
 class PrintButton(AbstractButton):
     def onClick(self):
         """Prints a test string when the button is pressed"""
@@ -85,10 +176,17 @@ class PrintButton(AbstractButton):
 
 if __name__ == "__main__":
     myApp= App()
-    myButton=PrintButton('Test button', 200, 200, (20, 20)) 
+    myButton1=PrintButton('Test button 1', 100, 50, (20, 50)) 
+    myButton2=PrintButton('Test button 2', 100, 50, (20, 100)) 
+    myButton3=PrintButton('Test button 3', 100, 50, (20, 150)) 
+    clock = pygame.time.Clock()
+    buttonList=[myButton1, myButton2, myButton3]
+    myButtonContainer=ButtonVContainer(10, buttonList, (640, 400))
     while(myApp.appRunning): #event loop
+        clock.tick(FPS)
         myApp.screen.fill(backgroundColor) #fills the background color for the application
-        myButton.draw(myApp.screen) #draws the button on the screen
+        #myButton.draw(myApp.screen, myApp.screenSize) #draws the button on the screen
+        myButtonContainer.draw(myApp.screen, myApp.screenSize)
         pygame.display.update() #necessary or the screen won't draw at all
         for event in pygame.event.get():
             myApp.onEvent(event) #handles generated events
