@@ -4,8 +4,11 @@ import logging
 from socket import socket, inet_aton
 from zeroconf import ServiceBrowser, ServiceInfo, ServiceListener, Zeroconf
 
+SERVICE_TYPE: str = "_wiredwolflobby._tcp.local."
+
 
 class Peer:
+    """Represents a peer in the network."""
 
     __name = None
     __address = None
@@ -23,7 +26,61 @@ class Peer:
         return self.__name
 
 
+class Lobby:
+
+    __peers = []
+    __state = None
+    __name = None
+    __password = None
+
+    def __init__(self, name=None, password=None):
+        self.__peers = []
+        self.__state = LobbyState.WAITING_FOR_PLAYERS
+        self.__name = name
+        self.__password = password
+
+    def add_peer(self, peer):
+        self.__peers.append(peer)
+
+    def remove_peer(self, peer):
+        self.__peers.remove(peer)
+
+    @property
+    def peers(self):
+        return self.__peers
+
+    @property
+    def state(self):
+        return self.__state
+
+    @property
+    def name(self):
+        return self.__name
+
+    @state.setter
+    def state(self, state):
+        self.__state = state
+
+    def send_chat_message(self, message):
+        # TODO: Implement chat message sending logic
+        pass
+
+    def choose_player(self, player):
+        # TODO: Implement player selection logic
+        pass
+
+    def vote_guilty(self):
+        # TODO: Implement voting logic
+        pass
+
+    def vote_innocent(self):
+        # TODO: Implement voting logic
+        pass
+
+
 class LobbyState(Enum):
+    """Represents the various states a lobby can be in."""
+
     WAITING_FOR_PLAYERS = "waiting_for_players"
     STARTING = "starting"
     PLAYING = "playing"
@@ -32,17 +89,51 @@ class LobbyState(Enum):
 
 
 class LobbyBrowser:
+    """Handles the discovery and creations/publishment of game lobbies through mDNS.
+    """
 
     def __init__(self):
-        pass
+        self.__service_manager = ServiceManager(SERVICE_TYPE)
+        self.__browser = None
+        self.__published_lobby_service_info = None
 
-    def discover_lobbies(self) -> None:
-        # TODO: This method would contain logic to discover available lobbies (probably to be made async)
-        pass
+    def start_lobby_browser(self, on_lobby_found: Callable[[str], None], on_lobby_lost: Callable[[str], None], on_lobby_updated: Callable[[str], None]) -> None:
+        """Starts the lobby browser to discover available lobbies. When appropriate the lobby browser should be stopped by calling stop_lobby_browser()."""
+        if not self.__browser:
+            listener = CallbackServiceListener(
+                on_service_added=on_lobby_found,
+                on_service_removed=on_lobby_lost,
+                on_service_updated=on_lobby_updated
+            )
+            self.__browser = self.__service_manager.get_service_browser(
+                listener)
+        else:
+            raise RuntimeError("Lobby browser is already running.")
 
-    def publish_lobby(self, lobby) -> None:
-        # TODO: This method would contain logic to publish a new lobby
-        pass
+    def stop_lobby_browser(self) -> None:
+        """Stops the lobby browser from discovering lobbies."""
+        if self.__browser:
+            self.__browser.cancel()
+            self.__browser = None
+        else:
+            raise RuntimeError("Lobby browser is not running.")
+
+    def publish_lobby(self, lobby: Lobby, receiver_socket: socket) -> None:
+        """Publishes a lobby to the network so that it can be discovered by other players."""
+        if not self.__published_lobby_service_info:
+            self.__published_lobby_service_info = self.__service_manager.register_service(
+                name=lobby.name, receiverSocket=receiver_socket)
+        else:
+            raise RuntimeError("There is already a lobby being published.")
+
+    def stop_publishing_lobby(self) -> None:
+        """Stops publishing the lobby."""
+        if self.__published_lobby_service_info:
+            self.__service_manager.unregister_service(
+                self.__published_lobby_service_info)
+            self.__published_lobby_service_info = None
+        else:
+            raise RuntimeError("No lobby is currently being published.")
 
 
 class CallbackServiceListener(ServiceListener):
@@ -101,54 +192,6 @@ class ServiceManager():
             on_service_removed=on_service_removed,
             on_service_updated=on_service_updated
         )
-        
+
     def get_service_browser(self, listener: ServiceListener) -> ServiceBrowser:
         return ServiceBrowser(self.__zeroconf, self.__service_type, listener)
-
-
-class Lobby:
-
-    __peers = []
-    __state = None
-    __name = None
-    __password = None
-
-    def __init__(self, name=None, password=None):
-        self.__peers = []
-        self.__state = LobbyState.WAITING_FOR_PLAYERS
-        self.__name = name
-        self.__password = password
-
-    def add_peer(self, peer):
-        self.__peers.append(peer)
-
-    def remove_peer(self, peer):
-        self.__peers.remove(peer)
-
-    @property
-    def peers(self):
-        return self.__peers
-
-    @property
-    def state(self):
-        return self.__state
-
-    @state.setter
-    def state(self, state):
-        self.__state = state
-
-    def send_chat_message(self, message):
-        # TODO: Implement chat message sending logic
-        pass
-
-    def choose_player(self, player):
-        # TODO: Implement player selection logic
-        pass
-
-    def vote_guilty(self):
-        # TODO: Implement voting logic
-        pass
-
-    def vote_innocent(self):
-        # TODO: Implement voting logic
-        pass
