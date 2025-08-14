@@ -11,32 +11,29 @@ class AbstractGameInfo(ABC):
     Subclasses must implement methods for handling votes, night actions,
     end game conditions, and supported roles.
     """
-    #TODO: move this to minimal game info?
-    def __init__(self):
-        self._accusation_votes: dict[Player, Player] = {}
-        self._ballot_votes: dict[Player, bool] = {}
-        self._werewolves_votes: dict[Player, Player] = {}
 
     @property
+    @abstractmethod
     def accusation_votes(self) -> dict[Player, Player]:
         """Returns the current accusation votes."""
-        return self._accusation_votes
+        pass
 
     @property
+    @abstractmethod
     def ballot_votes(self) -> dict[Player, bool]:
         """Returns the current ballot votes."""
-        return self._ballot_votes
+        pass
 
     @property
+    @abstractmethod
     def werewolves_votes(self) -> dict[Player, Player]:
         """Returns the current werewolves votes."""
-        return self._werewolves_votes
+        pass
 
+    @abstractmethod
     def reset_actions(self):
         """Clears all votes and night actions for a new round."""
-        self._accusation_votes.clear()
-        self._ballot_votes.clear()
-        self._werewolves_votes.clear()
+        pass
 
     @abstractmethod
     def handle_accusation_vote(self, accuser: Player, accused: Player):
@@ -89,6 +86,24 @@ class AbstractGameInfo(ABC):
 
 # Minimal implementation: handles Villager, Werewolf, and end game conditions
 class MinimalGameInfo(AbstractGameInfo):
+
+    def __init__(self):
+        self._accusation_votes: dict[Player, Player] = {}
+        self._ballot_votes: dict[Player, bool] = {}
+        self._werewolves_votes: dict[Player, Player] = {}
+    
+    @property    
+    def accusation_votes(self) -> dict[Player, Player]:
+        return self._accusation_votes
+
+    @property
+    def ballot_votes(self) -> dict[Player, bool]:
+        return self._ballot_votes
+
+    @property
+    def werewolves_votes(self) -> dict[Player, Player]:
+        return self._werewolves_votes
+
     def handle_accusation_vote(self, accuser: Player, accused: Player):
         if not accuser.is_alive():
             raise ValueError("Cannot accuse as dead player.")
@@ -117,6 +132,11 @@ class MinimalGameInfo(AbstractGameInfo):
                 raise ValueError("Cannot vote for dead player.")
             self._werewolves_votes[actor] = target
         return None
+    
+    def reset_actions(self):
+        self._accusation_votes.clear()
+        self._ballot_votes.clear()
+        self._werewolves_votes.clear()
 
     def end_game_conditions(self, players: list[Player]) -> GamePhase | None:
         werewolves_alive = any(player.is_evil() and player.is_alive() for player in players)
