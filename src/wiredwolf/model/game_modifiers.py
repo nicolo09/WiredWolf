@@ -65,6 +65,17 @@ class AbstractGameInfo(ABC):
     def _handle_night_actions(self, actor: Player, target: Player) -> bool | None:
         """Internal method for handling night actions. To be implemented by subclasses."""
         pass
+    
+    @abstractmethod
+    def remove_player(self, player: Player, gamephase: GamePhase):
+        """
+        Removes a player from the game and manages the side effects based on the current game phase.
+
+        Args:
+            player (Player): The player to remove.
+            gamephase (GamePhase): The current game phase.
+        """
+        pass
 
     @abstractmethod
     def end_game_conditions(self, players: list[Player]) -> GamePhase | None:
@@ -137,6 +148,28 @@ class MinimalGameInfo(AbstractGameInfo):
         self._accusation_votes.clear()
         self._ballot_votes.clear()
         self._werewolves_votes.clear()
+        
+    def remove_player(self, player: Player, gamephase: GamePhase):
+        
+        match gamephase:
+            case GamePhase.DAY_ACCUSING:
+                if player in self._accusation_votes:
+                    del self._accusation_votes[player]
+                for accuser, accused in list(self._accusation_votes.items()):
+                    if accused == player:
+                        del self._accusation_votes[accuser]
+            case GamePhase.DAY_BALLOT:
+                if player in self._ballot_votes:
+                    del self._ballot_votes[player]
+            case GamePhase.NIGHT:
+                if player.role == Role.WEREWOLF and player in self._werewolves_votes:
+                    del self._werewolves_votes[player]
+                elif player.role != Role.WEREWOLF:
+                    for werewolf, target in list(self._werewolves_votes.items()):
+                        if target == player:
+                            del self._werewolves_votes[werewolf]
+
+        player.status = Status.DEAD
 
     def end_game_conditions(self, players: list[Player]) -> GamePhase | None:
         werewolves_alive = any(player.is_evil() and player.is_alive() for player in players)
@@ -178,6 +211,9 @@ class GameInfoDecorator(AbstractGameInfo):
 
     def _handle_night_actions(self, actor: Player, target: Player) -> bool | None:
         return self._wrapped._handle_night_actions(actor, target)
+    
+    def remove_player(self, player: Player, gamephase: GamePhase):
+        self._wrapped.remove_player(player, gamephase)
 
     def end_game_conditions(self, players: list[Player]) -> GamePhase | None:
         return self._wrapped.end_game_conditions(players)
@@ -237,6 +273,15 @@ class EscortGameInfoDecorator(GameInfoDecorator):
             self._protected_player = target
             return
         return super()._handle_night_actions(actor, target)
+    
+    def remove_player(self, player: Player, gamephase: GamePhase):
+        if gamephase == GamePhase.NIGHT:
+            if player == self._protected_player:
+                self._protected_player = None
+            elif player.role == Role.ESCORT:
+                player.status = Status.ALIVE
+                self._escort_acted = False
+        super().remove_player(player, gamephase)
 
     def get_handled_roles(self) -> list[Role]:
         return super().get_handled_roles() + [Role.ESCORT]

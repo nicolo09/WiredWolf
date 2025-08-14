@@ -42,7 +42,6 @@ class GameStatus:
 
 # TODO: add reference to controller so it can be notified of changes
 # or does the controller only consult the model?
-# TODO: should the game check for the right number of players/roles? I think not
 # TODO: revise documentation
 class Game:
     """
@@ -223,7 +222,8 @@ class Game:
         
         self._game_info.handle_ballot_vote(voter, vote)
 
-    def kill_player(self, player_id: str) -> None:
+    def kill_player(self, player_id: str) -> GamePhase:
+        #FIXME should this method only "kill" the player or remove it?
         """
         Kills a player in any moment of the game.
         If the player has already cast a vote or performed an action this will not be canceled.
@@ -232,39 +232,23 @@ class Game:
         Args:
             player_id: ID of the player to kill.
         """
-        # TODO: This shouldn't be here, probably should be in the controller
         player: Player | None = self.__get_player_from_id(player_id)
-        if player and player.is_alive():
-            match self._phase:
-                case GamePhase.DAY_DISCUSSION:
-                    player.status = Status.DEAD
-                case GamePhase.DAY_ACCUSING:
-                    # Remove the player from the accusing votes
-                    if player in self._game_info.accusation_votes:
-                        del self._game_info.accusation_votes[player]
-                    for voter in self._players:
-                        if self._game_info.accusation_votes.get(voter) == player:
-                            del self._game_info.accusation_votes[voter]
-                case GamePhase.DAY_BALLOT:
-                    if player == self._current_accusation:
-                        self._current_accusation = None
-                        self._phase = GamePhase.NIGHT #FIXME: should happen here?
-                    else:
-                        del self._game_info.ballot_votes[player]
-                case GamePhase.NIGHT:
-                    if player.role == Role.WEREWOLF and player in self._game_info.werewolves_votes:
-                        del self._game_info.werewolves_votes[player]
-                    for werewolf in self._game_info.werewolves_votes:
-                        if self._game_info.werewolves_votes[werewolf] == player:
-                            del self._game_info.werewolves_votes[werewolf]
-                    if player == self._protected_player:
-                        self._protected_player = None
-                        
-            player.status = Status.DEAD
+        
+        if not player:
+            raise ValueError(f"Player with ID {player_id} does not exist.")
+
+        if player.is_alive():
             
+            self._game_info.remove_player(player, self._phase)
+            if self._phase == GamePhase.DAY_BALLOT and player == self._current_accusation:
+                self._current_accusation = None
+                self._phase = GamePhase.NIGHT
+
             game_over: GamePhase | None = self._game_info.end_game_conditions(self._players)
             if game_over:
-                self._phase = game_over    
+                self._phase = game_over
+                
+        return self._phase    
             
     def __get_player_from_id(self, player_id: str) -> Player | None:
         """
