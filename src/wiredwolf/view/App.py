@@ -2,6 +2,7 @@ import pygame
 from abc import ABC, abstractmethod
 from wiredwolf.view.Components import ButtonVContainer, PrintButton
 from wiredwolf.view.Constants import BACKGROUND_COLOR, Screens
+from functools import partial
 
 FPS=60
 class App:
@@ -81,6 +82,11 @@ class AbstractScreen(ABC):
         """This is where your screen is displayed"""
         raise NotImplementedError("Please implement this method")
 
+
+def changeScreen(game_state_manager:GameStateManager, target_screen:Screens)->None:
+    """A function to change the application screen to the given one"""
+    game_state_manager.currentState=target_screen
+
 class StartScreen(AbstractScreen):
     """The start screen, the first screen showed at startup"""
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
@@ -88,8 +94,9 @@ class StartScreen(AbstractScreen):
         my_button1=PrintButton('Test button 1', 100, 50, (20, 50), "#0033FF", "#5365AD") 
         my_button2=PrintButton('Test button 2', 100, 50, (20, 100)) 
         my_button3=PrintButton('Test button 3', 100, 50, (20, 150), "#33FF00")
-        from wiredwolf.view.Components import SwitchButton
-        my_button4=SwitchButton(game_state_manager,'Cambio schermata', 100, 50, (20, 100))
+        from wiredwolf.view.Components import CallbackButton
+        go_test=partial(changeScreen, game_state_manager, Screens.TEST)
+        my_button4=CallbackButton(go_test,'Cambio schermata', 100, 50, (20, 100))
         button_list=[my_button1, my_button2, my_button3, my_button4]
         self._button_container=ButtonVContainer(10, button_list, (640, 400))
     
@@ -102,8 +109,9 @@ class TestScreen(AbstractScreen):
     """A simple test screen"""
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
-        from wiredwolf.view.Components import SwitchButton2
-        my_button1=SwitchButton2(game_state_manager, 'test screen', 100, 50, (20, 50), "#0033FF", "#5365AD") 
+        from wiredwolf.view.Components import CallbackButton
+        go_home=partial(changeScreen, game_state_manager, Screens.HOME)
+        my_button1=CallbackButton(go_home, 'test screen', 100, 50, (20, 50), "#0033FF", "#5365AD") 
         button_list=[my_button1]
         self._button_container=ButtonVContainer(10, button_list, (640, 400))
     

@@ -135,26 +135,15 @@ class PrintButton(AbstractButton):
         """Prints a test string when the button is pressed"""
         print("Hello concrete method")
 
-
-class SwitchButton(AbstractButton):
-    """A button to switch scene to test"""
-    from wiredwolf.view.App import GameStateManager
-    def __init__(self, game_state_manager:GameStateManager, text: str, width:int, height:int, position:tuple[int, int], default_color:str=BUTTON_COLOR, activation_color:str=BUTTON_HOVER_COLOR)-> None:
+class CallbackButton(AbstractButton):
+    """A button that calls the callback on click"""
+    #TODO: callback typing
+    def __init__(self, callback, text: str, width:int, height:int, position:tuple[int, int], default_color:str=BUTTON_COLOR, activation_color:str=BUTTON_HOVER_COLOR)-> None:
         super().__init__(text, width, height, position, default_color, activation_color)
-        self._game_state_manager=game_state_manager
+        self._callback=callback
     def on_click(self)-> None:
-        """Changes screen to test"""
-        self._game_state_manager.currentState=Screens.TEST
-
-class SwitchButton2(AbstractButton):
-    """A button to switch scene to home screen"""
-    from wiredwolf.view.App import GameStateManager
-    def __init__(self, game_state_manager:GameStateManager, text: str, width:int, height:int, position:tuple[int, int], default_color:str=BUTTON_COLOR, activation_color:str=BUTTON_HOVER_COLOR)-> None:
-        super().__init__(text, width, height, position, default_color, activation_color)
-        self._game_state_manager=game_state_manager
-    def on_click(self)-> None:
-        """Changes screen to home screen"""
-        self._game_state_manager.currentState=Screens.HOME
+        """Calls the callback function"""
+        self._callback()
 
 if __name__ == "__main__":
     print("Hello world")
