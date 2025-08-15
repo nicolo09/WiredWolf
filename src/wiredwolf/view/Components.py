@@ -2,7 +2,7 @@ from typing import Sequence
 import pygame
 from abc import ABC, abstractmethod
 
-from wiredwolf.view.Constants import BACKGROUND_COLOR, BUTTON_COLOR, BUTTON_HOVER_COLOR, TEXT_COLOR, Screens
+from wiredwolf.view.Constants import BACKGROUND_COLOR, BUTTON_COLOR, BUTTON_HOVER_COLOR, TEXT_COLOR
 
 class AbstractButton(ABC):
     """A button abstraction, handling all internal button logic"""
