@@ -62,6 +62,19 @@ class AbstractButton(ABC):
     def on_click(self)-> None:
         """This is the action done when the button is pressed, implement this in your button class"""
         raise NotImplementedError("Please implement this method")
+    
+class CenteredText():
+    """Text centered horizontally in the window"""
+    def __init__(self, text: str, color:str=TEXT_COLOR)-> None:
+        pygame.font.init() #initializes pygame modules
+        font=pygame.font.Font(None, 30) #generates font
+        self._text_surface=font.render(text, True, color) #renders the text
+
+    def draw(self, screen: pygame.Surface, win_size:tuple[int, int])-> None:
+        """Draws the text on the given surface"""
+        x_coord=int((win_size[0]-self._text_surface.get_size()[0])/2)
+        screen.blit(self._text_surface, (x_coord,0))
+        
 class ButtonVContainer:
     """A button container that displays the given buttons vertically and automatically re-centers the buttons on window resize"""
     def __init__(self, vert_div:int, buttons:Sequence[AbstractButton], win_size:tuple[int, int], color:str=BACKGROUND_COLOR)-> None:
