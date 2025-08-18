@@ -4,7 +4,14 @@ from abc import ABC, abstractmethod
 
 from wiredwolf.view.Constants import BACKGROUND_COLOR, BUTTON_COLOR, BUTTON_HOVER_COLOR, TEXT_COLOR
 
-class AbstractButton(ABC):
+class DrawableComponent(ABC):
+    """A drawable component abstraction"""
+    @abstractmethod
+    def draw(self, screen: pygame.Surface)->None:
+        """This is the called for drawing the component on the given screen, implement this in your component class"""
+        raise NotImplementedError("Please implement this method")
+
+class AbstractButton(DrawableComponent):
     """A button abstraction, handling all internal button logic"""
     def __init__(self, text: str, width:int, height:int, position:tuple[int, int], default_color:str=BUTTON_COLOR, activation_color:str=BUTTON_HOVER_COLOR)-> None:
         pygame.font.init() #initializes pygame modules
@@ -63,19 +70,20 @@ class AbstractButton(ABC):
         """This is the action done when the button is pressed, implement this in your button class"""
         raise NotImplementedError("Please implement this method")
     
-class CenteredText():
+class CenteredText(DrawableComponent):
     """Text centered horizontally in the window"""
     def __init__(self, text: str, color:str=TEXT_COLOR)-> None:
         pygame.font.init() #initializes pygame modules
         font=pygame.font.Font(None, 30) #generates font
         self._text_surface=font.render(text, True, color) #renders the text
 
-    def draw(self, screen: pygame.Surface, win_size:tuple[int, int])-> None:
+    def draw(self, screen: pygame.Surface)-> None:
         """Draws the text on the given surface"""
+        win_size=screen.get_size()
         x_coord=int((win_size[0]-self._text_surface.get_size()[0])/2)
         screen.blit(self._text_surface, (x_coord,0))
         
-class ButtonVContainer:
+class ButtonVContainer(DrawableComponent):
     """A button container that displays the given buttons vertically and automatically re-centers the buttons on window resize"""
     def __init__(self, vert_div:int, buttons:Sequence[AbstractButton], win_size:tuple[int, int], color:str=BACKGROUND_COLOR)-> None:
         if len(buttons)==0:
@@ -127,8 +135,9 @@ class ButtonVContainer:
         """Sets container position, knowing container dimensions and window dimension"""
         self._top_left_pos=(int((self._win_size[0]/2)-(self._dimensions[0]/2)), int((self._win_size[1]/2)-(self._dimensions[1]/2)))
 
-    def draw(self, screen: pygame.Surface, win_size:tuple[int, int])-> None:
+    def draw(self, screen: pygame.Surface)-> None:
         """Draws the button container centered on the given surface"""
+        win_size=screen.get_size()
         if win_size!=self._win_size:
             self._win_size=win_size
             #window size was changed, re-center container

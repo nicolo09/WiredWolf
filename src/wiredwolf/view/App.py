@@ -106,8 +106,8 @@ class StartScreen(AbstractScreen):
     def run(self)->None:
         """The start screen, the first screen showed at startup"""
         self._display.fill(BACKGROUND_COLOR) #fills the background color for the application
-        self._title.draw(self._display, self._display.get_size())
-        self._button_container.draw(self._display, self._display.get_size())
+        self._title.draw(self._display)
+        self._button_container.draw(self._display)
         
 
 class NewLobbyScreen(AbstractScreen):
@@ -124,8 +124,8 @@ class NewLobbyScreen(AbstractScreen):
     def run(self)->None:
         """The new lobby screen, to create a new lobby"""
         self._display.fill(BACKGROUND_COLOR)
-        self._title.draw(self._display, self._display.get_size())
-        self._button_container.draw(self._display, self._display.get_size())
+        self._title.draw(self._display)
+        self._button_container.draw(self._display)
 
 class SearchLobbyScreen(AbstractScreen):
     """A simple search lobby screen"""
@@ -141,8 +141,8 @@ class SearchLobbyScreen(AbstractScreen):
     def run(self)->None:
         """The search lobby screen, to search for existing lobbies"""
         self._display.fill(BACKGROUND_COLOR)
-        self._title.draw(self._display, self._display.get_size())
-        self._button_container.draw(self._display, self._display.get_size())
+        self._title.draw(self._display)
+        self._button_container.draw(self._display)
 class TestScreen(AbstractScreen):
     """A simple test screen"""
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
@@ -156,7 +156,7 @@ class TestScreen(AbstractScreen):
     def run(self)->None:
         """The test screen, to check for scene changes"""
         self._display.fill("#25A839")
-        self._button_container.draw(self._display, self._display.get_size())
+        self._button_container.draw(self._display)
 
 if __name__ == "__main__":
     my_app=App()
