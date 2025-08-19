@@ -31,17 +31,17 @@ class AbstractGameInfo(ABC):
         pass
 
     @abstractmethod
-    def reset_actions(self):
+    def reset_actions(self) -> None:
         """Clears all votes and night actions for a new round."""
         pass
 
     @abstractmethod
-    def handle_accusation_vote(self, accuser: Player, accused: Player):
+    def handle_accusation_vote(self, accuser: Player, accused: Player) -> None:
         """Handles an accusation vote from one player against another."""
         pass
 
     @abstractmethod
-    def handle_ballot_vote(self, voter: Player, vote: bool):
+    def handle_ballot_vote(self, voter: Player, vote: bool) -> None:
         """Handles a ballot vote from a player."""
         pass
 
@@ -67,7 +67,7 @@ class AbstractGameInfo(ABC):
         pass
     
     @abstractmethod
-    def remove_player(self, player: Player, gamephase: GamePhase):
+    def remove_player(self, player: Player, gamephase: GamePhase) -> None:
         """
         Removes a player from the game and manages the side effects based on the current game phase.
 
@@ -98,7 +98,7 @@ class AbstractGameInfo(ABC):
 # Minimal implementation: handles Villager, Werewolf, and end game conditions
 class MinimalGameInfo(AbstractGameInfo):
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._accusation_votes: dict[Player, Player] = {}
         self._ballot_votes: dict[Player, bool] = {}
         self._werewolves_votes: dict[Player, Player] = {}
@@ -115,7 +115,7 @@ class MinimalGameInfo(AbstractGameInfo):
     def werewolves_votes(self) -> dict[Player, Player]:
         return self._werewolves_votes
 
-    def handle_accusation_vote(self, accuser: Player, accused: Player):
+    def handle_accusation_vote(self, accuser: Player, accused: Player) -> None:
         if not accuser.is_alive():
             raise ValueError("Cannot accuse as dead player.")
         if not accused.is_alive():
@@ -124,7 +124,7 @@ class MinimalGameInfo(AbstractGameInfo):
             raise ValueError(f"{accuser.id} has already voted.")
         self._accusation_votes[accuser] = accused
 
-    def handle_ballot_vote(self, voter: Player, vote: bool):
+    def handle_ballot_vote(self, voter: Player, vote: bool) -> None:
         if not voter.is_alive():
             raise ValueError("Cannot vote as dead player.")
         if voter in self._ballot_votes:
@@ -144,12 +144,12 @@ class MinimalGameInfo(AbstractGameInfo):
             self._werewolves_votes[actor] = target
         return None
     
-    def reset_actions(self):
+    def reset_actions(self) -> None:
         self._accusation_votes.clear()
         self._ballot_votes.clear()
         self._werewolves_votes.clear()
         
-    def remove_player(self, player: Player, gamephase: GamePhase):
+    def remove_player(self, player: Player, gamephase: GamePhase) -> None:
         
         match gamephase:
             case GamePhase.DAY_ACCUSING:
@@ -168,6 +168,8 @@ class MinimalGameInfo(AbstractGameInfo):
                     for werewolf, target in list(self._werewolves_votes.items()):
                         if target == player:
                             del self._werewolves_votes[werewolf]
+            case _:
+                pass
 
         player.status = Status.DEAD
 
@@ -185,34 +187,34 @@ class MinimalGameInfo(AbstractGameInfo):
 
 # Decorator base class
 class GameInfoDecorator(AbstractGameInfo):
-    def __init__(self, wrapped: AbstractGameInfo):
+    def __init__(self, wrapped: AbstractGameInfo) -> None:
         self._wrapped = wrapped
 
     @property
-    def accusation_votes(self):
+    def accusation_votes(self) -> dict[Player, Player]:
         return self._wrapped.accusation_votes
 
     @property
-    def ballot_votes(self):
+    def ballot_votes(self) -> dict[Player, bool]:
         return self._wrapped.ballot_votes
 
     @property
-    def werewolves_votes(self):
+    def werewolves_votes(self) -> dict[Player, Player]:
         return self._wrapped.werewolves_votes
 
-    def reset_actions(self):
+    def reset_actions(self) -> None:
         self._wrapped.reset_actions()
 
-    def handle_accusation_vote(self, accuser: Player, accused: Player):
+    def handle_accusation_vote(self, accuser: Player, accused: Player) -> None:
         self._wrapped.handle_accusation_vote(accuser, accused)
 
-    def handle_ballot_vote(self, voter: Player, vote: bool):
+    def handle_ballot_vote(self, voter: Player, vote: bool) -> None:
         self._wrapped.handle_ballot_vote(voter, vote)
 
     def _handle_night_actions(self, actor: Player, target: Player) -> bool | None:
         return self._wrapped._handle_night_actions(actor, target)
     
-    def remove_player(self, player: Player, gamephase: GamePhase):
+    def remove_player(self, player: Player, gamephase: GamePhase) -> None:
         self._wrapped.remove_player(player, gamephase)
 
     def end_game_conditions(self, players: list[Player]) -> GamePhase | None:
@@ -223,11 +225,11 @@ class GameInfoDecorator(AbstractGameInfo):
 
 # Decorator for Clairvoyant role
 class ClairvoyantGameInfoDecorator(GameInfoDecorator):
-    def __init__(self, wrapped):
+    def __init__(self, wrapped: AbstractGameInfo) -> None:
         super().__init__(wrapped)
         self._clairvoyant_acted = False
 
-    def reset_actions(self):
+    def reset_actions(self) -> None:
         super().reset_actions()
         self._clairvoyant_acted = False
 
@@ -248,12 +250,12 @@ class ClairvoyantGameInfoDecorator(GameInfoDecorator):
 
 # Decorator for Escort role
 class EscortGameInfoDecorator(GameInfoDecorator):
-    def __init__(self, wrapped):
+    def __init__(self, wrapped: AbstractGameInfo) -> None:
         super().__init__(wrapped)
         self._escort_acted = False
         self._protected_player: Player | None = None
 
-    def reset_actions(self):
+    def reset_actions(self) -> None:
         super().reset_actions()
         self._escort_acted = False
         if self._protected_player is not None:
@@ -274,7 +276,7 @@ class EscortGameInfoDecorator(GameInfoDecorator):
             return
         return super()._handle_night_actions(actor, target)
     
-    def remove_player(self, player: Player, gamephase: GamePhase):
+    def remove_player(self, player: Player, gamephase: GamePhase) -> None:
         if gamephase == GamePhase.NIGHT:
             if player == self._protected_player:
                 self._protected_player = None
@@ -288,11 +290,11 @@ class EscortGameInfoDecorator(GameInfoDecorator):
 
 # Decorator for Medium role
 class MediumGameInfoDecorator(GameInfoDecorator):
-    def __init__(self, wrapped):
+    def __init__(self, wrapped: AbstractGameInfo) -> None:
         super().__init__(wrapped)
         self._medium_acted = False
 
-    def reset_actions(self):
+    def reset_actions(self) -> None:
         super().reset_actions()
         self._medium_acted = False
 
@@ -314,7 +316,7 @@ class MediumGameInfoDecorator(GameInfoDecorator):
 # Factory to build the basic rule set of wiredwolf
 class BasicGameInfoFactory:
     @staticmethod
-    def build():
+    def build() -> AbstractGameInfo:
         rules = MinimalGameInfo()
         rules = ClairvoyantGameInfoDecorator(rules)
         rules = EscortGameInfoDecorator(rules)

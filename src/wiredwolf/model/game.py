@@ -1,6 +1,6 @@
 from enum import Enum
 from collections import Counter
-from wiredwolf.model.player import Player, Status, Role
+from wiredwolf.model.player import Player, Status
 
 class GamePhase(Enum):
     DAY_DISCUSSION = 1
@@ -223,7 +223,6 @@ class Game:
         self._game_info.handle_ballot_vote(voter, vote)
 
     def kill_player(self, player_id: str) -> GamePhase:
-        #FIXME should this method only "kill" the player or remove it?
         """
         Kills a player in any moment of the game.
         If the player has already cast a vote or performed an action this will not be canceled.
