@@ -81,7 +81,7 @@ class CenteredText(DrawableComponent):
         """Draws the text on the given surface"""
         win_size=screen.get_size()
         x_coord=int((win_size[0]-self._text_surface.get_size()[0])/2)
-        screen.blit(self._text_surface, (x_coord,0))
+        screen.blit(self._text_surface, (x_coord,10))
         
 class ButtonVContainer(DrawableComponent):
     """A button container that displays the given buttons vertically and automatically re-centers the buttons on window resize"""

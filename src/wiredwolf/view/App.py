@@ -51,10 +51,10 @@ class App:
                 #when the window is resized, the local variable value is changed
                 self._size=pygame.display.get_surface().get_size()
 
-    def updateDisplay(self)->None:
+    def update_display(self)->None:
         """Called inside the event loop, handles framerate limiting, event handling and scene switching"""
         self._clock.tick(FPS)
-        self._dictionary[self._game_state_manager.currentState].run()
+        self._dictionary[self._game_state_manager.current_state].run()
         pygame.display.update() #necessary or the screen won't draw at all
         for event in pygame.event.get():
             self._on_event(event) #handles generated events 
@@ -65,12 +65,12 @@ class GameStateManager:
         self._current_state=start_screen
 
     @property
-    def currentState(self)->Screens:
+    def current_state(self)->Screens:
         """Returns the screen the app game is on"""
         return self._current_state
     
-    @currentState.setter
-    def currentState(self, screen:Screens)->None:
+    @current_state.setter
+    def current_state(self, screen:Screens)->None:
         """Sets the current game state as the parameter given"""
         self._current_state=screen
 
@@ -86,21 +86,21 @@ class AbstractScreen(ABC):
         raise NotImplementedError("Please implement this method")
 
 
-def changeScreen(game_state_manager:GameStateManager, target_screen:Screens)->None:
+def change_screen(game_state_manager:GameStateManager, target_screen:Screens)->None:
     """A function to change the application screen to the given one"""
-    game_state_manager.currentState=target_screen
+    game_state_manager.current_state=target_screen
 
 class StartScreen(AbstractScreen):
     """The start screen, the first screen showed at startup"""
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
         from wiredwolf.view.Components import CallbackButton, CenteredText
-        go_new_lobby=partial(changeScreen, game_state_manager, Screens.NEW_LOBBY)
-        new_lobby_button=CallbackButton(go_new_lobby, 'New Lobby', 100, 50, (20, 50)) 
-        go_search_lobby=partial(changeScreen, game_state_manager, Screens.SEARCH_LOBBY)
-        search_lobby_button=CallbackButton(go_search_lobby, 'Search for lobbies', 100, 50, (20, 100)) 
+        go_new_lobby=partial(change_screen, game_state_manager, Screens.NEW_LOBBY)
+        new_lobby_button=CallbackButton(go_new_lobby, 'New Lobby', 200, 50, (0, 0)) 
+        go_search_lobby=partial(change_screen, game_state_manager, Screens.SEARCH_LOBBY)
+        search_lobby_button=CallbackButton(go_search_lobby, 'Search for lobbies', 200, 50, (0, 0)) 
         button_list=[new_lobby_button, search_lobby_button]
-        self._button_container=ButtonVContainer(10, button_list, (640, 400))
+        self._button_container=ButtonVContainer(10, button_list, self._display.get_size())
         self._title=CenteredText("Wiredwolf")
     
     def run(self)->None:
@@ -115,10 +115,10 @@ class NewLobbyScreen(AbstractScreen):
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
         from wiredwolf.view.Components import CallbackButton, CenteredText
-        go_home=partial(changeScreen, game_state_manager, Screens.HOME)
-        my_button1=CallbackButton(go_home, 'new lobby screen', 100, 50, (20, 50), "#0033FF", "#5365AD") 
+        go_home=partial(change_screen, game_state_manager, Screens.HOME)
+        my_button1=CallbackButton(go_home, 'new lobby screen', 200, 50, (0, 0), "#0033FF", "#5365AD") 
         button_list=[my_button1]
-        self._button_container=ButtonVContainer(10, button_list, (640, 400))
+        self._button_container=ButtonVContainer(10, button_list, self._display.get_size())
         self._title=CenteredText("Create a new lobby")
     
     def run(self)->None:
@@ -132,10 +132,10 @@ class SearchLobbyScreen(AbstractScreen):
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
         from wiredwolf.view.Components import CallbackButton,CenteredText
-        go_home=partial(changeScreen, game_state_manager, Screens.HOME)
-        my_button1=CallbackButton(go_home, 'search lobby screen', 100, 50, (20, 50), "#0033FF", "#5365AD") 
+        go_home=partial(change_screen, game_state_manager, Screens.HOME)
+        my_button1=CallbackButton(go_home, 'search lobby screen', 200, 50, (0, 0), "#0033FF", "#5365AD") 
         button_list=[my_button1]
-        self._button_container=ButtonVContainer(10, button_list, (640, 400))
+        self._button_container=ButtonVContainer(10, button_list, self._display.get_size())
         self._title=CenteredText("Search for an existing lobby")
     
     def run(self)->None:
@@ -148,10 +148,10 @@ class TestScreen(AbstractScreen):
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
         from wiredwolf.view.Components import CallbackButton
-        go_home=partial(changeScreen, game_state_manager, Screens.HOME)
-        my_button1=CallbackButton(go_home, 'test screen', 100, 50, (20, 50), "#0033FF", "#5365AD") 
+        go_home=partial(change_screen, game_state_manager, Screens.HOME)
+        my_button1=CallbackButton(go_home, 'test screen', 200, 50, (0, 0), "#0033FF", "#5365AD") 
         button_list=[my_button1]
-        self._button_container=ButtonVContainer(10, button_list, (640, 400))
+        self._button_container=ButtonVContainer(10, button_list, self._display.get_size())
     
     def run(self)->None:
         """The test screen, to check for scene changes"""
@@ -161,4 +161,4 @@ class TestScreen(AbstractScreen):
 if __name__ == "__main__":
     my_app=App()
     while my_app.app_running:
-        my_app.updateDisplay()
+        my_app.update_display()
