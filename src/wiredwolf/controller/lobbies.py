@@ -1,81 +1,14 @@
+from wiredwolf.controller.connections import ServerConnectionHandler
 from collections.abc import Callable
 from enum import Enum
 import logging
-from socket import socket, inet_aton
+import socket
 from zeroconf import ServiceBrowser, ServiceInfo, ServiceListener, Zeroconf
 
+from wiredwolf.controller.commons import Peer
+
+
 SERVICE_TYPE: str = "_wiredwolflobby._tcp.local."
-
-
-class Peer:
-    """Represents a peer in the network."""
-
-    __name = None
-    __address = None
-
-    def __init__(self, name, address):
-        self.__name = name
-        self.__address = address
-
-    @property
-    def address(self):
-        return self.__address
-
-    @property
-    def name(self):
-        return self.__name
-
-
-class Lobby:
-
-    __peers = []
-    __state = None
-    __name = None
-    __password = None
-
-    def __init__(self, name=None, password=None):
-        self.__peers = []
-        self.__state = LobbyState.WAITING_FOR_PLAYERS
-        self.__name = name
-        self.__password = password
-
-    def add_peer(self, peer):
-        self.__peers.append(peer)
-
-    def remove_peer(self, peer):
-        self.__peers.remove(peer)
-
-    @property
-    def peers(self):
-        return self.__peers
-
-    @property
-    def state(self):
-        return self.__state
-
-    @property
-    def name(self):
-        return self.__name
-
-    @state.setter
-    def state(self, state):
-        self.__state = state
-
-    def send_chat_message(self, message):
-        # TODO: Implement chat message sending logic
-        pass
-
-    def choose_player(self, player):
-        # TODO: Implement player selection logic
-        pass
-
-    def vote_guilty(self):
-        # TODO: Implement voting logic
-        pass
-
-    def vote_innocent(self):
-        # TODO: Implement voting logic
-        pass
 
 
 class LobbyState(Enum):
@@ -86,6 +19,81 @@ class LobbyState(Enum):
     PLAYING = "playing"
     CHANGING_MASTER = "changing_master"
     WAITING_PLAYER_RECONNECT = "waiting_player_reconnect"
+
+
+class Lobby:
+
+    """Represents a game lobby. The lobby """
+
+    __peers: list[Peer] = []
+    __state: LobbyState = LobbyState.WAITING_FOR_PLAYERS
+    __name: str = ""
+    __password: str | None = None
+    __server: ServerConnectionHandler | None = None
+
+    def __init__(self, name: str, password: str | None = None):
+        self.__peers = []
+        self.__state = LobbyState.WAITING_FOR_PLAYERS
+        self.__name = name
+        self.__password = password
+        self.__server = ServerConnectionHandler(
+            lambda peer: self.add_peer(peer))
+
+    def add_peer(self, peer: Peer):
+        self.__peers.append(peer)
+
+    def remove_peer(self, peer: Peer):
+        self.__peers.remove(peer)
+
+    @property
+    def peers(self) -> list[Peer]:
+        """Returns the list of peers in the lobby."""
+        return self.__peers
+
+    @property
+    def state(self) -> LobbyState:
+        """Returns the current state of the lobby."""
+        return self.__state
+
+    @property
+    def name(self) -> str:
+        """Returns the name of the lobby."""
+        return self.__name
+
+    @property
+    def connection_socket(self) -> socket.socket:
+        """Returns the socket used by this lobby's server to receive new connections in the lobby.
+
+        Raises:
+            RuntimeError: If this peer is not the lobby's server.
+        """
+        if not self.__server:
+            raise RuntimeError("This peer is not the lobby's server.")
+        return self.__server.get_receiver_socket()
+
+    def check_password(self, password: str) -> bool:
+        """Checks if the provided password matches the lobby's password."""
+        return self.__password == password  # TODO: Hash? Maybe not, since it's not saved
+
+    @state.setter
+    def state(self, state: LobbyState):
+        self.__state = state
+
+    def send_chat_message(self, message: str):
+        # TODO: Implement chat message sending logic
+        pass
+
+    def choose_player(self, player: Peer):
+        # TODO: Implement player selection logic
+        pass
+
+    def vote_guilty(self):
+        # TODO: Implement voting logic
+        pass
+
+    def vote_innocent(self):
+        # TODO: Implement voting logic
+        pass
 
 
 class LobbyBrowser:
@@ -118,11 +126,11 @@ class LobbyBrowser:
         else:
             raise RuntimeError("Lobby browser is not running.")
 
-    def publish_lobby(self, lobby: Lobby, receiver_socket: socket) -> None:
+    def publish_lobby(self, lobby: Lobby) -> None:
         """Publishes a lobby to the network so that it can be discovered by other players."""
         if not self.__published_lobby_service_info:
             self.__published_lobby_service_info = self.__service_manager.register_service(
-                name=lobby.name, receiverSocket=receiver_socket)
+                name=lobby.name, receiverSocket=lobby.connection_socket)
         else:
             raise RuntimeError("There is already a lobby being published.")
 
@@ -156,7 +164,7 @@ class CallbackServiceListener(ServiceListener):
 
 class ServiceManager():
 
-    logger = logging.getLogger("wiredwolf.lobby_service")
+    __logger = logging.getLogger(__name__)
 
     __port: int
 
@@ -164,28 +172,28 @@ class ServiceManager():
         self.__zeroconf = Zeroconf()
         self.__service_type = service_type
 
-    def register_service(self, name, receiverSocket: socket) -> ServiceInfo:
+    def register_service(self, name: str, receiverSocket: socket.socket) -> ServiceInfo:
         self.__port = receiverSocket.getsockname()[1]
-        self.logger.info(
+        self.__logger.info(
             f"Registering service {name} on port {self.__port}...")
         serviceInfo = ServiceInfo(
             type_=self.__service_type,
             name=name + "." + self.__service_type,
-            addresses=[inet_aton("127.0.0.1")],
+            addresses=[socket.inet_aton("127.0.0.1")],
             port=self.__port,
             properties={}
         )
         self.__zeroconf.register_service(serviceInfo)
-        self.logger.info(f"Service {name} registered successfully.")
+        self.__logger.info(f"Service {name} registered successfully.")
         return serviceInfo
 
     def unregister_service(self, info: ServiceInfo) -> None:
-        self.logger.info(f"Unregistering service {info.name}...")
+        self.__logger.info(f"Unregistering service {info.name}...")
         self.__zeroconf.unregister_service(info)
-        self.logger.info(f"Service {info.name} unregistered successfully.")
+        self.__logger.info(f"Service {info.name} unregistered successfully.")
 
-    def get_service_listener(self, service_type, on_service_added, on_service_removed, on_service_updated) -> CallbackServiceListener:
-        self.logger.info(
+    def get_service_listener(self, service_type: str, on_service_added: Callable[[str], None], on_service_removed: Callable[[str], None], on_service_updated: Callable[[str], None]) -> CallbackServiceListener:
+        self.__logger.info(
             "Starting service listener for type" + service_type + "...")
         return CallbackServiceListener(
             on_service_added=on_service_added,
