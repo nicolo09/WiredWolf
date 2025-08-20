@@ -1,17 +1,17 @@
 class Peer:
     """Represents a peer in the network."""
 
-    __name = None
-    __address = None
+    _name: str
+    _address: str
 
     def __init__(self, name: str, address: str):
-        self.__name = name
-        self.__address = address
+        self._name = name
+        self._address = address
 
     @property
     def address(self):
-        return self.__address
+        return self._address
 
     @property
     def name(self):
-        return self.__name
+        return self._name
