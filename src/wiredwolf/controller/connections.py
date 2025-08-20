@@ -1,3 +1,4 @@
+from abc import ABC
 from collections.abc import Callable
 import logging
 import socket
@@ -6,7 +7,6 @@ from typing import Any
 import pickle
 
 from wiredwolf.controller.commons import Peer
-
 
 
 class PickleSerializer():
@@ -21,7 +21,26 @@ class PickleSerializer():
         return pickle.loads(data)
 
 
-class ServerConnectionHandler():
+class ConnectionHandler(ABC):
+
+    PREFIX_LEN: int = 4
+
+    def add_length_prefix(self, data: bytes) -> bytes:
+        bytes_len = format(len(data), '0'+str(self.PREFIX_LEN)+'d').encode('utf-8')
+        return bytes_len + data
+
+    def send(self, endpoint: socket.socket, data: bytes) -> None:
+        endpoint.sendall(self.add_length_prefix(data))
+
+    def receive(self, endpoint: socket.socket) -> bytes:
+        data_len = endpoint.recv(self.PREFIX_LEN)
+        if not data_len:
+            return b""
+        data_len = int(data_len.decode('utf-8').strip())
+        return endpoint.recv(data_len)
+
+
+class ServerConnectionHandler(ConnectionHandler):
 
     __logger = logging.getLogger(__name__)
 
@@ -71,7 +90,7 @@ class ServerConnectionHandler():
             self.__logger.error(f"Error handling connections: {e}")
 
 
-class ClientConnectionHandler():
+class ClientConnectionHandler(ConnectionHandler):
 
     __logger = logging.getLogger(__name__)
 
@@ -80,7 +99,7 @@ class ClientConnectionHandler():
     def __init__(self, peer: Peer):
         self.__serializer = PickleSerializer()
         self.__peer = peer
-    
+
     def connect_to_server(self, address: tuple[str, int]) -> socket.socket | None:
         """Connects to a server at the specified address and port."""
         try:
