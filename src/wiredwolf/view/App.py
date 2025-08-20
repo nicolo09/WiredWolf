@@ -24,6 +24,7 @@ class App:
         self._dictionary={Screens.HOME: self._start_screen, Screens.TEST:self._test_screen, 
                           Screens.NEW_LOBBY:self._new_lobby_screen, Screens.SEARCH_LOBBY:self._search_lobby_screen}
         self._clock = pygame.time.Clock()
+        self._next_event=None
         
     @property
     def screen(self)->pygame.Surface:
@@ -50,11 +51,15 @@ class App:
             if event.type == pygame.WINDOWRESIZED:
                 #when the window is resized, the local variable value is changed
                 self._size=pygame.display.get_surface().get_size()
+            else:
+                #event is saved and may be handled by the specific screen
+                self._next_event=event
 
     def update_display(self)->None:
         """Called inside the event loop, handles framerate limiting, event handling and scene switching"""
         self._clock.tick(FPS)
-        self._dictionary[self._game_state_manager.current_state].run()
+        self._dictionary[self._game_state_manager.current_state].run(self._next_event)
+        self._next_event=None
         pygame.display.update() #necessary or the screen won't draw at all
         for event in pygame.event.get():
             self._on_event(event) #handles generated events 
@@ -81,7 +86,7 @@ class AbstractScreen(ABC):
         self._game_state_manager=game_state_manager
     
     @abstractmethod
-    def run(self)->None:
+    def run(self, event:pygame.event.Event)->None:
         """This is where your screen is displayed"""
         raise NotImplementedError("Please implement this method")
 
@@ -94,7 +99,7 @@ class StartScreen(AbstractScreen):
     """The start screen, the first screen showed at startup"""
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
-        from wiredwolf.view.Components import CallbackButton, CenteredText
+        from wiredwolf.view.Components import CallbackButton, CenteredText, TextField
         go_new_lobby=partial(change_screen, game_state_manager, Screens.NEW_LOBBY)
         new_lobby_button=CallbackButton(go_new_lobby, 'New Lobby', 200, 50, (0, 0)) 
         go_search_lobby=partial(change_screen, game_state_manager, Screens.SEARCH_LOBBY)
@@ -102,12 +107,18 @@ class StartScreen(AbstractScreen):
         button_list=[new_lobby_button, search_lobby_button]
         self._button_container=ButtonVContainer(10, button_list, self._display.get_size())
         self._title=CenteredText("Wiredwolf")
+        self._text=""
+        self._field=TextField(200, 50, (10,10))
     
-    def run(self)->None:
+    def run(self,event:pygame.event.Event)->None:
         """The start screen, the first screen showed at startup"""
         self._display.fill(BACKGROUND_COLOR) #fills the background color for the application
         self._title.draw(self._display)
         self._button_container.draw(self._display)
+        self._field.draw(self._display)
+        if event is not None:
+            self._field.handle_event(event)
+        
         
 
 class NewLobbyScreen(AbstractScreen):
@@ -121,7 +132,7 @@ class NewLobbyScreen(AbstractScreen):
         self._button_container=ButtonVContainer(10, button_list, self._display.get_size())
         self._title=CenteredText("Create a new lobby")
     
-    def run(self)->None:
+    def run(self,event:pygame.event.Event)->None:
         """The new lobby screen, to create a new lobby"""
         self._display.fill(BACKGROUND_COLOR)
         self._title.draw(self._display)
@@ -138,7 +149,7 @@ class SearchLobbyScreen(AbstractScreen):
         self._button_container=ButtonVContainer(10, button_list, self._display.get_size())
         self._title=CenteredText("Search for an existing lobby")
     
-    def run(self)->None:
+    def run(self,event:pygame.event.Event)->None:
         """The search lobby screen, to search for existing lobbies"""
         self._display.fill(BACKGROUND_COLOR)
         self._title.draw(self._display)
@@ -153,7 +164,7 @@ class TestScreen(AbstractScreen):
         button_list=[my_button1]
         self._button_container=ButtonVContainer(10, button_list, self._display.get_size())
     
-    def run(self)->None:
+    def run(self,event:pygame.event.Event)->None:
         """The test screen, to check for scene changes"""
         self._display.fill("#25A839")
         self._button_container.draw(self._display)

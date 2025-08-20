@@ -167,5 +167,49 @@ class CallbackButton(AbstractButton):
         """Calls the callback function"""
         self._callback()
 
+class TextField(DrawableComponent):
+    """A drawable text field. When the user clicks on the field and writes, it displays what is being written"""
+    def __init__(self, width:int, height:int, position:tuple[int, int], text_color:str=TEXT_COLOR, active_color:str=BUTTON_HOVER_COLOR, not_active_color:str=BUTTON_COLOR)->None:
+        self._rect = pygame.Rect(position, (width, height))
+        self._not_active_color = not_active_color
+        self._active_color=active_color
+        self._current_color=self._not_active_color
+        self._text_color=text_color
+        self._text = ""
+        pygame.font.init() #initializes pygame modules
+        self._font=pygame.font.Font(None, 30) #generates font
+        self._txt_surface = self._font.render(self._text, True, self._text_color)
+        self._active = False 
+
+    @property
+    def text(self)->str:
+        """Returns the currently written text"""
+        return self._text
+
+    def handle_event(self, event:pygame.event.Event)->None:
+        """Handles events and updates the text shown"""
+        if event.type== pygame.MOUSEBUTTONDOWN and self._rect.collidepoint(event.pos):
+            #if the user clicks inside the rectangle, the text box is activated or not
+            self._active=not self._active
+            #changes color
+            if self._current_color==self._active_color:
+                self._current_color=self._not_active_color
+            else:
+                self._current_color=self._active_color
+        if event.type==pygame.KEYUP and self._active==True:
+            if event.key == pygame.K_BACKSPACE:
+                #deletes the last char
+                self._text = self._text[:-1]
+            else:
+                if event.key!=pygame.K_RETURN: #skips enters, otherwise a "􏿮" is displayed
+                    #adds the char to the text
+                    self._text = self._text+event.unicode
+
+    def draw(self, screen: pygame.Surface) -> None:
+        """Draws the text field on the given surface"""
+        self._txt_surface=self._font.render(self._text, True, self._text_color)
+        screen.blit(self._txt_surface, (self._rect.x+5, self._rect.y+5))
+        pygame.draw.rect(screen, self._current_color, self._rect, 2) #border width
+
 if __name__ == "__main__":
     print("Hello world")
