@@ -6,6 +6,11 @@ import wiredwolf.controller.connections as connections
 
 
 class BaseConnectionTest(unittest.TestCase):
+    def test_too_long_data_raises(self):
+        handler = connections.ConnectionHandler()
+        with self.assertRaises(ValueError):
+            handler.add_length_prefix(b"x" * (int("9"*handler.PREFIX_LEN)+1))
+
     def test_base_connection_handler(self):
         handler = connections.ConnectionHandler()
         self.assertEqual(handler.add_length_prefix(b"test"), b'0004test')

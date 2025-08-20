@@ -26,9 +26,13 @@ class ConnectionHandler(ABC):
     PREFIX_LEN: int = 4
 
     def add_length_prefix(self, data: bytes) -> bytes:
-        bytes_len = format(
-            len(data), '0'+str(self.PREFIX_LEN)+'d').encode('utf-8')
-        return bytes_len + data
+        if len(data) < int("9"*self.PREFIX_LEN):
+            # Ensure the data length is within the limit
+            bytes_len = format(
+                len(data), '0'+str(self.PREFIX_LEN)+'d').encode('utf-8')
+            return bytes_len + data
+        else:
+            raise ValueError("Data too long")
 
     def _send(self, endpoint: socket.socket, data: bytes) -> None:
         endpoint.sendall(self.add_length_prefix(data))
@@ -87,7 +91,8 @@ class ServerConnectionHandler(ConnectionHandler):
                     client_socket.close()
             except OSError as e:
                 if not self.receive_conn:
-                    self.__logger.info(f"Server stopped accepting new connections")
+                    self.__logger.info(
+                        f"Server stopped accepting new connections")
                 else:
                     self.__logger.error(f"Error handling connections: {e}")
 
