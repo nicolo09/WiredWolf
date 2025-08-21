@@ -7,7 +7,7 @@ from wiredwolf.controller.lobbies import Lobby
 
 class GameServer:
     __logger = logging.getLogger(__name__)
-    _server: ServerConnectionHandler | None = None
+    _server: ServerConnectionHandler
     _lobby: Lobby
 
     def __init__(self, lobby: Lobby):  # TODO: Add owner peer and socket
@@ -56,3 +56,6 @@ class GameServer:
     def end_game(self):
         # TODO: Implement game end logic
         pass
+    
+    def stop_new_connections(self):
+        self._server.stop_new_connections()
