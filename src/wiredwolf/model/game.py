@@ -38,6 +38,12 @@ class GameStatus:
         """
         return self._game_info
     
+    def __eq__(self, value: object) -> bool:
+        if not isinstance(value, GameStatus):
+            return False
+        return (self.players == value.players and
+                self.game_info == value.game_info and
+                self.phase == value.phase)
 
 
 # TODO: add reference to controller so it can be notified of changes
@@ -89,6 +95,14 @@ class Game:
         """Return a copy of the players list."""
         return self._players.copy()
 
+    def get_game_status(self) -> GameStatus:
+        """
+        Get the current game status.
+
+        Returns:
+            GameStatus: The current game status.
+        """
+        return GameStatus(self._players.copy(), self._game_info, self._phase)
 
     def advance_phase(self) -> GamePhase:
         """

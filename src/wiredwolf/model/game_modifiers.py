@@ -1,7 +1,10 @@
 from abc import ABC, abstractmethod
 from wiredwolf.model.game import GamePhase
 from wiredwolf.model.player import Player, Status, Role
-from typing import final
+from typing import final, TypeVar, Type
+
+# Type variable for generic decorator searching
+T = TypeVar('T', bound='AbstractGameInfo')
 
 #TODO: implement a ActionOutcome class to better handle the results of actions?
 class AbstractGameInfo(ABC):
@@ -94,6 +97,56 @@ class AbstractGameInfo(ABC):
     def get_handled_roles(self) -> list[Role]:
         """Returns a list of roles handled by this game."""
         pass
+
+    def find_decorator(self, decorator_type: Type[T], game_info: 'AbstractGameInfo') -> T | None:
+        """
+        Recursively search through the decorator chain to find a decorator of the specified type.
+        
+        Args:
+            decorator_type: The class type to search for
+            game_info: The game info object to search in
+            
+        Returns:
+            The decorator instance if found, None otherwise
+        """
+        if isinstance(game_info, decorator_type):
+            return game_info
+        elif hasattr(game_info, '_wrapped'):
+            wrapped = getattr(game_info, '_wrapped')
+            if isinstance(wrapped, AbstractGameInfo):
+                return self.find_decorator(decorator_type, wrapped)
+        return None
+
+    def __eq__(self, other: object) -> bool:
+        """
+        Compare two AbstractGameInfo instances for equality.
+        
+        Two game info instances are considered equal if they have the same:
+        - accusation votes
+        - ballot votes  
+        - werewolves votes
+        - handled roles (sorted for consistent comparison)
+        
+        Note: This base implementation only compares the vote dictionaries and handled roles.
+        Subclasses with additional state (like whether special roles have acted) should
+        override this method to include their specific state comparisons.
+        
+        Args:
+            other: The object to compare with
+            
+        Returns:
+            True if the instances are equal, False otherwise
+        """
+        if not isinstance(other, AbstractGameInfo):
+            return False
+            
+        return (
+            self.accusation_votes == other.accusation_votes and
+            self.ballot_votes == other.ballot_votes and
+            self.werewolves_votes == other.werewolves_votes and
+            sorted(role.value for role in self.get_handled_roles()) == 
+            sorted(role.value for role in other.get_handled_roles())
+        )
 
 # Minimal implementation: handles Villager, Werewolf, and end game conditions
 class MinimalGameInfo(AbstractGameInfo):
@@ -248,6 +301,24 @@ class ClairvoyantGameInfoDecorator(GameInfoDecorator):
     def get_handled_roles(self) -> list[Role]:
         return super().get_handled_roles() + [Role.CLAIRVOYANT]
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, AbstractGameInfo):
+            return False
+        
+        # First check if the other object has a clairvoyant decorator
+        other_clairvoyant = self.find_decorator(ClairvoyantGameInfoDecorator, other)
+        
+        # If the other object doesn't have a clairvoyant decorator, they're not equal
+        if other_clairvoyant is None:
+            return False
+        
+        # Compare the clairvoyant-specific state
+        if self._clairvoyant_acted != other_clairvoyant._clairvoyant_acted:
+            return False
+        
+        # If clairvoyant states match, check the base comparison
+        return super().__eq__(other)
+
 # Decorator for Escort role
 class EscortGameInfoDecorator(GameInfoDecorator):
     def __init__(self, wrapped: AbstractGameInfo) -> None:
@@ -288,6 +359,25 @@ class EscortGameInfoDecorator(GameInfoDecorator):
     def get_handled_roles(self) -> list[Role]:
         return super().get_handled_roles() + [Role.ESCORT]
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, AbstractGameInfo):
+            return False
+        
+        # First check if the other object has an escort decorator
+        other_escort = self.find_decorator(EscortGameInfoDecorator, other)
+        
+        # If the other object doesn't have an escort decorator, they're not equal
+        if other_escort is None:
+            return False
+        
+        # Compare the escort-specific state
+        if (self._escort_acted != other_escort._escort_acted or 
+            self._protected_player != other_escort._protected_player):
+            return False
+        
+        # If escort states match, check the base comparison
+        return super().__eq__(other)
+
 # Decorator for Medium role
 class MediumGameInfoDecorator(GameInfoDecorator):
     def __init__(self, wrapped: AbstractGameInfo) -> None:
@@ -312,6 +402,24 @@ class MediumGameInfoDecorator(GameInfoDecorator):
 
     def get_handled_roles(self) -> list[Role]:
         return super().get_handled_roles() + [Role.MEDIUM]
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, AbstractGameInfo):
+            return False
+        
+        # First check if the other object has a medium decorator
+        other_medium = self.find_decorator(MediumGameInfoDecorator, other)
+        
+        # If the other object doesn't have a medium decorator, they're not equal
+        if other_medium is None:
+            return False
+        
+        # Compare the medium-specific state
+        if self._medium_acted != other_medium._medium_acted:
+            return False
+        
+        # If medium states match, check the base comparison
+        return super().__eq__(other)
 
 # Factory to build the basic rule set of wiredwolf
 class BasicGameInfoFactory:
