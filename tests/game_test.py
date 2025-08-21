@@ -1,13 +1,13 @@
 import unittest
 from wiredwolf.model.game import Game, GamePhase, GameStatus
-from wiredwolf.model.game_modifiers import AbstractGameInfo, BasicGameInfoFactory, ClairvoyantGameInfoDecorator, EscortGameInfoDecorator, MediumGameInfoDecorator, MinimalGameInfo
+from wiredwolf.model.game_modifiers import AbstractGameInfo, BasicGameInfoBuilder
 from wiredwolf.model.player import Player, Role, Status
 
 def populate_players() -> list[Player]:
 
     # For simplicity, the name of the players is used as their ID.
     # In a real game, IDs would likely be more complex.
-    
+
     return [
         Player("Alice", Role.VILLAGER),
         Player("Bob", Role.WEREWOLF),
@@ -17,7 +17,16 @@ def populate_players() -> list[Player]:
         Player("Frank", Role.WEREWOLF),
         Player("Grace", Role.VILLAGER),
     ]
-    
+
+def create_game_info() -> AbstractGameInfo:
+    return (
+        BasicGameInfoBuilder.basic_game()
+        .add_escort()
+        .add_medium()
+        .add_clairvoyant()
+        .build()
+    )
+
 def get_index_by_name(players: list[Player], name: str) -> int:
     """
     Helper function to get the index of a player by their name.
@@ -27,31 +36,63 @@ def get_index_by_name(players: list[Player], name: str) -> int:
             return index
     raise ValueError(f"Player with name {name} not found.")
 
+
 class GameTest(unittest.TestCase):
     def setUp(self):
 
         self.players = populate_players()
-        self.game = Game(self.players, BasicGameInfoFactory.build())
-        
+        self.game = Game(self.players, create_game_info())
+
     def test_initial_state(self):
         self.assertEqual(self.game.phase, GamePhase.DAY_DISCUSSION)
         for player in self.game.players:
             self.assertEqual(player.status, Status.ALIVE)
-            
+
+    def test_game_info_equals(self):
+        game_info_comparison: AbstractGameInfo = (
+            BasicGameInfoBuilder.basic_game()
+            .add_medium()
+            .add_clairvoyant()
+            .add_escort()
+            .build()
+        )
+
+        self.assertEqual(self.game.get_game_status().game_info, game_info_comparison)
+
+    def test_game_info_not_equals(self):
+        game_info_different: AbstractGameInfo = (
+            BasicGameInfoBuilder.basic_game()
+            .add_medium()
+            .add_clairvoyant()
+            .build()
+        )
+        
+        self.assertNotEqual(self.game.get_game_status().game_info, game_info_different)
+
     def test_game_status_equals(self):
 
-        correct_players = populate_players()
-        correct_status: GameStatus = GameStatus(correct_players,
-                                                BasicGameInfoFactory.build(),
-                                                GamePhase.NIGHT)
+        test_players = populate_players()
+        test_status: GameStatus = GameStatus(
+            test_players,
+            create_game_info(),
+            GamePhase.NIGHT,
+        )
 
-        correct_status.players[get_index_by_name(correct_players, "Alice")].status = Status.DEAD
-        correct_status.players[get_index_by_name(correct_players, "Bob")].status = Status.DEAD
+        test_status.players[get_index_by_name(test_players, "Alice")].status = (
+            Status.DEAD
+        )
+        test_status.players[get_index_by_name(test_players, "Bob")].status = (
+            Status.DEAD
+        )
 
-        escort: Player = correct_status.players[get_index_by_name(correct_players, "Charlie")]
-        medium: Player = correct_status.players[get_index_by_name(correct_players, "Eve")]
+        escort: Player = test_status.players[
+            get_index_by_name(test_players, "Charlie")
+        ]
+        medium: Player = test_status.players[
+            get_index_by_name(test_players, "Eve")
+        ]
 
-        correct_status.game_info.handle_night_actions(escort, medium)
+        test_status.game_info.handle_night_actions(escort, medium)
 
         self.game.kill_player("Alice")
         self.game.kill_player("Bob")
@@ -59,15 +100,7 @@ class GameTest(unittest.TestCase):
         self.game.advance_phase()
         self.game.perform_night_action("Charlie", "Eve")
 
-        self.assertEqual(self.game.get_game_status(), correct_status)
-        
-    def test_game_info_equals(self):
-        game_info_comparison: AbstractGameInfo =  MinimalGameInfo()
-        game_info_comparison = MediumGameInfoDecorator(game_info_comparison)
-        game_info_comparison = ClairvoyantGameInfoDecorator(game_info_comparison)
-        game_info_comparison = EscortGameInfoDecorator(game_info_comparison)
-
-        self.assertEqual(self.game.get_game_status().game_info, game_info_comparison)
+        self.assertEqual(self.game.get_game_status(), test_status)
 
     def test_villagers_victory(self):
         self.game.kill_player("Bob")
@@ -79,7 +112,7 @@ class GameTest(unittest.TestCase):
         self.game.ballot_vote("Diana", True)
         self.game.advance_phase()
         self.assertEqual(self.game.phase, GamePhase.VILLAGERS_VICTORY)
-        
+
     def test_werewolves_victory(self):
         self.game.kill_player("Alice")
         self.game.kill_player("Charlie")
@@ -91,4 +124,3 @@ class GameTest(unittest.TestCase):
         self.game.advance_phase()
         self.game.kill_player("Eve")
         self.assertEqual(self.game.phase, GamePhase.WEREWOLVES_VICTORY)
-    

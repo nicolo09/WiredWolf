@@ -421,12 +421,35 @@ class MediumGameInfoDecorator(GameInfoDecorator):
         # If medium states match, check the base comparison
         return super().__eq__(other)
 
-# Factory to build the basic rule set of wiredwolf
-class BasicGameInfoFactory:
+
+class BasicGameInfoBuilder:
+    """
+    Builder for constructing AbstractGameInfo instances.
+    """
+    
+    def __init__(self, game_info: AbstractGameInfo):
+        self._game_info = game_info
+    
     @staticmethod
-    def build() -> AbstractGameInfo:
-        rules = MinimalGameInfo()
-        rules = ClairvoyantGameInfoDecorator(rules)
-        rules = EscortGameInfoDecorator(rules)
-        rules = MediumGameInfoDecorator(rules)
-        return rules
+    def basic_game() -> 'BasicGameInfoBuilder':
+        """Start with a basic game (Villager and Werewolf support)."""
+        return BasicGameInfoBuilder(MinimalGameInfo())
+    
+    def add_clairvoyant(self) -> 'BasicGameInfoBuilder':
+        """Add Clairvoyant role support."""
+        self._game_info = ClairvoyantGameInfoDecorator(self._game_info)
+        return self
+    
+    def add_escort(self) -> 'BasicGameInfoBuilder':
+        """Add Escort role support."""
+        self._game_info = EscortGameInfoDecorator(self._game_info)
+        return self
+    
+    def add_medium(self) -> 'BasicGameInfoBuilder':
+        """Add Medium role support."""
+        self._game_info = MediumGameInfoDecorator(self._game_info)
+        return self
+    
+    def build(self) -> AbstractGameInfo:
+        """Build and return the configured AbstractGameInfo instance."""
+        return self._game_info
