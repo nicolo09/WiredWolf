@@ -1,4 +1,4 @@
-from wiredwolf.controller.connections import ServerConnectionHandler
+from wiredwolf.controller.connections import MessageHandler, PickleSerializer
 from collections.abc import Callable
 from enum import Enum
 import logging
@@ -22,62 +22,58 @@ class LobbyState(Enum):
 
 
 class Lobby:
+    """Represents a game lobby."""
 
-    """Represents a game lobby. The lobby """
-
-    __peers: list[Peer] = []
-    __state: LobbyState = LobbyState.WAITING_FOR_PLAYERS
-    __name: str = ""
-    __password: str | None = None
-    __server: ServerConnectionHandler | None = None
+    _peers: dict[Peer, socket.socket] = {}
+    _state: LobbyState = LobbyState.WAITING_FOR_PLAYERS
+    _name: str = ""
+    _password: str | None = None
+    _message_handler: MessageHandler
 
     def __init__(self, name: str, password: str | None = None):
-        self.__peers = []
-        self.__state = LobbyState.WAITING_FOR_PLAYERS
-        self.__name = name
-        self.__password = password
-        self.__server = ServerConnectionHandler(
-            lambda peer: self.add_peer(peer))
+        self._peers = {}
+        self._state = LobbyState.WAITING_FOR_PLAYERS
+        self._name = name
+        self._password = password
+        self._message_handler = MessageHandler(PickleSerializer())
 
-    def add_peer(self, peer: Peer):
-        self.__peers.append(peer)
+    def add_peer(self, peer: Peer, socket: socket.socket):
+        self._peers[peer] = socket
 
     def remove_peer(self, peer: Peer):
-        self.__peers.remove(peer)
+        self._peers.pop(peer, None)
+
+    def is_password_protected(self) -> bool:
+        """Returns whether the lobby is password-protected."""
+        return self._password is not None
 
     @property
-    def peers(self) -> list[Peer]:
+    def message_handler(self) -> MessageHandler:
+        """Returns the message handler for the lobby."""
+        return self._message_handler
+
+    @property
+    def peers(self) -> dict[Peer, socket.socket]:
         """Returns the list of peers in the lobby."""
-        return self.__peers
+        return self._peers
 
     @property
     def state(self) -> LobbyState:
         """Returns the current state of the lobby."""
-        return self.__state
+        return self._state
 
     @property
     def name(self) -> str:
         """Returns the name of the lobby."""
-        return self.__name
-
-    @property
-    def connection_socket(self) -> socket.socket:
-        """Returns the socket used by this lobby's server to receive new connections in the lobby.
-
-        Raises:
-            RuntimeError: If this peer is not the lobby's server.
-        """
-        if not self.__server:
-            raise RuntimeError("This peer is not the lobby's server.")
-        return self.__server.get_receiver_socket()
+        return self._name
 
     def check_password(self, password: str) -> bool:
         """Checks if the provided password matches the lobby's password."""
-        return self.__password == password  # TODO: Hash? Maybe not, since it's not saved
+        return self._password == password  # TODO: Hash? Maybe not, since it's not saved persistently
 
     @state.setter
     def state(self, state: LobbyState):
-        self.__state = state
+        self._state = state
 
     def send_chat_message(self, message: str):
         # TODO: Implement chat message sending logic
@@ -97,7 +93,8 @@ class Lobby:
 
 
 class LobbyBrowser:
-    """Handles the discovery and creations/publishment of game lobbies through mDNS.
+    """
+    Handles the discovery and creations/publishment of game lobbies through mDNS.
     """
 
     def __init__(self):
@@ -126,11 +123,11 @@ class LobbyBrowser:
         else:
             raise RuntimeError("Lobby browser is not running.")
 
-    def publish_lobby(self, lobby: Lobby) -> None:
+    def publish_lobby(self, lobby_name: str, connection_socket: socket.socket) -> None:
         """Publishes a lobby to the network so that it can be discovered by other players."""
         if not self.__published_lobby_service_info:
             self.__published_lobby_service_info = self.__service_manager.register_service(
-                name=lobby.name, receiverSocket=lobby.connection_socket)
+                name=lobby_name, receiverSocket=connection_socket)
         else:
             raise RuntimeError("There is already a lobby being published.")
 
@@ -159,7 +156,7 @@ class CallbackServiceListener(ServiceListener):
         self.__on_service_removed(name)
 
     def update_service(self, zc: Zeroconf, type_: str, name: str) -> None:
-        self.__on_service_updated(name)
+        self.__on_service_updated(name)  # TODO: Implement service update logic
 
 
 class ServiceManager():

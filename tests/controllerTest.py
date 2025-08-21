@@ -3,7 +3,7 @@ import time
 import unittest
 
 from zeroconf import ServiceInfo
-from wiredwolf.controller.lobbies import Lobby, LobbyBrowser, ServiceManager
+from wiredwolf.controller.lobbies import LobbyBrowser, ServiceManager
 
 
 class ServiceManagerTest(unittest.TestCase):
@@ -70,7 +70,9 @@ class LobbyBrowserTest(unittest.TestCase):
 
         # Simulate the publication of a lobby
         self.lobby_browser.publish_lobby(
-            Lobby(name="TestLobby"))
+            lobby_name="TestLobby",
+            connection_socket=receiver_socket
+        )
 
         timeout = 10
         while timeout > 0:
