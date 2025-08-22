@@ -6,9 +6,28 @@ from wiredwolf.view.Constants import BACKGROUND_COLOR, BUTTON_COLOR, BUTTON_HOVE
 
 class DrawableComponent(ABC):
     """A drawable component abstraction"""
+    
+    @property
+    @abstractmethod
+    def size(self)->tuple[int, int]:
+        """Returns the size of the component as (width, height)"""
+        raise NotImplementedError("Please implement this method")
+    
+    @property
+    @abstractmethod
+    def position(self)->tuple[int, int]:
+        """Returns the coordinates of the top left position of the component"""
+        raise NotImplementedError("Please implement this method")
+    
+    @position.setter
+    @abstractmethod
+    def position(self, value:tuple[int, int])->None:
+        """Sets the coordinates of the top left position of the component"""
+        raise NotImplementedError("Please implement this method")
+
     @abstractmethod
     def draw(self, screen: pygame.Surface)->None:
-        """This is the called for drawing the component on the given screen, implement this in your component class"""
+        """Draws the component on the given screen"""
         raise NotImplementedError("Please implement this method")
 
 class AbstractButton(DrawableComponent):
@@ -70,73 +89,92 @@ class AbstractButton(DrawableComponent):
         """This is the action done when the button is pressed, implement this in your button class"""
         raise NotImplementedError("Please implement this method")
     
-class CenteredText(DrawableComponent):
-    """Text centered horizontally in the window"""
-    def __init__(self, text: str, color:str=TEXT_COLOR)-> None:
+class Text(DrawableComponent):
+    """Text displayed in the window"""
+    def __init__(self, text: str, coords:tuple[int, int], color:str=TEXT_COLOR)-> None:
         pygame.font.init() #initializes pygame modules
         font=pygame.font.Font(None, 30) #generates font
         self._text_surface=font.render(text, True, color) #renders the text
+        self._coords=coords
 
     def draw(self, screen: pygame.Surface)-> None:
         """Draws the text on the given surface"""
-        win_size=screen.get_size()
-        x_coord=int((win_size[0]-self._text_surface.get_size()[0])/2)
-        screen.blit(self._text_surface, (x_coord,10))
+        screen.blit(self._text_surface, self._coords)
+
+    @property
+    def size(self)->tuple[int, int]:
+        """Returns a text size as (width, height)"""
+        return self._text_surface.get_size()
+    
+    @property
+    def position(self)->tuple[int, int]:
+        """Returns a the top left coords of the text position"""
+        return self._coords
+    
+    @position.setter
+    def position(self, value:tuple[int, int]):
+        """Sets the given position as a the top left coords of the text position"""
+        self._coords=value
         
-class ButtonVContainer(DrawableComponent):
-    """A button container that displays the given buttons vertically and automatically re-centers the buttons on window resize"""
-    def __init__(self, vert_div:int, buttons:Sequence[AbstractButton], win_size:tuple[int, int], color:str=BACKGROUND_COLOR)-> None:
-        if len(buttons)==0:
+class VContainer():
+    """A drawable container that displays the given components vertically"""
+    def __init__(self, vert_div:int, elements:Sequence[DrawableComponent], win_size:tuple[int, int], position:tuple[int,int]=(50,50), color:str=BACKGROUND_COLOR)-> None:
+        if len(elements)==0:
             raise ValueError("Must contain at least a button")
+        if position[0]<0 or position[0]>100 or position[1]<0 or position[1]>100:
+            raise ValueError("Position must be between 0 and 100")
         pygame.font.init() #initializes pygame modules
         self._divider=vert_div
-        self._buttons=buttons
+        self._elements=elements
         self._win_size=win_size
         self._color=color
         self._dimensions=(0,0)
-        self._set_dimensions() #these are the dimensions of the container, calculated with the buttons list and the vertical divider
+        self._offset=position
+        self._set_dimensions() #these are the dimensions of the container, calculated with the components list and the vertical divider
         #the top left corner of the container is at total window size/2 (which would be the center of the window) - container size/2
         #this operation is done on both axis, to derive the position for the top left corner
         self._top_left_pos=(0,0)
         self._set_top_left_position() #this is the position of the top left corner of the container 
         self._rect=pygame.Rect(self._top_left_pos, self._dimensions)
-        self._center_buttons()
-
-    def _center_buttons(self)-> None:
-        """Sets button position as:
+        self._center_elements()
+    
+    def _center_elements(self)-> None:
+        """Sets element position as:
             x-> x coord of container
-            y-> y coord of container + size of buttons before + n-1 dividers"""
+            y-> y coord of container + size of element before + n-1 dividers"""
         #y coord = top left coord + button size + div
         #x coord = top left coord
         ycoord=self._top_left_pos[1]
         xcoord=self._top_left_pos[0]
-        for button in self._buttons:
-            button.position=(xcoord, ycoord)
-            ycoord=ycoord+button.size[1]+self._divider
+        for element in self._elements:
+            element.position=(xcoord, ycoord)
+            ycoord=ycoord+element.size[1]+self._divider
         
     def _set_dimensions(self)-> None:
         """Sets container dimensions:
-            x-> max x of buttons contained
-            y-> sum of y of buttons contained + n-1 * vertical divider spacer
-            This allows the container to have the buttons aligned with some vertical separation"""
+            x-> max x of elements contained
+            y-> sum of y of elements contained + n-1 * vertical divider spacer
+            This allows the container to have the elements stacked vertically with some vertical separation"""
         dimensionsX=0
         dimensionsY=0
-        for button in self._buttons:
+        for element in self._elements:
             #the button container will have size defined as such:
             #x: max of button x in given list
             #y: sum of button y in given list + n-1 *vertDiv
             #this should permit the container to have the buttons aligned with some vertical separation
-            dimensionsY=dimensionsY+button.size[1]
-            dimensionsX=max(dimensionsX, button.size[0])
-        dimensionsY=dimensionsY+(len(self._buttons)-1)*self._divider
+            dimensionsY=dimensionsY+element.size[1]
+            dimensionsX=max(dimensionsX, element.size[0])
+        dimensionsY=dimensionsY+(len(self._elements)-1)*self._divider
         self._dimensions=(dimensionsX, dimensionsY)
     
     def _set_top_left_position(self)-> None:
         """Sets container position, knowing container dimensions and window dimension"""
-        self._top_left_pos=(int((self._win_size[0]/2)-(self._dimensions[0]/2)), int((self._win_size[1]/2)-(self._dimensions[1]/2)))
+        #Uses offset, measured as a number between 0 and 100 to align the container
+        self._top_left_pos=(int((self._win_size[0]/100)*self._offset[0]-(self._dimensions[0]/2)), 
+                            int((self._win_size[1]/100)*self._offset[1]-(self._dimensions[1]/2)))
 
     def draw(self, screen: pygame.Surface)-> None:
-        """Draws the button container centered on the given surface"""
+        """Draws the container offset on the given surface"""
         win_size=screen.get_size()
         if win_size!=self._win_size:
             self._win_size=win_size
@@ -145,10 +183,83 @@ class ButtonVContainer(DrawableComponent):
             self._rect.x=self._top_left_pos[0]
             self._rect.y=self._top_left_pos[1]
             #re-centers buttons inside the new container
-            self._center_buttons()
+            self._center_elements()
         pygame.draw.rect(screen, self._color, self._rect)
-        for button in self._buttons:
-            button.draw(screen)
+        for element in self._elements:
+            element.draw(screen)
+        pygame.display.flip() #draws the elements on the screen
+
+class HContainer():
+    """A drawable container that displays the given components horizontally"""
+    def __init__(self, horiz_div:int, elements:Sequence[DrawableComponent], win_size:tuple[int, int], position:tuple[int,int]=(50,50), color:str=BACKGROUND_COLOR)-> None:
+        if len(elements)==0:
+            raise ValueError("Must contain at least a button")
+        if position[0]<0 or position[0]>100 or position[1]<0 or position[1]>100:
+            raise ValueError("Position must be between 0 and 100")
+        pygame.font.init() #initializes pygame modules
+        self._divider=horiz_div
+        self._elements=elements
+        self._win_size=win_size
+        self._color=color
+        self._dimensions=(0,0)
+        self._offset=position
+        self._set_dimensions() #these are the dimensions of the container, calculated with the components list and the vertical divider
+        #the top left corner of the container is at total window size/2 (which would be the center of the window) - container size/2
+        #this operation is done on both axis, to derive the position for the top left corner
+        self._top_left_pos=(0,0)
+        self._set_top_left_position() #this is the position of the top left corner of the container 
+        self._rect=pygame.Rect(self._top_left_pos, self._dimensions)
+        self._center_elements()
+    
+    def _center_elements(self)-> None:
+        """Sets element position as:
+            x-> x coord of container + size of element before + n-1 dividers
+            y-> y coord of container"""
+        #y coord = top left coord + button size + div
+        #x coord = top left coord
+        ycoord=self._top_left_pos[1]
+        xcoord=self._top_left_pos[0]
+        for element in self._elements:
+            element.position=(xcoord, ycoord)
+            xcoord=xcoord+element.size[0]+self._divider
+        
+    def _set_dimensions(self)-> None:
+        """Sets container dimensions:
+            x-> max x of elements contained
+            y-> sum of y of elements contained + n-1 * vertical divider spacer
+            This allows the container to have the elements stacked vertically with some vertical separation"""
+        dimensionsX=0
+        dimensionsY=0
+        for element in self._elements:
+            #the container will have size defined as such:
+            #y: max of elements y in given list
+            #x: sum of button x in given list + n-1 *horizontal div
+            #this should permit the container to have the buttons aligned with some horizontal separation
+            dimensionsY=max(dimensionsY, element.size[1])
+            dimensionsX=dimensionsX+element.size[0]
+        dimensionsX=dimensionsX+(len(self._elements)-1)*self._divider
+        self._dimensions=(dimensionsX, dimensionsY)
+    
+    def _set_top_left_position(self)-> None:
+        """Sets container position, knowing container dimensions and window dimension"""
+        #Uses offset, measured as a number between 0 and 100 to align the container
+        self._top_left_pos=(int((self._win_size[0]/100)*self._offset[0]-(self._dimensions[0]/2)), 
+                            int((self._win_size[1]/100)*self._offset[1]-(self._dimensions[1]/2)))
+
+    def draw(self, screen: pygame.Surface)-> None:
+        """Draws the container offset on the given surface"""
+        win_size=screen.get_size()
+        if win_size!=self._win_size:
+            self._win_size=win_size
+            #window size was changed, re-center container
+            self._set_top_left_position()
+            self._rect.x=self._top_left_pos[0]
+            self._rect.y=self._top_left_pos[1]
+            #re-centers buttons inside the new container
+            self._center_elements()
+        pygame.draw.rect(screen, self._color, self._rect)
+        for element in self._elements:
+            element.draw(screen)
         pygame.display.flip() #draws the elements on the screen
 
 class PrintButton(AbstractButton):
@@ -208,8 +319,24 @@ class TextField(DrawableComponent):
     def draw(self, screen: pygame.Surface) -> None:
         """Draws the text field on the given surface"""
         self._txt_surface=self._font.render(self._text, True, self._text_color)
-        screen.blit(self._txt_surface, (self._rect.x+5, self._rect.y+5))
+        screen.blit(self._txt_surface, (self._rect.x+5, self._rect.y+5)) #+5 to make it more centered in the rectangle outline
         pygame.draw.rect(screen, self._current_color, self._rect, 2) #border width
+
+    @property
+    def size(self)->tuple[int, int]:
+        """Returns a text field size as (width, height)"""
+        return self._rect.size
+    
+    @property
+    def position(self)->tuple[int, int]:
+        """Returns a the top left coords of the text field position"""
+        return (self._rect.x, self._rect.y)
+    
+    @position.setter
+    def position(self, value:tuple[int, int]):
+        """Sets the given position as a the top left coords of the text field position"""
+        self._rect.x=value[0]
+        self._rect.y=value[1]
 
 if __name__ == "__main__":
     print("Hello world")
