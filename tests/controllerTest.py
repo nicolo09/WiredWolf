@@ -3,7 +3,10 @@ import time
 import unittest
 
 from zeroconf import ServiceInfo
-from wiredwolf.controller.lobbies import LobbyBrowser, ServiceManager
+
+from wiredwolf.controller.lobbies import LobbyBrowser
+from wiredwolf.controller.services import ServiceManager
+
 
 
 class ServiceManagerTest(unittest.TestCase):
