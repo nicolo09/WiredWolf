@@ -5,6 +5,7 @@ from wiredwolf.view.Constants import BACKGROUND_COLOR, Screens
 from functools import partial
 
 FPS=60
+username=""
 class App:
     """The main window for the Wiredwolf game"""
     def __init__(self)-> None:
@@ -105,11 +106,11 @@ class StartScreen(AbstractScreen):
         go_search_lobby=partial(change_screen, game_state_manager, Screens.SEARCH_LOBBY)
         search_lobby_button=CallbackButton(go_search_lobby, 'Search for lobbies', 200, 50, (0, 0)) 
         self._field=TextField(200, 50, (10,10))
-        list=[self._field,new_lobby_button, search_lobby_button]
+        username_enter=Text("Insert username:", (0,0))
+        list=[username_enter, self._field, new_lobby_button, search_lobby_button]
         self._v_container=VContainer(10, list, self._display.get_size())
-        self._title_container=VContainer(0, [Text("Wiredwolf", (0, 10))], self._display.get_size(), (50, 20))
+        self._title_container=VContainer(0, [Text("Wiredwolf", (0, 10))], self._display.get_size(), (50, 15))
         
-    
     def run(self,event:pygame.event.Event)->None:
         """The start screen, the first screen showed at startup"""
         self._display.fill(BACKGROUND_COLOR) #fills the background color for the application
@@ -117,6 +118,8 @@ class StartScreen(AbstractScreen):
         self._title_container.draw(self._display)#per qualche motivo l'ultimo flickera
         if event is not None:
             self._field.handle_event(event)
+            global username
+            username=self._field.text #save username in global variable
         
 
 class NewLobbyScreen(AbstractScreen):
