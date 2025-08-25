@@ -46,9 +46,7 @@ class GameStatus:
                 self.phase == value.phase)
 
 
-# TODO: add reference to controller so it can be notified of changes
-# or does the controller only consult the model?
-# TODO: revise documentation
+# TODO: revise documentation (remove at the end)
 class Game:
     """
     Represents the main game logic and state for a game of WiredWolf.

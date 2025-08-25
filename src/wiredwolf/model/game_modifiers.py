@@ -98,7 +98,7 @@ class AbstractGameInfo(ABC):
         """Returns a list of roles handled by this game."""
         pass
 
-    def find_decorator(self, decorator_type: Type[T], game_info: 'AbstractGameInfo') -> T | None:
+    def _find_decorator(self, decorator_type: Type[T], game_info: 'AbstractGameInfo') -> T | None:
         """
         Recursively search through the decorator chain to find a decorator of the specified type.
         
@@ -114,7 +114,7 @@ class AbstractGameInfo(ABC):
         elif hasattr(game_info, '_wrapped'):
             wrapped = getattr(game_info, '_wrapped')
             if isinstance(wrapped, AbstractGameInfo):
-                return self.find_decorator(decorator_type, wrapped)
+                return self._find_decorator(decorator_type, wrapped)
         return None
 
     def __eq__(self, other: object) -> bool:
@@ -122,10 +122,7 @@ class AbstractGameInfo(ABC):
         Compare two AbstractGameInfo instances for equality.
         
         Two game info instances are considered equal if they have the same:
-        - accusation votes
-        - ballot votes  
-        - werewolves votes
-        - handled roles (sorted for consistent comparison)
+        accusation votes, ballot votes, werewolves votes, handled roles
         
         Note: This base implementation only compares the vote dictionaries and handled roles.
         Subclasses with additional state (like whether special roles have acted) should
@@ -306,7 +303,7 @@ class ClairvoyantGameInfoDecorator(GameInfoDecorator):
             return False
         
         # First check if the other object has a clairvoyant decorator
-        other_clairvoyant = self.find_decorator(ClairvoyantGameInfoDecorator, other)
+        other_clairvoyant = self._find_decorator(ClairvoyantGameInfoDecorator, other)
         
         # If the other object doesn't have a clairvoyant decorator, they're not equal
         if other_clairvoyant is None:
@@ -364,7 +361,7 @@ class EscortGameInfoDecorator(GameInfoDecorator):
             return False
         
         # First check if the other object has an escort decorator
-        other_escort = self.find_decorator(EscortGameInfoDecorator, other)
+        other_escort = self._find_decorator(EscortGameInfoDecorator, other)
         
         # If the other object doesn't have an escort decorator, they're not equal
         if other_escort is None:
@@ -408,7 +405,7 @@ class MediumGameInfoDecorator(GameInfoDecorator):
             return False
         
         # First check if the other object has a medium decorator
-        other_medium = self.find_decorator(MediumGameInfoDecorator, other)
+        other_medium = self._find_decorator(MediumGameInfoDecorator, other)
         
         # If the other object doesn't have a medium decorator, they're not equal
         if other_medium is None:
@@ -431,23 +428,26 @@ class BasicGameInfoBuilder:
         self._game_info = game_info
     
     @staticmethod
-    def basic_game() -> 'BasicGameInfoBuilder':
+    def basics() -> 'BasicGameInfoBuilder':
         """Start with a basic game (Villager and Werewolf support)."""
         return BasicGameInfoBuilder(MinimalGameInfo())
     
     def add_clairvoyant(self) -> 'BasicGameInfoBuilder':
         """Add Clairvoyant role support."""
-        self._game_info = ClairvoyantGameInfoDecorator(self._game_info)
+        if Role.CLAIRVOYANT not in self._game_info.get_handled_roles():
+            self._game_info = ClairvoyantGameInfoDecorator(self._game_info)
         return self
     
     def add_escort(self) -> 'BasicGameInfoBuilder':
         """Add Escort role support."""
-        self._game_info = EscortGameInfoDecorator(self._game_info)
+        if Role.ESCORT not in self._game_info.get_handled_roles():
+            self._game_info = EscortGameInfoDecorator(self._game_info)
         return self
     
     def add_medium(self) -> 'BasicGameInfoBuilder':
         """Add Medium role support."""
-        self._game_info = MediumGameInfoDecorator(self._game_info)
+        if Role.MEDIUM not in self._game_info.get_handled_roles():
+            self._game_info = MediumGameInfoDecorator(self._game_info)
         return self
     
     def build(self) -> AbstractGameInfo:

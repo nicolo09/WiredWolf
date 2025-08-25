@@ -20,7 +20,7 @@ def populate_players() -> list[Player]:
 
 def create_game_info() -> AbstractGameInfo:
     return (
-        BasicGameInfoBuilder.basic_game()
+        BasicGameInfoBuilder.basics()
         .add_escort()
         .add_medium()
         .add_clairvoyant()
@@ -50,7 +50,7 @@ class GameTest(unittest.TestCase):
 
     def test_game_info_equals(self):
         game_info_comparison: AbstractGameInfo = (
-            BasicGameInfoBuilder.basic_game()
+            BasicGameInfoBuilder.basics()
             .add_medium()
             .add_clairvoyant()
             .add_escort()
@@ -61,7 +61,7 @@ class GameTest(unittest.TestCase):
 
     def test_game_info_not_equals(self):
         game_info_different: AbstractGameInfo = (
-            BasicGameInfoBuilder.basic_game()
+            BasicGameInfoBuilder.basics()
             .add_medium()
             .add_clairvoyant()
             .build()
