@@ -7,6 +7,10 @@ class Role(Enum):
     CLAIRVOYANT = "Clairvoyant"
     MEDIUM = "Medium"
     
+    def is_evil(self) -> bool:
+        """Returns True if this role is considered evil (part of the werewolf team)."""
+        return self == Role.WEREWOLF
+    
 class Status(Enum):
     ALIVE = "Alive"
     PROTECTED = "Protected"
@@ -38,7 +42,7 @@ class Player:
         return self._status != Status.DEAD
     
     def is_evil(self) -> bool:
-        return self._role == Role.WEREWOLF
+        return self._role.is_evil()
         
     def __str__(self) -> str:
         return f"Player(id={self._id}, role={self._role}, status={self._status})"
@@ -46,7 +50,7 @@ class Player:
     def __repr__(self) -> str:
         return self.__str__()
     
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, Player):
             return self._id == other._id and self._role == other._role and self._status == other._status
         return False
