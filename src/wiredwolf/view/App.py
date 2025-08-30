@@ -143,18 +143,22 @@ class SearchLobbyScreen(AbstractScreen):
     """A simple search lobby screen"""
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
-        from wiredwolf.view.Components import CallbackButton,Text
+        from wiredwolf.view.Components import CallbackButton, Text, SelectorButton, SelectorGroup
         go_home=partial(change_screen, game_state_manager, Screens.HOME)
-        my_button1=CallbackButton(go_home, 'search lobby screen', 200, 50, (0, 0), "#0033FF", "#5365AD") 
+        my_button1=CallbackButton(go_home, 'Go back to start screen', 250, 50, (0, 0), "#0033FF", "#5365AD") 
         button_list=[my_button1]
-        self._button_container=VContainer(10, button_list, self._display.get_size())
-        self._title=Text("Search for an existing lobby",(0, 10))
+        self._button_container=VContainer(10, button_list, self._display.get_size(), (50, 80))
+        self._title=VContainer(0, [Text("Search for an existing lobby",(0, 10))], self._display.get_size(), (50,10))
+        selector_list=[SelectorButton("Lobby 1", 100,20, (0,0)), SelectorButton("Lobby 2", 100,20, (0,0)), SelectorButton("Lobby 3", 100,20, (0,0))]
+        self._selector=SelectorGroup(selector_list) #This handles how the selectors BEHAVE as a group
+        self._lobby_group=VContainer(20, selector_list, self._display.get_size()) #This handles how the selectors are DISPLAYED
     
     def run(self,event:pygame.event.Event)->None:
         """The search lobby screen, to search for existing lobbies"""
         self._display.fill(BACKGROUND_COLOR)
         self._title.draw(self._display)
         self._button_container.draw(self._display)
+        self._lobby_group.draw(self._display)
 class TestScreen(AbstractScreen):
     """A simple test screen"""
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:

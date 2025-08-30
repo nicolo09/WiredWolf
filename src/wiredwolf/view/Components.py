@@ -1,8 +1,9 @@
 from typing import Sequence
 import pygame
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 
-from wiredwolf.view.Constants import BACKGROUND_COLOR, BUTTON_COLOR, BUTTON_HOVER_COLOR, TEXT_COLOR
+from wiredwolf.view.Constants import BACKGROUND_COLOR, BUTTON_COLOR, BUTTON_HOVER_COLOR, SELECTED_COLOR, TEXT_COLOR
 
 class DrawableComponent(ABC):
     """A drawable component abstraction"""
@@ -40,6 +41,7 @@ class AbstractButton(DrawableComponent):
         self._button_color=self._button_color_not_hover #button starts as not hovering
         self._button_clicked=False #sets the button as not clicked
         guiFont=pygame.font.Font(None, 30) #generates font
+        self._text=text
         self._text_surface=guiFont.render(text, True, TEXT_COLOR) #renders the text
         self._text_rect=self._text_surface.get_rect(center=self._button_rect.center) #centers the text in the button
     
@@ -270,13 +272,126 @@ class PrintButton(AbstractButton):
 
 class CallbackButton(AbstractButton):
     """A button that calls the callback on click"""
-    #TODO: callback typing
-    def __init__(self, callback, text: str, width:int, height:int, position:tuple[int, int], default_color:str=BUTTON_COLOR, activation_color:str=BUTTON_HOVER_COLOR)-> None:
+    def __init__(self, callback:Callable[[],None], text: str, width:int, height:int, position:tuple[int, int], default_color:str=BUTTON_COLOR, activation_color:str=BUTTON_HOVER_COLOR)-> None:
         super().__init__(text, width, height, position, default_color, activation_color)
         self._callback=callback
     def on_click(self)-> None:
         """Calls the callback function"""
         self._callback()
+
+class SelectorButton(AbstractButton):
+    """A button that can be selected or unselected"""
+    def __init__(self, text: str, width:int, height:int, position:tuple[int, int], default_color:str=BUTTON_COLOR, activation_color:str=BUTTON_HOVER_COLOR, selected_color:str=SELECTED_COLOR)-> None:
+        super().__init__(text, width, height, position, default_color, activation_color)
+        self._selected=False
+        self._selected_color=selected_color
+        self._callback=print #Placeholder function. Selector buttons should be grouped into a Selector Group, which sets the correct callback
+
+    @property
+    def selected(self)->bool:
+        """Returns selected status"""
+        return self._selected
+    
+    @selected.setter
+    def selected(self, selected:bool)->None:
+        """Sets selected status"""
+        self._selected=selected
+    
+    @property
+    def text(self)->str:
+        """Returns button text"""
+        return self._text
+    
+    @property
+    def callback(self)->Callable[[],None]:
+        """Returns the callback function called on click"""
+        #Needed or the setter won't work
+        return self._callback
+
+    @callback.setter
+    def callback(self, callback:Callable[[],None])->None:
+        """Sets the callback function called on click"""
+        self._callback=callback
+
+
+    def _handle_button_click(self)-> None:
+        """Checks if button has been pressed and starts on click function"""
+        mouse_pos =pygame.mouse.get_pos() #returns mouse position
+        if self._button_rect.collidepoint(mouse_pos): #is the mouse over the button?
+            if pygame.mouse.get_pressed()[0]: #[left mouse, middle mouse, right mouse] boolean
+                self._button_clicked=True #sets button as pressed
+            else:
+                if self._button_clicked==True:
+                    self._selected=not self.selected #inverts selection
+                    self.on_click() #does action
+                    self._button_clicked=False #resets button
+                    #if no check is applied the button would be pressed many times per frame
+
+    def on_click(self)-> None:
+        """Calls the on click function"""
+        self._callback()
+    
+    def draw(self, screen: pygame.Surface)-> None:
+        """Draws the button on the given surface"""
+        #Since the window is resizable, the button position is calculated as centered.
+        self._text_rect=self._text_surface.get_rect(center=self._button_rect.center) #re-centers the text in the button
+        #draws the button as a rectangle with rounded corners
+        if self._selected==True:
+            self._button_color=self._selected_color #changes color if the button is selected
+        else:
+            self._button_color=self._button_color_not_hover #default color
+        pygame.draw.rect(screen, self._button_color, self._button_rect, border_radius=12) #border radius is for rounded corners
+        screen.blit(self._text_surface, self._text_rect) #draws the rectangle on the given screen
+        self._handle_button_click() #function that checks if the button has been pressed 
+
+class SelectorGroup():
+    """A group of selectors. Only 0 or 1 at most elements can be selected at once"""
+    def __init__(self, selectors:Sequence[SelectorButton])->None:
+        assert(len(selectors)>=1) #A selector group with 0 elements doesn't make sense
+        self._selectors=self._convert_sequence_to_dictionary(selectors)
+        self._selected_element=None
+        for id in self._selectors:
+            self._selectors[id].callback=self._update
+
+    def _convert_sequence_to_dictionary(self, list:Sequence[SelectorButton])->dict[int,SelectorButton]:
+        """Converts the given list into a dictionary, such as {1: list[1], ....}"""
+        index=1
+        dict={index:list[index]} #Needed to initialize the list with the correct typing
+        for element in list:
+            #Adds all other elements to the list
+            dict[index]=element
+            index=index+1
+        return dict
+
+    def _update(self)->None:
+        """Keeps integrity of group by de-selecting if necessary oldest selector"""
+        new_selected=None
+        count_selected=0
+        for id in self._selectors:
+            if self._selectors[id].selected==True:
+                count_selected=count_selected+1 #count how many elements are selected right now
+                if self._selected_element!=id:
+                    new_selected=id #if the element is selected and it's not the saved element->2 elements are selected
+        if count_selected==0:
+            #No elements selected
+            self._selected_element=None
+        else:
+            if count_selected==1 and self._selected_element is None:
+                #A new element has been selected
+                self._selected_element=new_selected
+            else: 
+                if count_selected==2:
+                    #Two elements selected, oldest element is deselected and newest remains
+                    assert(self._selected_element)
+                    self._selectors[self._selected_element].selected=False
+                    self._selected_element=new_selected
+    
+    def selectedText(self)->str:
+        """Returns the text of the selected element, or no text if no element is selected"""
+        if self._selected_element is None:
+            return ""
+        else :
+            return self._selectors[self._selected_element].text
 
 class TextField(DrawableComponent):
     """A drawable text field. When the user clicks on the field and writes, it displays what is being written"""
