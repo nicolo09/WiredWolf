@@ -95,12 +95,15 @@ class Text(DrawableComponent):
     """Text displayed in the window"""
     def __init__(self, text: str, coords:tuple[int, int], color:str=TEXT_COLOR)-> None:
         pygame.font.init() #initializes pygame modules
-        font=pygame.font.Font(None, 30) #generates font
-        self._text_surface=font.render(text, True, color) #renders the text
+        self._font=pygame.font.Font(None, 30) #generates font
+        self._text=text
         self._coords=coords
+        self._color=color
+        self._text_surface=self._font.render(self._text, True, self._color) #renders the text
 
     def draw(self, screen: pygame.Surface)-> None:
         """Draws the text on the given surface"""
+        self._text_surface=self._font.render(self._text, True, self._color) #renders the text
         screen.blit(self._text_surface, self._coords)
 
     @property
@@ -117,6 +120,14 @@ class Text(DrawableComponent):
     def position(self, value:tuple[int, int]):
         """Sets the given position as a the top left coords of the text position"""
         self._coords=value
+
+    @property
+    def text(self)->str:
+        return self._text
+    
+    @text.setter
+    def text(self, new_text:str)->None:
+        self._text=new_text
         
 class VContainer():
     """A drawable container that displays the given components vertically"""
