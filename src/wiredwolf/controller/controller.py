@@ -1,24 +1,31 @@
 from wiredwolf.controller.lobbies import LobbyBrowser
 from wiredwolf.controller.lobbies import Lobby
+from wiredwolf.controller.server import GameServer
 
 
 class GameController:
 
-    __lobby_browser: LobbyBrowser
-    __lobby: Lobby
+    _lobby_browser: LobbyBrowser
+    _lobby: Lobby
+    _server: GameServer
 
     def __init__(self):
-        self.__lobby_browser = LobbyBrowser()
+        self._lobby_browser = LobbyBrowser()
 
-    def create_lobby(self, name=None, password=None):
-        self.__lobby = Lobby(name=name, password=password)
-        self.__lobby_browser.publish_lobby(self.__lobby)
-        return self.__lobby
+    def create_lobby(self, name: str, password: str | None = None):
+        self._lobby = Lobby(name=name, password=password)
+        self._server = GameServer(self._lobby)
+        self._lobby_browser.publish_lobby(
+            self._lobby.name, self._server.connection_socket)
+        return self._lobby
+
+    def join_lobby(self, lobby_name: str, lobby_password: str | None):
+        self._lobby_browser.connect_to_lobby(lobby_name, lobby_password)
 
     @property
     def lobby_browser(self):
-        return self.__lobby_browser
+        return self._lobby_browser
 
     @property
     def lobby(self):
-        return self.__lobby
+        return self._lobby
