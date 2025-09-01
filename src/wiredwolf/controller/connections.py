@@ -39,6 +39,10 @@ class MessageHandler():
     def send(self, endpoint: socket.socket, data: bytes) -> None:
         endpoint.sendall(self.add_length_prefix(data))
 
+    def send_msg(self, endpoint: socket.socket, msg: str) -> None:
+        data = msg.encode('utf-8')
+        self.send(endpoint, data)
+
     def send_obj(self, endpoint: socket.socket, obj: Any) -> None:
         data = self._serializer.serialize(obj)
         self.send(endpoint, data)
@@ -50,9 +54,20 @@ class MessageHandler():
         data_len = int(data_len.decode('utf-8').strip())
         return endpoint.recv(data_len)
 
+    def receive_msg(self, endpoint: socket.socket) -> str:
+        data = self.receive(endpoint)
+        return data.decode('utf-8')
+
     def receive_obj(self, endpoint: socket.socket) -> Any:
         data = self.receive(endpoint)
         return self._serializer.deserialize(data)
+
+
+class MessageHandlerFactory:
+
+    @staticmethod
+    def getDefault() -> MessageHandler:
+        return MessageHandler(PickleSerializer())
 
 
 class ServerConnectionHandler():
@@ -65,9 +80,9 @@ class ServerConnectionHandler():
 
     receive_conn: bool = True
 
-    def __init__(self, on_new_peer: Callable[[Peer, socket.socket], None], bind_address: tuple[str, int] = ("", 0)):
+    def __init__(self, on_new_peer: Callable[[Peer, socket.socket], None], bind_address: tuple[str, int] = ("", 0), server_socket: socket.socket | None = None):
         self._on_new_peer = on_new_peer
-        self._receiver_socket = socket.create_server(bind_address)
+        self._receiver_socket = server_socket if server_socket else socket.create_server(bind_address)
         self._receiver_thread = threading.Thread(
             target=self._handle_connections)
         self._receiver_thread.start()
@@ -93,8 +108,10 @@ class ServerConnectionHandler():
                 client_socket.settimeout(5)  # TODO: magic number
                 try:
                     # First thing peer sends is their identification (serialized peer object)
-                    peer: Peer = self._receiver_message_handler.receive_obj(client_socket)
-                    self._on_new_peer(Peer(peer.name, client_address), client_socket)
+                    peer: Peer = self._receiver_message_handler.receive_obj(
+                        client_socket)
+                    self._on_new_peer(
+                        Peer(peer.name, client_address), client_socket)
                 except TimeoutError:
                     continue
                 finally:
