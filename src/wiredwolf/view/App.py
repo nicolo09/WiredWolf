@@ -1,7 +1,7 @@
 import pygame
 from abc import ABC, abstractmethod
 from wiredwolf.view.Components import VContainer
-from wiredwolf.view.Constants import BACKGROUND_COLOR, Screens
+from wiredwolf.view.Constants import BACKGROUND_COLOR, FontSize, Screens
 from functools import partial
 
 FPS=60
@@ -10,7 +10,6 @@ class App:
     """The main window for the Wiredwolf game"""
     def __init__(self)-> None:
         pygame.init() #initializes pygame modules
-        pygame.font.init()
         self._size=(640, 400) #default starting values
         self._icon = pygame.image.load('resources/icon.png') #load image from file
         pygame.display.set_icon(self._icon) #set image as window icon
@@ -102,11 +101,11 @@ class StartScreen(AbstractScreen):
         super().__init__(display, game_state_manager)
         from wiredwolf.view.Components import CallbackButton, Text, TextField
         go_new_lobby=partial(change_screen, game_state_manager, Screens.NEW_LOBBY)
-        new_lobby_button=CallbackButton(go_new_lobby, 'New Lobby', 200, 50, (0, 0)) 
+        new_lobby_button=CallbackButton(go_new_lobby, 'New Lobby', 250, 50, (0, 0)) 
         go_search_lobby=partial(change_screen, game_state_manager, Screens.SEARCH_LOBBY)
-        search_lobby_button=CallbackButton(go_search_lobby, 'Search for lobbies', 200, 50, (0, 0)) 
-        self._field=TextField(200, 50, (10,10))
-        username_enter=Text("Insert username:", (0,0))
+        search_lobby_button=CallbackButton(go_search_lobby, 'Search for lobbies', 250, 50, (0, 0)) 
+        self._field=TextField(250, 50, (10,10))
+        username_enter=Text("Insert username:", (0,0), FontSize.H2)
         list=[username_enter, self._field, new_lobby_button, search_lobby_button]
         self._v_container=VContainer(10, list, self._display.get_size())
         self._title_container=VContainer(0, [Text("Wiredwolf", (0, 10))], self._display.get_size(), (50, 15))
@@ -128,7 +127,7 @@ class NewLobbyScreen(AbstractScreen):
         super().__init__(display, game_state_manager)
         from wiredwolf.view.Components import CallbackButton, Text
         go_home=partial(change_screen, game_state_manager, Screens.HOME)
-        my_button1=CallbackButton(go_home, 'new lobby screen', 200, 50, (0, 0), "#0033FF", "#5365AD") 
+        my_button1=CallbackButton(go_home, 'new lobby screen', 200, 50, (0, 0),FontSize.H1, "#0033FF", "#5365AD") 
         button_list=[my_button1]
         self._button_container=VContainer(10, button_list, self._display.get_size())
         self._title=Text("Create a new lobby", (0, 10))
@@ -145,7 +144,7 @@ class SearchLobbyScreen(AbstractScreen):
         super().__init__(display, game_state_manager)
         from wiredwolf.view.Components import CallbackButton, Text, SelectorButton, SelectorGroup
         go_home=partial(change_screen, game_state_manager, Screens.HOME)
-        my_button1=CallbackButton(go_home, 'Go back to start screen', 250, 50, (0, 0), "#0033FF", "#5365AD") 
+        my_button1=CallbackButton(go_home, 'Go back to start screen', 250, 50, (0, 0),FontSize.H1, "#0033FF", "#5365AD") 
         button_list=[my_button1]
         self._button_container=VContainer(10, button_list, self._display.get_size(), (50, 80))
         self._title=VContainer(0, [Text("Search for an existing lobby",(0, 10))], self._display.get_size(), (50,10))
@@ -165,7 +164,7 @@ class TestScreen(AbstractScreen):
         super().__init__(display, game_state_manager)
         from wiredwolf.view.Components import CallbackButton
         go_home=partial(change_screen, game_state_manager, Screens.HOME)
-        my_button1=CallbackButton(go_home, 'test screen', 200, 50, (0, 0), "#0033FF", "#5365AD") 
+        my_button1=CallbackButton(go_home, 'test screen', 200, 50, (0, 0), FontSize.H1, "#0033FF", "#5365AD") 
         button_list=[my_button1]
         self._button_container=VContainer(10, button_list, self._display.get_size())
     
