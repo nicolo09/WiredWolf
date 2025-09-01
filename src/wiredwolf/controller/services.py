@@ -27,6 +27,8 @@ class ServiceManager():
     __logger = logging.getLogger(__name__)
 
     __port: int
+    __zeroconf: Zeroconf
+    __service_type: str
 
     def __init__(self, service_type: str):
         self.__zeroconf = Zeroconf()
@@ -36,16 +38,16 @@ class ServiceManager():
         self.__port = receiverSocket.getsockname()[1]
         self.__logger.info(
             f"Registering service {name} on port {self.__port}...")
-        serviceInfo = ServiceInfo(
+        service_info = ServiceInfo(
             type_=self.__service_type,
             name=name + "." + self.__service_type,
             addresses=[socket.inet_aton("127.0.0.1")],
             port=self.__port,
             properties={}
         )
-        self.__zeroconf.register_service(serviceInfo)
+        self.__zeroconf.register_service(service_info)
         self.__logger.info(f"Service {name} registered successfully.")
-        return serviceInfo
+        return service_info
 
     def unregister_service(self, info: ServiceInfo) -> None:
         self.__logger.info(f"Unregistering service {info.name}...")
@@ -63,3 +65,29 @@ class ServiceManager():
 
     def get_service_browser(self, listener: ServiceListener) -> ServiceBrowser:
         return ServiceBrowser(self.__zeroconf, self.__service_type, listener)
+    
+    def connect_to_service(self, service_name: str) -> socket.socket:
+        """Resolves a service by name and connects to it.
+
+        Args:
+            service_name (str): The name of the service to connect to.
+
+        Raises:
+            RuntimeError: If the service cannot be found or connected to.
+
+        Returns:
+            socket.socket: The connected socket.
+        """
+        service_info = self.__zeroconf.get_service_info(self.__service_type, service_name, timeout=5) #TODO Magic number
+        if service_info:
+            self.__logger.info(f"Connecting to service {service_name}...")
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.connect((service_info.addresses[0], service_info.port))
+                return sock
+            except Exception as e:
+                self.__logger.error(f"Error connecting to service {service_name}: {e}")
+                raise RuntimeError(f"Could not connect to service {service_name}.") from e #TODO: Change RuntimeError with something more appropriate
+        else:
+            self.__logger.warning(f"Service {service_name} not found.")
+            raise RuntimeError(f"Service {service_name} not found.") #TODO: Change RuntimeError with something more appropriate
