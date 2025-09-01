@@ -1,9 +1,10 @@
-from wiredwolf.controller.connections import MessageHandler, PickleSerializer
+from wiredwolf.controller.connections import MessageHandler, MessageHandlerFactory, PickleSerializer
 from collections.abc import Callable
 from enum import Enum
 import socket
 
 from wiredwolf.controller.commons import Peer
+from wiredwolf.controller.server import PasswordRequest
 from wiredwolf.controller.services import CallbackServiceListener, ServiceManager
 
 
@@ -23,24 +24,30 @@ class LobbyState(Enum):
 class Lobby:
     """Represents a game lobby."""
 
-    _peers: dict[Peer, socket.socket] = {}
+    _peers: list[Peer] = []
     _state: LobbyState = LobbyState.WAITING_FOR_PLAYERS
     _name: str = ""
     _password: str | None = None
     _message_handler: MessageHandler
 
     def __init__(self, name: str, password: str | None = None):
-        self._peers = {}
+        """Initializes a Lobby instance.
+
+        Args:
+            name (str): The name of the lobby.
+            password (str | None, optional): The password for the lobby, if any. Defaults to None (not password protected).
+        """
+        self._peers = []
         self._state = LobbyState.WAITING_FOR_PLAYERS
         self._name = name
         self._password = password
         self._message_handler = MessageHandler(PickleSerializer())
 
     def add_peer(self, peer: Peer, socket: socket.socket):
-        self._peers[peer] = socket
+        self._peers.append(peer)
 
     def remove_peer(self, peer: Peer):
-        self._peers.pop(peer, None)
+        self._peers.remove(peer)
 
     def is_password_protected(self) -> bool:
         """Returns whether the lobby is password-protected."""
@@ -52,7 +59,7 @@ class Lobby:
         return self._message_handler
 
     @property
-    def peers(self) -> dict[Peer, socket.socket]:
+    def peers(self) -> list[Peer]:
         """Returns the list of peers in the lobby."""
         return self._peers
 
@@ -95,9 +102,9 @@ class LobbyBrowser:
     """
     Handles the discovery and creations/publishment of game lobbies through mDNS.
     """
-    
+    # TODO Handle same lobby name collisions
+
     _service_manager: ServiceManager
-    
 
     def __init__(self):
         self._service_manager = ServiceManager(SERVICE_TYPE)
@@ -141,3 +148,66 @@ class LobbyBrowser:
             self._published_lobby_service_info = None
         else:
             raise RuntimeError("No lobby is currently being published.")
+
+    def _connect(self, sock: socket.socket, lobby_password: str | None) -> tuple[socket.socket, Lobby]:
+        msgHandler = MessageHandlerFactory.getDefault()
+        # Expecting PasswordRequest or lobby
+        recvMsg = msgHandler.receive_obj(sock)
+        if isinstance(recvMsg, PasswordRequest):
+            # Server requested a password...
+            if lobby_password:
+                # ...send the password
+                recvMsg.password = lobby_password
+                msgHandler.send_obj(sock, recvMsg)
+                lobby = msgHandler.receive_obj(sock)
+                if isinstance(lobby, Exception):
+                    # The server returned an error
+                    sock.close()
+                    raise lobby
+                else:
+                    # The server returned a lobby
+                    return sock, lobby
+            else:
+                # ...but no password was provided
+                sock.close()
+                raise ValueError("Lobby requires a password.")
+        elif isinstance(recvMsg, Lobby):
+            if lobby_password:
+                # Password was provided but not needed
+                sock.close()
+                raise ValueError("Lobby does not require a password.")
+            # Successfully joined the lobby
+            return sock, recvMsg
+        else:
+            sock.close()
+            raise RuntimeError("Unexpected message received.")
+
+    def connect_directly(self, address: tuple[str, int], lobby_password: str | None) -> tuple[socket.socket, Lobby]:
+        """
+        Connects directly to a lobby at the given address with the provided password.
+
+        Args:
+            address (tuple[str, int]): The (IP, port) address of the lobby to connect to.
+            lobby_password (str | None): The password for the lobby, or None if not required.
+
+        Returns:
+            tuple[socket.socket, Lobby]: The connected socket and the joined lobby.
+        """
+
+        sock = socket.create_connection(address, timeout=5)
+        return self._connect(sock, lobby_password)
+
+    def connect_to_lobby(self, lobby_name: str, lobby_password: str | None) -> tuple[socket.socket, Lobby]:
+        """
+        Connects to a lobby with the given name and password.
+
+        Args:
+            lobby_name (str): The name of the lobby to connect to.
+            lobby_password (str | None): The password for the lobby, or None if not required.
+
+        Returns:
+            tuple[socket.socket, Lobby]: The connected socket and the joined lobby.
+        """
+
+        sock = self._service_manager.connect_to_service(lobby_name)
+        return self._connect(sock, lobby_password)
