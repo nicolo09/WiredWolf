@@ -57,12 +57,12 @@ class App:
 
     def update_display(self)->None:
         """Called inside the event loop, handles framerate limiting, event handling and scene switching"""
-        self._clock.tick(FPS)
+        pygame.display.update() #necessary or the screen won't draw at all
         self._dictionary[self._game_state_manager.current_state].run(self._next_event)
         self._next_event=None
-        pygame.display.update() #necessary or the screen won't draw at all
         for event in pygame.event.get():
             self._on_event(event) #handles generated events 
+        self._clock.tick(FPS)
 
 class GameStateManager:
     """The game state manager internally stores which scene is displayed"""
@@ -90,7 +90,6 @@ class AbstractScreen(ABC):
         """This is where your screen is displayed"""
         raise NotImplementedError("Please implement this method")
 
-
 def change_screen(game_state_manager:GameStateManager, target_screen:Screens)->None:
     """A function to change the application screen to the given one"""
     game_state_manager.current_state=target_screen
@@ -112,13 +111,17 @@ class StartScreen(AbstractScreen):
         
     def run(self,event:pygame.event.Event)->None:
         """The start screen, the first screen showed at startup"""
-        self._display.fill(BACKGROUND_COLOR) #fills the background color for the application
-        self._v_container.draw(self._display)
-        self._title_container.draw(self._display)#per qualche motivo l'ultimo flickera
         if event is not None:
+            self._display.fill(BACKGROUND_COLOR) #fills the background color for the application
+            self._v_container.draw(self._display)
+            self._title_container.draw(self._display)
             self._field.handle_event(event)
+            tmp=self._field.text
             global username
-            username=self._field.text #save username in global variable
+            if len(tmp)>0 and str.isspace(tmp)==False: #the username field is filled by chars, not empty or only whitespaces
+                username=self._field.text #save username in global variable
+            else:
+                username="username" #default username
         
 
 class NewLobbyScreen(AbstractScreen):

@@ -197,7 +197,6 @@ class VContainer():
         pygame.draw.rect(screen, self._color, self._rect)
         for element in self._elements:
             element.draw(screen)
-        pygame.display.flip() #draws the elements on the screen
 
 class HContainer():
     """A drawable container that displays the given components horizontally"""
@@ -269,7 +268,6 @@ class HContainer():
         pygame.draw.rect(screen, self._color, self._rect)
         for element in self._elements:
             element.draw(screen)
-        pygame.display.flip() #draws the elements on the screen
 
 class PrintButton(AbstractButton):
     """A simple button implementation that prints a test string"""
