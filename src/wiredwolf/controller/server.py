@@ -1,8 +1,6 @@
-from dataclasses import dataclass
 import logging
 import socket
-import uuid
-from wiredwolf.controller.commons import Peer
+from wiredwolf.controller.commons import PasswordRequest, Peer
 from wiredwolf.controller.connections import MessageHandler, ServerConnectionHandler
 from wiredwolf.controller.lobbies import Lobby
 
@@ -33,26 +31,30 @@ class GameServer:
 
     def _on_new_peer(self, peer: Peer, socket: socket.socket):
         self.__logger.info(f"New peer attempting connection: {peer}")
-        if self._lobby.is_password_protected():
-            socket.settimeout(10)  # TODO: Magic number
-            # If the lobby is password-protected, ask for the password
-            req = PasswordRequest()
-            self._message_handler.send_obj(socket, req)
-            resp: PasswordRequest = self._message_handler.receive_obj(socket)
-            if resp.id != req.id:
-                self._message_handler.send_obj(
-                    socket, ValueError("Invalid password request."))
-                return
-            if resp.password and self._lobby.check_password(resp.password):
+        try:
+            if self._lobby.is_password_protected():
+                socket.settimeout(10)  # TODO: Magic number
+                # If the lobby is password-protected, ask for the password
+                req = PasswordRequest()
+                self._message_handler.send_obj(socket, req)
+                resp: PasswordRequest = self._message_handler.receive_obj(socket)
+                if resp.id != req.id:
+                    self._message_handler.send_obj(
+                        socket, ValueError("Invalid password request."))
+                    return
+                if resp.password and self._lobby.check_password(resp.password):
+                    # TODO add peer to lobby and notify everyone
+                    self._message_handler.send_obj(socket, self._lobby)
+                else:
+                    self._message_handler.send_obj(
+                        socket, ValueError("Incorrect password."))
+            else:
+                # If no password is set, add the peer directly
                 # TODO add peer to lobby and notify everyone
                 self._message_handler.send_obj(socket, self._lobby)
-            else:
-                self._message_handler.send_obj(
-                    socket, ValueError("Incorrect password."))
-        else:
-            # If no password is set, add the peer directly
-            # TODO add peer to lobby and notify everyone
-            self._message_handler.send_obj(socket, self._lobby)
+        except Exception as e:
+            self.__logger.error(f"Error handling new peer {peer}: {e}")
+            socket.close()
 
     def start_game(self):
         # TODO: Implement game start logic
@@ -66,8 +68,4 @@ class GameServer:
         self._server.stop_new_connections()
 
 
-@dataclass
-class PasswordRequest:
-    """Represents a password request message."""
-    password: str | None = None
-    id: str = str(uuid.uuid4())
+

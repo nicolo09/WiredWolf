@@ -4,7 +4,7 @@ from enum import Enum
 import socket
 
 from wiredwolf.controller.commons import Peer
-from wiredwolf.controller.server import PasswordRequest
+from wiredwolf.controller.commons import PasswordRequest
 from wiredwolf.controller.services import CallbackServiceListener, ServiceManager
 
 
@@ -96,6 +96,14 @@ class Lobby:
     def vote_innocent(self):
         # TODO: Implement voting logic
         pass
+    
+    def __eq__(self, value: object) -> bool:
+        if not isinstance(value, Lobby):
+            return NotImplemented
+        return (self._name == value._name and
+                self._password == value._password and
+                self._peers == value._peers and
+                self._state == value._state)
 
 
 class LobbyBrowser:
