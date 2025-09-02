@@ -3,7 +3,7 @@ import pygame
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 
-from wiredwolf.view.Constants import BACKGROUND_COLOR, BUTTON_COLOR, BUTTON_HOVER_COLOR, SELECTED_COLOR, TEXT_COLOR, FontSize
+from wiredwolf.view.Constants import BACKGROUND_COLOR, BUTTON_COLOR, BUTTON_DISABLED_COLOR, BUTTON_HOVER_COLOR, SELECTED_COLOR, TEXT_COLOR, FontSize
 
 class DrawableComponent(ABC):
     """A drawable component abstraction"""
@@ -283,6 +283,42 @@ class CallbackButton(AbstractButton):
     def on_click(self)-> None:
         """Calls the callback function"""
         self._callback()
+
+class EnabledButton(CallbackButton):
+    """A button that calls the callback on click, if the button is enabled"""
+    def __init__(self, callback:Callable[[],None], text: str, width:int, height:int, position:tuple[int, int], font:FontSize=FontSize.H1, disabled_color:str=BUTTON_DISABLED_COLOR,default_color:str=BUTTON_COLOR, activation_color:str=BUTTON_HOVER_COLOR)-> None:
+        super().__init__(callback, text, width, height, position, font, default_color, activation_color)
+        self._is_enabled=False
+        self._disabled_color=BUTTON_DISABLED_COLOR
+    
+    @property
+    def is_enabled(self)->bool:
+        """Returns if the button is enabled"""
+        return self._is_enabled
+    
+    @is_enabled.setter
+    def is_enabled(self, value:bool)->None:
+        """Sets if the button is enabled to the given value"""
+        self._is_enabled=value
+
+    def _handle_button_click(self)-> None:
+        """Checks if button has been pressed and starts on click function, if the button is enabled"""
+        if self._is_enabled==True:
+            mouse_pos =pygame.mouse.get_pos() #returns mouse position
+            if self._button_rect.collidepoint(mouse_pos): #is the mouse over the button?
+                self._button_color=self._button_color_hover #changes button color to hover
+                if pygame.mouse.get_pressed()[0]: #[left mouse, middle mouse, right mouse] boolean
+                    self._button_clicked=True #sets button as pressed
+                else:
+                    if self._button_clicked==True:
+                        self.on_click() #does action
+                        self._button_clicked=False #resets button
+                        #if no check is applied the button would be pressed many times per frame
+            else:
+                #mouse button is not pressed, restores original color
+                self._button_color=self._button_color_not_hover
+        else:
+            self._button_color=self._disabled_color
 
 class SelectorButton(AbstractButton):
     """A button that can be selected or unselected"""
