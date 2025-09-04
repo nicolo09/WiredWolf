@@ -33,7 +33,7 @@ class DrawableComponent(ABC):
 
 class AbstractButton(DrawableComponent):
     """A button abstraction, handling all internal button logic"""
-    def __init__(self, text: str, width:int, height:int, position:tuple[int, int], font:FontSize=FontSize.H1, default_color:str=BUTTON_COLOR, activation_color:str=BUTTON_HOVER_COLOR)-> None:
+    def __init__(self, text: str, width:int, height:int, position:tuple[int, int]=(0,0), font:FontSize=FontSize.H1, default_color:str=BUTTON_COLOR, activation_color:str=BUTTON_HOVER_COLOR)-> None:
         self._button_rect=pygame.Rect(position, (width, height)) #position is for top left
         self._button_color_not_hover=default_color #default color when not hovering
         self._button_color_hover=activation_color #default color when hovering
@@ -92,7 +92,7 @@ class AbstractButton(DrawableComponent):
     
 class Text(DrawableComponent):
     """Text displayed in the window"""
-    def __init__(self, text: str, coords:tuple[int, int], font:FontSize=FontSize.H1, color:str=TEXT_COLOR)-> None:
+    def __init__(self, text: str, coords:tuple[int, int]=(0,0), font:FontSize=FontSize.H1, color:str=TEXT_COLOR)-> None:
         self._font=font.value
         self._text=text
         self._coords=coords
@@ -277,7 +277,7 @@ class PrintButton(AbstractButton):
 
 class CallbackButton(AbstractButton):
     """A button that calls the callback on click"""
-    def __init__(self, callback:Callable[[],None], text: str, width:int, height:int, position:tuple[int, int], font:FontSize=FontSize.H1, default_color:str=BUTTON_COLOR, activation_color:str=BUTTON_HOVER_COLOR)-> None:
+    def __init__(self, callback:Callable[[],None], text: str, width:int, height:int, position:tuple[int, int]=(0,0), font:FontSize=FontSize.H1, default_color:str=BUTTON_COLOR, activation_color:str=BUTTON_HOVER_COLOR)-> None:
         super().__init__(text, width, height, position, font, default_color, activation_color)
         self._callback=callback
     def on_click(self)-> None:
@@ -286,7 +286,7 @@ class CallbackButton(AbstractButton):
 
 class EnabledButton(CallbackButton):
     """A button that calls the callback on click, if the button is enabled"""
-    def __init__(self, callback:Callable[[],None], text: str, width:int, height:int, position:tuple[int, int], font:FontSize=FontSize.H1, disabled_color:str=BUTTON_DISABLED_COLOR,default_color:str=BUTTON_COLOR, activation_color:str=BUTTON_HOVER_COLOR)-> None:
+    def __init__(self, callback:Callable[[],None], text: str, width:int, height:int, position:tuple[int, int]=(0,0), font:FontSize=FontSize.H1, disabled_color:str=BUTTON_DISABLED_COLOR,default_color:str=BUTTON_COLOR, activation_color:str=BUTTON_HOVER_COLOR)-> None:
         super().__init__(callback, text, width, height, position, font, default_color, activation_color)
         self._is_enabled=False
         self._disabled_color=BUTTON_DISABLED_COLOR
@@ -322,7 +322,7 @@ class EnabledButton(CallbackButton):
 
 class SelectorButton(AbstractButton):
     """A button that can be selected or unselected"""
-    def __init__(self, text: str, width:int, height:int, position:tuple[int, int], font:FontSize=FontSize.H1, default_color:str=BUTTON_COLOR, activation_color:str=BUTTON_HOVER_COLOR, selected_color:str=SELECTED_COLOR)-> None:
+    def __init__(self, text: str, width:int, height:int, position:tuple[int, int]=(0,0), font:FontSize=FontSize.H1, default_color:str=BUTTON_COLOR, activation_color:str=BUTTON_HOVER_COLOR, selected_color:str=SELECTED_COLOR)-> None:
         super().__init__(text, width, height, position, font, default_color, activation_color)
         self._selected=False
         self._selected_color=selected_color
@@ -436,7 +436,7 @@ class SelectorGroup():
 
 class TextField(DrawableComponent):
     """A drawable text field. When the user clicks on the field and writes, it displays what is being written"""
-    def __init__(self, width:int, height:int, position:tuple[int, int], font:FontSize=FontSize.H1, text_color:str=TEXT_COLOR, active_color:str=BUTTON_HOVER_COLOR, not_active_color:str=BUTTON_COLOR)->None:
+    def __init__(self, width:int, height:int, position:tuple[int, int]=(0,0), font:FontSize=FontSize.H1, text_color:str=TEXT_COLOR, active_color:str=BUTTON_HOVER_COLOR, not_active_color:str=BUTTON_COLOR)->None:
         self._rect = pygame.Rect(position, (width, height))
         self._not_active_color = not_active_color
         self._active_color=active_color
