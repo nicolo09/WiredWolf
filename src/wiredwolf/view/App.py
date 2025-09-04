@@ -23,8 +23,9 @@ class App:
         self._test_screen=TestScreen(self._display_screen, self._game_state_manager)
         self._new_lobby_screen=NewLobbyScreen(self._display_screen, self._game_state_manager)
         self._search_lobby_screen=SearchLobbyScreen(self._display_screen, self._game_state_manager)
+        self._waiting_lobby=WaitingLobbyScreen(self._display_screen, self._game_state_manager)
         self._dictionary={Screens.HOME: self._start_screen, Screens.TEST:self._test_screen, 
-                          Screens.NEW_LOBBY:self._new_lobby_screen, Screens.SEARCH_LOBBY:self._search_lobby_screen}
+                          Screens.NEW_LOBBY:self._new_lobby_screen, Screens.SEARCH_LOBBY:self._search_lobby_screen, Screens.LOBBY_WAITING:self._waiting_lobby}
         self._clock = pygame.time.Clock()
         self._next_event=None
         
@@ -133,7 +134,7 @@ class NewLobbyScreen(AbstractScreen):
         self._title=VContainer(10,[Text("Create a new lobby", (0, 10))], self._display.get_size(),(50,20))
         lobby_name=Text("Insert the new lobby name", (0,0), FontSize.H2)
         self._field=TextField(300, 50, (0,0))
-        create_lobby=partial(change_screen, game_state_manager, Screens.TEST)
+        create_lobby=partial(change_screen, game_state_manager, Screens.LOBBY_WAITING)
         self._create_lobby_button=EnabledButton(create_lobby, 'Create the new lobby!', 300, 50, (0, 0), FontSize.H2)
         go_home=partial(change_screen, game_state_manager, Screens.HOME)
         go_home_button=CallbackButton(go_home, 'Go back to start screen', 300, 50, (0, 0), FontSize.H2)
@@ -167,7 +168,7 @@ class SearchLobbyScreen(AbstractScreen):
         self._selector=SelectorGroup(selector_list) #This handles how the selectors BEHAVE as a group
         self._lobby_group=VContainer(20, selector_list, self._display.get_size()) #This handles how the selectors are DISPLAYED
         go_home=partial(change_screen, game_state_manager, Screens.HOME)
-        join_lobby=partial(change_screen, game_state_manager, Screens.TEST)
+        join_lobby=partial(change_screen, game_state_manager, Screens.LOBBY_WAITING)
         self._join_button=EnabledButton(join_lobby, 'Join selected lobby', 300, 50, (0, 0),FontSize.H2)
         self._buttons=HContainer(10, [CallbackButton(go_home, 'Go back to start screen', 300, 50, (0, 0),FontSize.H2), self._join_button], self._display.get_size(), (50, 80))
     
@@ -199,6 +200,24 @@ class TestScreen(AbstractScreen):
         """The test screen, to check for scene changes"""
         self._display.fill("#25A839")
         self._button_container.draw(self._display)
+
+class WaitingLobbyScreen(AbstractScreen):
+    """The waiting room after joining a lobby"""
+    def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
+        super().__init__(display, game_state_manager)
+        from wiredwolf.view.Components import Text
+        self._title_container=VContainer(0, [Text("Waiting for other players to join", (0,0))], self._display.get_size(), (50,20))
+        self._waiting=VContainer(0,[Text("1 player connected...", (0,0))], self._display.get_size()) #TODO: how many connected users are waiting?
+        
+    def run(self,event:pygame.event.Event)->None:
+        """A simple waiting screen"""
+        self._display.fill(BACKGROUND_COLOR) #fills the background color for the application
+        self._title_container.draw(self._display)
+        self._waiting.draw(self._display)
+        if event is not None:
+            if event.type==pygame.KEYUP and event.key==pygame.K_RETURN:
+                #TODO: change screen when all users have joined the waiting room
+                self._game_state_manager.current_state=Screens.TEST
 
 if __name__ == "__main__":
     my_app=App()
