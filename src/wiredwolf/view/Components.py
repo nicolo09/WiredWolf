@@ -189,14 +189,19 @@ class VContainer():
         if win_size!=self._win_size:
             self._win_size=win_size
             #window size was changed, re-center container
-            self._set_top_left_position()
-            self._rect.x=self._top_left_pos[0]
-            self._rect.y=self._top_left_pos[1]
-            #re-centers buttons inside the new container
-            self._center_elements()
+            self.manually_update()
         pygame.draw.rect(screen, self._color, self._rect)
         for element in self._elements:
             element.draw(screen)
+    
+    def manually_update(self)->None:
+        """If any component inside the container is changed (ex a Text.text), call this function to trigger an update to the size of the container"""
+        self._set_dimensions()
+        self._set_top_left_position()
+        self._rect.x=self._top_left_pos[0]
+        self._rect.y=self._top_left_pos[1]
+        self._center_elements()
+
 
 class HContainer():
     """A drawable container that displays the given components horizontally"""
@@ -260,14 +265,19 @@ class HContainer():
         if win_size!=self._win_size:
             self._win_size=win_size
             #window size was changed, re-center container
-            self._set_top_left_position()
-            self._rect.x=self._top_left_pos[0]
-            self._rect.y=self._top_left_pos[1]
-            #re-centers buttons inside the new container
-            self._center_elements()
+            self.manually_update()
         pygame.draw.rect(screen, self._color, self._rect)
         for element in self._elements:
             element.draw(screen)
+    
+    def manually_update(self)->None:
+        """If any component inside the container is changed (ex a Text.text), call this function to trigger an update to the size of the container"""
+        self._set_dimensions()
+        self._set_top_left_position()
+        self._rect.x=self._top_left_pos[0]
+        self._rect.y=self._top_left_pos[1]
+        #re-centers buttons inside the new container
+        self._center_elements()
 
 class PrintButton(AbstractButton):
     """A simple button implementation that prints a test string"""
