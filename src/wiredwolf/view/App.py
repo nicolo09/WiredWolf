@@ -6,8 +6,7 @@ from functools import partial
 
 FPS=60
 username=""
-selected_lobby_name=""
-new_lobby_name=""
+lobby_name=""
 class App:
     """The main window for the Wiredwolf game"""
     def __init__(self)-> None:
@@ -103,11 +102,11 @@ class StartScreen(AbstractScreen):
         super().__init__(display, game_state_manager)
         from wiredwolf.view.Components import CallbackButton, Text, TextField
         go_new_lobby=partial(change_screen, game_state_manager, Screens.NEW_LOBBY)
-        new_lobby_button=CallbackButton(go_new_lobby, 'New Lobby', 250, 50, (0, 0)) 
+        new_lobby_button=CallbackButton(go_new_lobby, 'New Lobby', 250, 50) 
         go_search_lobby=partial(change_screen, game_state_manager, Screens.SEARCH_LOBBY)
-        search_lobby_button=CallbackButton(go_search_lobby, 'Search for lobbies', 250, 50, (0, 0)) 
-        self._field=TextField(250, 50, (10,10))
-        username_enter=Text("Insert username:", (0,0), FontSize.H2)
+        search_lobby_button=CallbackButton(go_search_lobby, 'Search for lobbies', 250, 50) 
+        self._field=TextField(250, 50)
+        username_enter=Text("Insert username:", font=FontSize.H2)
         list=[username_enter, self._field, new_lobby_button, search_lobby_button]
         self._v_container=VContainer(10, list, self._display.get_size())
         self._title_container=VContainer(0, [Text("Wiredwolf", (0, 10))], self._display.get_size(), (50, 15))
@@ -131,13 +130,13 @@ class NewLobbyScreen(AbstractScreen):
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
         from wiredwolf.view.Components import CallbackButton, Text, TextField, EnabledButton
-        self._title=VContainer(10,[Text("Create a new lobby", (0, 10))], self._display.get_size(),(50,20))
-        lobby_name=Text("Insert the new lobby name", (0,0), FontSize.H2)
-        self._field=TextField(300, 50, (0,0))
+        self._title=VContainer(10,[Text("Create a new lobby")], self._display.get_size(),(50,20))
+        lobby_name=Text("Insert the new lobby name", font=FontSize.H2)
+        self._field=TextField(300, 50)
         create_lobby=partial(change_screen, game_state_manager, Screens.LOBBY_WAITING)
-        self._create_lobby_button=EnabledButton(create_lobby, 'Create the new lobby!', 300, 50, (0, 0), FontSize.H2)
+        self._create_lobby_button=EnabledButton(create_lobby, 'Create the new lobby!', 300, 50,font=FontSize.H2)
         go_home=partial(change_screen, game_state_manager, Screens.HOME)
-        go_home_button=CallbackButton(go_home, 'Go back to start screen', 300, 50, (0, 0), FontSize.H2)
+        go_home_button=CallbackButton(go_home, 'Go back to start screen', 300, 50,font=FontSize.H2)
         self._button_container=VContainer(10, [lobby_name, self._field, self._create_lobby_button], self._display.get_size())
         self._button_back=VContainer(10, [go_home_button], self._display.get_size(), (50, 80))
     
@@ -150,27 +149,27 @@ class NewLobbyScreen(AbstractScreen):
         if event is not None:
             self._field.handle_event(event)
             tmp=self._field.text
-            global new_lobby_name
+            global lobby_name
             if len(tmp)>0 and str.isspace(tmp)==False: #the lobby name field is filled by chars, not empty or only whitespaces
-                new_lobby_name=self._field.text #save new lobby name in global variable
+                lobby_name=self._field.text #save new lobby name in global variable
                 self._create_lobby_button.is_enabled=True
             else:
                 self._create_lobby_button.is_enabled=False
-                new_lobby_name=""
+                lobby_name=""
 
 class SearchLobbyScreen(AbstractScreen):
     """A simple search lobby screen"""
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
         from wiredwolf.view.Components import CallbackButton, Text, SelectorButton, SelectorGroup, EnabledButton
-        self._title=VContainer(0, [Text("Search for an existing lobby",(0, 10))], self._display.get_size(), (50, 10))
-        selector_list=[SelectorButton("Lobby 1", 100,20, (0,0)), SelectorButton("Lobby 2", 100,20, (0,0)), SelectorButton("Lobby 3", 100,20, (0,0))]
+        self._title=VContainer(0, [Text("Search for an existing lobby")], self._display.get_size(), (50, 10))
+        selector_list=[SelectorButton("Lobby 1", 100,20), SelectorButton("Lobby 2", 100,20), SelectorButton("Lobby 3", 100,20)]
         self._selector=SelectorGroup(selector_list) #This handles how the selectors BEHAVE as a group
         self._lobby_group=VContainer(20, selector_list, self._display.get_size()) #This handles how the selectors are DISPLAYED
         go_home=partial(change_screen, game_state_manager, Screens.HOME)
         join_lobby=partial(change_screen, game_state_manager, Screens.LOBBY_WAITING)
-        self._join_button=EnabledButton(join_lobby, 'Join selected lobby', 300, 50, (0, 0),FontSize.H2)
-        self._buttons=HContainer(10, [CallbackButton(go_home, 'Go back to start screen', 300, 50, (0, 0),FontSize.H2), self._join_button], self._display.get_size(), (50, 80))
+        self._join_button=EnabledButton(join_lobby, 'Join selected lobby', 300, 50,font=FontSize.H2)
+        self._buttons=HContainer(10, [CallbackButton(go_home, 'Go back to start screen', 300, 50,font=FontSize.H2), self._join_button], self._display.get_size(), (50, 80))
     
     def run(self,event:pygame.event.Event)->None:
         """The search lobby screen, to search for existing lobbies"""
@@ -178,12 +177,12 @@ class SearchLobbyScreen(AbstractScreen):
         self._title.draw(self._display)
         self._lobby_group.draw(self._display)
         self._buttons.draw(self._display)
-        global selected_lobby_name
+        global lobby_name
         tmp=self._selector.selectedText()
         if len(tmp)>0:
             self._join_button._is_enabled=True
-            if selected_lobby_name!=tmp:
-                selected_lobby_name=tmp
+            if lobby_name!=tmp:
+                lobby_name=tmp
         else:
             self._join_button._is_enabled=False
 class TestScreen(AbstractScreen):
@@ -192,7 +191,7 @@ class TestScreen(AbstractScreen):
         super().__init__(display, game_state_manager)
         from wiredwolf.view.Components import CallbackButton
         go_home=partial(change_screen, game_state_manager, Screens.HOME)
-        my_button1=CallbackButton(go_home, 'test screen', 200, 50, (0, 0), FontSize.H1, "#0033FF", "#5365AD") 
+        my_button1=CallbackButton(go_home, 'test screen', 200, 50, font=FontSize.H1, default_color="#0033FF", activation_color="#5365AD") 
         button_list=[my_button1]
         self._button_container=VContainer(10, button_list, self._display.get_size())
     
@@ -206,14 +205,28 @@ class WaitingLobbyScreen(AbstractScreen):
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
         from wiredwolf.view.Components import Text
-        self._title_container=VContainer(0, [Text("Waiting for other players to join", (0,0))], self._display.get_size(), (50,20))
-        self._waiting=VContainer(0,[Text("1 player connected...", (0,0))], self._display.get_size()) #TODO: how many connected users are waiting?
+        global lobby_name
+        self._local_lobby=lobby_name
+        self._title=Text("Waiting for other players to join "+self._local_lobby+" lobby")
+        self._title_container=VContainer(0, [self._title], self._display.get_size(), (50,20))
+        self._waiting=VContainer(0,[Text("1 player connected...", font=FontSize.H2)], self._display.get_size()) #TODO: how many connected users are waiting?
+        self._trigger_update=False
         
     def run(self,event:pygame.event.Event)->None:
         """A simple waiting screen"""
+        global lobby_name
+        if lobby_name!=self._local_lobby:
+            #Since this screen is started before the lobby is chosen, this updates the display
+            self._local_lobby=lobby_name
+            self._title.text="Waiting for other players to join "+self._local_lobby+" lobby"
+            self._trigger_update=True #Once this component is drawn the size of the text box has yet to change, so a manual update after draw is needed
         self._display.fill(BACKGROUND_COLOR) #fills the background color for the application
         self._title_container.draw(self._display)
         self._waiting.draw(self._display)
+        if self._trigger_update:
+            #Title has changed text and dimensions, update the container with the new dimensions
+            self._title_container.manually_update()
+            self._trigger_update=False
         if event is not None:
             if event.type==pygame.KEYUP and event.key==pygame.K_RETURN:
                 #TODO: change screen when all users have joined the waiting room
