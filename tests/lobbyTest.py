@@ -22,3 +22,11 @@ class LobbyTest(unittest.TestCase):
 
         lobby_browser.stop_publishing_lobby()
         server.stop_new_connections()
+
+    def test_client_connect_to_server(self):
+        PASSWORD = "password123"
+        lobby: Lobby = Lobby("Test Lobby", PASSWORD)
+        server: GameServer = GameServer(lobby)
+        browser = LobbyBrowser()
+        browser.connect_to_lobby_directly(("127.0.0.1", server.connection_socket.getsockname()[1]), PASSWORD)
+        server.stop_new_connections()

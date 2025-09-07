@@ -1,5 +1,6 @@
 import logging
 import socket
+from wiredwolf.controller import TIMEOUT
 from wiredwolf.controller.commons import PasswordRequest, Peer
 from wiredwolf.controller.connections import MessageHandler, ServerConnectionHandler
 from wiredwolf.controller.lobbies import Lobby
@@ -33,7 +34,7 @@ class GameServer:
         self.__logger.info(f"New peer attempting connection: {peer}")
         try:
             if self._lobby.is_password_protected():
-                socket.settimeout(10)  # TODO: Magic number
+                socket.settimeout(TIMEOUT)  # TODO: Magic number
                 # If the lobby is password-protected, ask for the password
                 req = PasswordRequest()
                 self._message_handler.send_obj(socket, req)

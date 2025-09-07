@@ -3,6 +3,8 @@ import logging
 import socket
 from zeroconf import ServiceBrowser, ServiceInfo, ServiceListener, Zeroconf
 
+from wiredwolf.controller import TIMEOUT
+
 
 class CallbackServiceListener(ServiceListener):
 
@@ -78,7 +80,7 @@ class ServiceManager():
         Returns:
             socket.socket: The connected socket.
         """
-        service_info = self.__zeroconf.get_service_info(self.__service_type, service_name, timeout=5) #TODO Magic number
+        service_info = self.__zeroconf.get_service_info(self.__service_type, service_name, timeout=TIMEOUT)
         if service_info:
             self.__logger.info(f"Connecting to service {service_name}...")
             try:

@@ -5,6 +5,7 @@ import threading
 from typing import Any
 import pickle
 
+from wiredwolf.controller import TIMEOUT
 from wiredwolf.controller.commons import Peer
 
 
@@ -105,7 +106,7 @@ class ServerConnectionHandler():
                 client_socket, client_address = self._receiver_socket.accept()
                 self.__logger.info(
                     f"Accepted connection from {client_address}")
-                client_socket.settimeout(5)  # TODO: magic number
+                client_socket.settimeout(TIMEOUT)
                 try:
                     # First thing peer sends is their identification (serialized peer object)
                     peer: Peer = self._receiver_message_handler.receive_obj(
@@ -137,8 +138,8 @@ class ClientConnectionHandler(MessageHandler):
         """Connects to a server at the specified address and port."""
         try:
             self._socket = socket.create_connection(
-                address, timeout=5)  # TODO: Magic number
-            self._socket.settimeout(5)  # TODO: Magic number
+                address, timeout=TIMEOUT)  # TODO: Magic number
+            self._socket.settimeout(TIMEOUT)  # TODO: Magic number
             self._message_handler.send_obj(self._socket, self._peer)
             return self._socket
         except OSError as e:

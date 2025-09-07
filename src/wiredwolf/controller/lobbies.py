@@ -1,3 +1,4 @@
+from wiredwolf.controller import TIMEOUT
 from wiredwolf.controller.connections import MessageHandler, MessageHandlerFactory, PickleSerializer
 from collections.abc import Callable
 from enum import Enum
@@ -158,7 +159,7 @@ class LobbyBrowser:
             raise RuntimeError("No lobby is currently being published.")
 
     def _connect(self, sock: socket.socket, lobby_password: str | None) -> tuple[socket.socket, Lobby]:
-        msgHandler = MessageHandlerFactory.getDefault()
+        msgHandler = MessageHandlerFactory.getDefault() #TODO: Allow custom message handlers by constructor parameter
         # Expecting PasswordRequest or lobby
         recvMsg = msgHandler.receive_obj(sock)
         if isinstance(recvMsg, PasswordRequest):
@@ -173,7 +174,7 @@ class LobbyBrowser:
                     sock.close()
                     raise lobby
                 else:
-                    # The server returned a lobby
+                    # The server returned a lobby, successfully joined
                     return sock, lobby
             else:
                 # ...but no password was provided
@@ -190,7 +191,7 @@ class LobbyBrowser:
             sock.close()
             raise RuntimeError("Unexpected message received.")
 
-    def connect_directly(self, address: tuple[str, int], lobby_password: str | None) -> tuple[socket.socket, Lobby]:
+    def connect_to_lobby_directly(self, address: tuple[str, int], lobby_password: str | None) -> tuple[socket.socket, Lobby]:
         """
         Connects directly to a lobby at the given address with the provided password.
 
@@ -202,10 +203,10 @@ class LobbyBrowser:
             tuple[socket.socket, Lobby]: The connected socket and the joined lobby.
         """
 
-        sock = socket.create_connection(address, timeout=5)
+        sock = socket.create_connection(address, timeout=TIMEOUT)
         return self._connect(sock, lobby_password)
 
-    def connect_to_lobby(self, lobby_name: str, lobby_password: str | None) -> tuple[socket.socket, Lobby]:
+    def connect_to_lobby_by_name(self, lobby_name: str, lobby_password: str | None) -> tuple[socket.socket, Lobby]:
         """
         Connects to a lobby with the given name and password.
 

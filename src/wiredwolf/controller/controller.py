@@ -20,7 +20,7 @@ class GameController:
         return self._lobby
 
     def join_lobby(self, lobby_name: str, lobby_password: str | None):
-        self._lobby_browser.connect_to_lobby(lobby_name, lobby_password)
+        self._lobby_browser.connect_to_lobby_by_name(lobby_name, lobby_password)
 
     @property
     def lobby_browser(self):
