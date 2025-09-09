@@ -1,3 +1,4 @@
+import textwrap
 from typing import Sequence
 import pygame
 from abc import ABC, abstractmethod
@@ -201,7 +202,6 @@ class VContainer():
         self._rect.x=self._top_left_pos[0]
         self._rect.y=self._top_left_pos[1]
         self._center_elements()
-
 
 class HContainer():
     """A drawable container that displays the given components horizontally"""
@@ -502,6 +502,106 @@ class TextField(DrawableComponent):
         """Sets the given position as a the top left coords of the text field position"""
         self._rect.x=value[0]
         self._rect.y=value[1]
+
+class MemoryTextField(TextField):
+    """A drawable text field. When the user clicks on the field and writes, it displays what is being written. On enter the text is cleared and saved in last_input"""
+    def __init__(self, width:int, height:int, position:tuple[int, int]=(0,0), font:FontSize=FontSize.H1, text_color:str=TEXT_COLOR, active_color:str=BUTTON_HOVER_COLOR, not_active_color:str=BUTTON_COLOR)->None:
+        super().__init__(width, height, position, font, text_color, active_color, not_active_color)
+        self._last_input=""
+
+    @property
+    def last_input(self)->str:
+        """Returns the last element sent saved into memory"""
+        return self._last_input
+    
+    def reset_last_input(self)->None:
+        """Resets the last element saved saved into memory"""
+        self._last_input=""
+
+    def handle_event(self, event:pygame.event.Event)->None:
+        """Handles events and updates the text shown"""
+        if event.type== pygame.MOUSEBUTTONDOWN and self._rect.collidepoint(event.pos):
+            #if the user clicks inside the rectangle, the text box is activated or not
+            self._active=not self._active
+            #changes color
+            if self._current_color==self._active_color:
+                self._current_color=self._not_active_color
+            else:
+                self._current_color=self._active_color
+        if event.type==pygame.KEYUP and self._active==True:
+            if event.key == pygame.K_BACKSPACE:
+                #deletes the last char
+                self._text = self._text[:-1]
+            else:
+                if event.key!=pygame.K_RETURN: #skips enters, otherwise a "􏿮" is displayed
+                    #adds the char to the text
+                    self._text = self._text+event.unicode
+                else:
+                    #Enter is pressed, so the text is saved and input box is wiped
+                    self._last_input=self._text
+                    self._text=""
+
+class LimitedList():
+    """This class models a list with a limited number of elements. After the limit is reached, the element in the last position is removed"""
+    def __init__(self, max_elements:int) -> None:
+        self._list=[]
+        self._max_elements=max_elements
+
+    @property
+    def list(self)->list[str]:
+        """Returns the list"""
+        return self._list
+    
+    @property
+    def max_elements(self)->int:
+        """Returns the max elements that the list can contain"""
+        return self._max_elements
+
+    def add_element(self, element:str):
+        """Adds the element to head of the list, if necessay by removing the last element"""
+        self._list.insert(0, element) #adds element to the start of the list
+        if len(self._list)>self._max_elements:
+            #deletes oldest element
+            self._list.pop()
+
+class MultipleTexts():
+    """Displays vertically multiple texts, the elements as shown in the given list. If list is not full, empty texts are created"""
+    def __init__(self, list:LimitedList, vertical_div:int, win_size:tuple[int,int], position:tuple[int,int]=(50,50)) -> None:
+        self._list=list
+        self._max_elements=list.max_elements
+        self._texts_list=[]
+        for i in range(self._max_elements):
+            #fills the list of empty text elements
+            self._texts_list.append(Text(""))
+        self._container=VContainer(vertical_div, self._texts_list, win_size, position)
+        #After having a VContainer with max_elements empty texts, the texts are changed to the elements of the list
+        self._fill_texts()
+
+    def _fill_texts(self)->None:
+        """Reads the elements from the list and updates the texts shown"""
+        reversed_list=self._list.list[::-1] #reversed list
+        #if there are x elements in the reversed list, y empty text must be placed to have a x+y=max_elements list
+        empty_spaces=self._max_elements-len(reversed_list) 
+        offset=empty_spaces #the list of elements is traversed from the start so, empty spaces = list of texts-number
+        for i in range(self._max_elements):
+            if empty_spaces!=0:
+                #First place the empty spaces
+                empty_spaces=empty_spaces-1
+                self._texts_list[i].text=""
+            else:
+                #Then the elements
+                self._texts_list[i].text=reversed_list[i-offset]
+        #a manual update is necessary otherwise the container centers with the elements of the previous lenght
+        #This forces the container to read the new text size and will use the updated sizes
+        self._container.manually_update()
+
+    def on_list_change(self)->None:
+        """Call this function to update the texts shown"""
+        self._fill_texts()
+
+    def draw(self, screen: pygame.Surface):
+        """Draws the texts vertically on the given surface"""
+        self._container.draw(screen)
 
 if __name__ == "__main__":
     print("Hello world")
