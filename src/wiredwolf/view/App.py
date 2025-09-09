@@ -1,3 +1,4 @@
+import textwrap
 import pygame
 from abc import ABC, abstractmethod
 from wiredwolf.view.Components import VContainer, HContainer
@@ -7,6 +8,8 @@ from functools import partial
 FPS=60
 username=""
 lobby_name=""
+WRAP_LINE_WIDTH=25
+MAX_MESSAGES_DISPLAYED=10
 class App:
     """The main window for the Wiredwolf game"""
     def __init__(self)-> None:
@@ -23,8 +26,13 @@ class App:
         self._new_lobby_screen=NewLobbyScreen(self._display_screen, self._game_state_manager)
         self._search_lobby_screen=SearchLobbyScreen(self._display_screen, self._game_state_manager)
         self._waiting_lobby=WaitingLobbyScreen(self._display_screen, self._game_state_manager)
-        self._dictionary={Screens.HOME: self._start_screen, Screens.TEST:self._test_screen, 
-                          Screens.NEW_LOBBY:self._new_lobby_screen, Screens.SEARCH_LOBBY:self._search_lobby_screen, Screens.LOBBY_WAITING:self._waiting_lobby}
+        self._day_chat=DayChat(self._display_screen, self._game_state_manager)
+        self._dictionary={Screens.HOME: self._start_screen,
+                          Screens.TEST:self._test_screen, 
+                          Screens.NEW_LOBBY:self._new_lobby_screen, 
+                          Screens.SEARCH_LOBBY:self._search_lobby_screen, 
+                          Screens.LOBBY_WAITING:self._waiting_lobby,
+                          Screens.DAY_CHAT:self._day_chat}
         self._clock = pygame.time.Clock()
         self._next_event=None
         
@@ -230,7 +238,36 @@ class WaitingLobbyScreen(AbstractScreen):
         if event is not None:
             if event.type==pygame.KEYUP and event.key==pygame.K_RETURN:
                 #TODO: change screen when all users have joined the waiting room
-                self._game_state_manager.current_state=Screens.TEST
+                self._game_state_manager.current_state=Screens.DAY_CHAT
+
+class DayChat(AbstractScreen):
+    """The waiting room after joining a lobby"""
+    def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
+        super().__init__(display, game_state_manager)
+        from wiredwolf.view.Components import MultipleTexts,LimitedList, MemoryTextField
+        self._my_limited_list=LimitedList(MAX_MESSAGES_DISPLAYED)
+        self._multiple_texts=MultipleTexts(self._my_limited_list, 5, self._display.get_size(), (70, 50))
+        self._text_box=MemoryTextField(200, 50)
+        self._container_text=VContainer(0, [self._text_box], self._display.get_size(), (20,50))
+        self._last_message=""
+
+    def run(self,event:pygame.event.Event)->None:
+        """A simple waiting screen"""
+        self._display.fill(BACKGROUND_COLOR)
+        self._multiple_texts.draw(self._display)
+        self._container_text.draw(self._display)
+        if event is not None:
+            self._text_box.handle_event(event)
+            tmp=self._text_box.last_input
+            if len(tmp)>0 and str.isspace(tmp)==False:
+                #if the message is not the last message sent and it's not empty, then send the new message
+                self._text_box.reset_last_input() #wipe memory
+                global username
+                message=textwrap.wrap(username+":"+tmp, width=WRAP_LINE_WIDTH)
+                #too long messages will be split on multiple lines
+                for elem in message:
+                    self._my_limited_list.add_element(elem) #adds message to messages sent
+                self._multiple_texts.on_list_change() #displays the new message(s)
 
 if __name__ == "__main__":
     my_app=App()
