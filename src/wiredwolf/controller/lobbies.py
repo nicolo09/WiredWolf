@@ -158,8 +158,10 @@ class LobbyBrowser:
         else:
             raise RuntimeError("No lobby is currently being published.")
 
-    def _connect(self, sock: socket.socket, lobby_password: str | None) -> tuple[socket.socket, Lobby]:
+    def _connect(self, sock: socket.socket, peer: Peer,lobby_password: str | None) -> tuple[socket.socket, Lobby]:
         msgHandler = MessageHandlerFactory.getDefault() #TODO: Allow custom message handlers by constructor parameter
+        # Sending my peer info to the server
+        msgHandler.send_obj(sock, peer)
         # Expecting PasswordRequest or lobby
         recvMsg = msgHandler.receive_obj(sock)
         if isinstance(recvMsg, PasswordRequest):
@@ -191,7 +193,7 @@ class LobbyBrowser:
             sock.close()
             raise RuntimeError("Unexpected message received.")
 
-    def connect_to_lobby_directly(self, address: tuple[str, int], lobby_password: str | None) -> tuple[socket.socket, Lobby]:
+    def connect_to_lobby_directly(self, peer: Peer, address: tuple[str, int], lobby_password: str | None) -> tuple[socket.socket, Lobby]:
         """
         Connects directly to a lobby at the given address with the provided password.
 
@@ -204,9 +206,9 @@ class LobbyBrowser:
         """
 
         sock = socket.create_connection(address, timeout=TIMEOUT)
-        return self._connect(sock, lobby_password)
+        return self._connect(sock, peer, lobby_password)
 
-    def connect_to_lobby_by_name(self, lobby_name: str, lobby_password: str | None) -> tuple[socket.socket, Lobby]:
+    def connect_to_lobby_by_name(self, peer: Peer, lobby_name: str, lobby_password: str | None) -> tuple[socket.socket, Lobby]:
         """
         Connects to a lobby with the given name and password.
 
@@ -219,4 +221,4 @@ class LobbyBrowser:
         """
 
         sock = self._service_manager.connect_to_service(lobby_name)
-        return self._connect(sock, lobby_password)
+        return self._connect(sock, peer, lobby_password)

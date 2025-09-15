@@ -1,4 +1,5 @@
 import unittest
+from wiredwolf.controller.commons import Peer
 from wiredwolf.controller.lobbies import Lobby, LobbyBrowser
 from wiredwolf.controller.server import GameServer
 
@@ -28,5 +29,9 @@ class LobbyTest(unittest.TestCase):
         lobby: Lobby = Lobby("Test Lobby", PASSWORD)
         server: GameServer = GameServer(lobby)
         browser = LobbyBrowser()
-        browser.connect_to_lobby_directly(("127.0.0.1", server.connection_socket.getsockname()[1]), PASSWORD)
+        # TODO: il problema è che sia il server che il client aspettano che l'altro inizi a parlare, 
+        # il client aspetta la lobby mentre il server aspetta il peer serializzato
+        # Ref: connections.py:111, lobbies.py:164
+        myself = Peer("Test Peer", "127.0.0.1")
+        browser.connect_to_lobby_directly(myself, ("127.0.0.1", server.connection_socket.getsockname()[1]), PASSWORD)
         server.stop_new_connections()

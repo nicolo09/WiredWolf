@@ -138,8 +138,8 @@ class ClientConnectionHandler(MessageHandler):
         """Connects to a server at the specified address and port."""
         try:
             self._socket = socket.create_connection(
-                address, timeout=TIMEOUT)  # TODO: Magic number
-            self._socket.settimeout(TIMEOUT)  # TODO: Magic number
+                address, timeout=TIMEOUT)
+            self._socket.settimeout(TIMEOUT)
             self._message_handler.send_obj(self._socket, self._peer)
             return self._socket
         except OSError as e:

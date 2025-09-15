@@ -34,7 +34,7 @@ class GameServer:
         self.__logger.info(f"New peer attempting connection: {peer}")
         try:
             if self._lobby.is_password_protected():
-                socket.settimeout(TIMEOUT)  # TODO: Magic number
+                socket.settimeout(TIMEOUT)
                 # If the lobby is password-protected, ask for the password
                 req = PasswordRequest()
                 self._message_handler.send_obj(socket, req)
