@@ -130,7 +130,7 @@ class Text(DrawableComponent):
         
 class VContainer():
     """A drawable container that displays the given components vertically"""
-    def __init__(self, vert_div:int, elements:Sequence[DrawableComponent], win_size:tuple[int, int], position:tuple[int,int]=(50,50), color:str=BACKGROUND_COLOR)-> None:
+    def __init__(self, vert_div:int, elements:Sequence[DrawableComponent], win_size:tuple[int, int], position:tuple[int,int]=(50,50), color:str=BACKGROUND_COLOR, fixed_width:int=0)-> None:
         if len(elements)==0:
             raise ValueError("Must contain at least a button")
         if position[0]<0 or position[0]>100 or position[1]<0 or position[1]>100:
@@ -144,6 +144,10 @@ class VContainer():
         self._set_dimensions() #these are the dimensions of the container, calculated with the components list and the vertical divider
         #the top left corner of the container is at total window size/2 (which would be the center of the window) - container size/2
         #this operation is done on both axis, to derive the position for the top left corner
+        self._fixed_width=fixed_width
+        if self._fixed_width!=0:
+            #if a fixed width is set, then the calculated width is overriden for the set width
+            self._dimensions=(self._fixed_width, self._dimensions[1])
         self._top_left_pos=(0,0)
         self._set_top_left_position() #this is the position of the top left corner of the container 
         self._rect=pygame.Rect(self._top_left_pos, self._dimensions)
@@ -198,14 +202,19 @@ class VContainer():
     def manually_update(self)->None:
         """If any component inside the container is changed (ex a Text.text), call this function to trigger an update to the size of the container"""
         self._set_dimensions()
+        if self._fixed_width!=0:
+            #if a fixed width is set, then the calculated width is overriden for the set width
+            self._dimensions=(self._fixed_width, self._dimensions[1])
         self._set_top_left_position()
         self._rect.x=self._top_left_pos[0]
         self._rect.y=self._top_left_pos[1]
+        self._rect.width=self._dimensions[0]
+        self._rect.height=self._dimensions[1]
         self._center_elements()
 
 class HContainer():
     """A drawable container that displays the given components horizontally"""
-    def __init__(self, horiz_div:int, elements:Sequence[DrawableComponent], win_size:tuple[int, int], position:tuple[int,int]=(50,50), color:str=BACKGROUND_COLOR)-> None:
+    def __init__(self, horiz_div:int, elements:Sequence[DrawableComponent], win_size:tuple[int, int], position:tuple[int,int]=(50,50), color:str=BACKGROUND_COLOR, fixed_height:int=0)-> None:
         if len(elements)==0:
             raise ValueError("Must contain at least a button")
         if position[0]<0 or position[0]>100 or position[1]<0 or position[1]>100:
@@ -219,6 +228,10 @@ class HContainer():
         self._set_dimensions() #these are the dimensions of the container, calculated with the components list and the vertical divider
         #the top left corner of the container is at total window size/2 (which would be the center of the window) - container size/2
         #this operation is done on both axis, to derive the position for the top left corner
+        self._fixed_height=fixed_height
+        if self._fixed_height!=0:
+            #if a fixed height is set, then the calculated height is overriden for the set height
+            self._dimensions=(self._dimensions[0], self._fixed_height)
         self._top_left_pos=(0,0)
         self._set_top_left_position() #this is the position of the top left corner of the container 
         self._rect=pygame.Rect(self._top_left_pos, self._dimensions)
@@ -273,10 +286,14 @@ class HContainer():
     def manually_update(self)->None:
         """If any component inside the container is changed (ex a Text.text), call this function to trigger an update to the size of the container"""
         self._set_dimensions()
+        if self._fixed_height!=0:
+            #if a fixed height is set, then the calculated height is overriden for the set height
+            self._dimensions=(self._dimensions[0], self._fixed_height)
         self._set_top_left_position()
         self._rect.x=self._top_left_pos[0]
         self._rect.y=self._top_left_pos[1]
-        #re-centers buttons inside the new container
+        self._rect.width=self._dimensions[0]
+        self._rect.height=self._dimensions[1]
         self._center_elements()
 
 class PrintButton(AbstractButton):
