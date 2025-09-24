@@ -583,16 +583,18 @@ class LimitedList():
 
 class MultipleTexts():
     """Displays vertically multiple texts, the elements as shown in the given list. If list is not full, empty texts are created"""
-    def __init__(self, list:LimitedList, vertical_div:int, win_size:tuple[int,int], position:tuple[int,int]=(50,50)) -> None:
+    def __init__(self, list:LimitedList, vertical_div:int, win_size:tuple[int,int], position:tuple[int,int]=(50,50), fixed_width:int=0, background_color:str=BACKGROUND_COLOR) -> None:
         self._list=list
         self._max_elements=list.max_elements
+        self._trigger_update=False
         self._texts_list=[]
         for i in range(self._max_elements):
             #fills the list of empty text elements
-            self._texts_list.append(Text(""))
-        self._container=VContainer(vertical_div, self._texts_list, win_size, position)
+            self._texts_list.append(Text("", font=FontSize.H1))
+        self._container=VContainer(vertical_div, self._texts_list, win_size, position, color=background_color, fixed_width=fixed_width)
         #After having a VContainer with max_elements empty texts, the texts are changed to the elements of the list
         self._fill_texts()
+        self._trigger_update=True
 
     def _fill_texts(self)->None:
         """Reads the elements from the list and updates the texts shown"""
@@ -608,17 +610,21 @@ class MultipleTexts():
             else:
                 #Then the elements
                 self._texts_list[i].text=reversed_list[i-offset]
-        #a manual update is necessary otherwise the container centers with the elements of the previous lenght
-        #This forces the container to read the new text size and will use the updated sizes
-        self._container.manually_update()
 
     def on_list_change(self)->None:
         """Call this function to update the texts shown"""
         self._fill_texts()
+        self._trigger_update=True
 
     def draw(self, screen: pygame.Surface):
         """Draws the texts vertically on the given surface"""
         self._container.draw(screen)
+        #This draws the texts (changing sizes, so next draw the background is applied)
+        if self._trigger_update==True:
+            #a manual update is necessary otherwise the container centers with the elements of the previous lenght
+            #This forces the container to read the new text size and will use the updated sizes
+            self._container.manually_update()
+            self._trigger_update=False
 
 if __name__ == "__main__":
     print("Hello world")
