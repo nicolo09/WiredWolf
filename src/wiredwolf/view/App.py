@@ -2,7 +2,7 @@ import textwrap
 import pygame
 from abc import ABC, abstractmethod
 from wiredwolf.view.Components import VContainer, HContainer
-from wiredwolf.view.Constants import BACKGROUND_COLOR, FontSize, Screens
+from wiredwolf.view.Constants import BACKGROUND_COLOR, CHAT_BACKGROUND, FontSize, Screens
 from functools import partial
 
 FPS=60
@@ -10,6 +10,7 @@ username=""
 lobby_name=""
 WRAP_LINE_WIDTH=25
 MAX_MESSAGES_DISPLAYED=10
+CONTAINER_FACTOR=14 #this value is chosen by testing with different font sizes which value * wrap line withd fits all texts
 class App:
     """The main window for the Wiredwolf game"""
     def __init__(self)-> None:
@@ -244,11 +245,12 @@ class DayChat(AbstractScreen):
     """The waiting room after joining a lobby"""
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
-        from wiredwolf.view.Components import MultipleTexts,LimitedList, MemoryTextField
-        self._my_limited_list=LimitedList(MAX_MESSAGES_DISPLAYED)
-        self._multiple_texts=MultipleTexts(self._my_limited_list, 5, self._display.get_size(), (70, 50))
-        self._text_box=MemoryTextField(200, 50)
-        self._container_text=VContainer(0, [self._text_box], self._display.get_size(), (20,50))
+        from wiredwolf.view.Components import MultipleTexts,LimitedList, MemoryTextField,Text
+        self._title=VContainer(0, [Text("Day")], self._display.get_size(), (50, 5))
+        self._my_limited_list=LimitedList(MAX_MESSAGES_DISPLAYED) #This is where the messages are stored, up to MAX_MESSAGES DISPLAYED
+        self._multiple_texts=MultipleTexts(self._my_limited_list, 5, self._display.get_size(), (70, 45), CONTAINER_FACTOR*WRAP_LINE_WIDTH, CHAT_BACKGROUND) #This is where the messages are displayed vertically
+        self._text_box=MemoryTextField(300, 50) #This is where the new messages are entered
+        self._container_text=VContainer(0, [self._text_box], self._display.get_size(), (70,90))
         self._last_message=""
 
     def run(self,event:pygame.event.Event)->None:
@@ -256,14 +258,15 @@ class DayChat(AbstractScreen):
         self._display.fill(BACKGROUND_COLOR)
         self._multiple_texts.draw(self._display)
         self._container_text.draw(self._display)
+        self._title.draw(self._display)
         if event is not None:
-            self._text_box.handle_event(event)
-            tmp=self._text_box.last_input
+            self._text_box.handle_event(event) #Textbox handles key input
+            tmp=self._text_box.last_input #get last message sent (if it's not already handled)
             if len(tmp)>0 and str.isspace(tmp)==False:
                 #if the message is not the last message sent and it's not empty, then send the new message
-                self._text_box.reset_last_input() #wipe memory
+                self._text_box.reset_last_input() #clear internal memory
                 global username
-                message=textwrap.wrap(username+":"+tmp, width=WRAP_LINE_WIDTH)
+                message=textwrap.wrap(username+":"+tmp, width=WRAP_LINE_WIDTH) #username: message
                 #too long messages will be split on multiple lines
                 for elem in message:
                     self._my_limited_list.add_element(elem) #adds message to messages sent
