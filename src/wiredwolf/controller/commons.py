@@ -6,28 +6,24 @@ class Peer:
     """Represents a peer in the network."""
 
     _name: str
-    _address: str
-    _uuid: uuid.UUID
+    _uuid: str
 
-    def __init__(self, name: str, address: str):
+    def __init__(self, name: str, id: str | None = None):
         self._name = name
-        self._address = address
-        self._uuid = uuid.uuid4()
-        
+        self._uuid = id or str(uuid.uuid4())
+
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, Peer):
             return NotImplemented
         return (self._name == value._name and
-                self._address == value._address and
                 self._uuid == value._uuid)
+        
+    def __hash__(self) -> int:
+        return hash((self._name, self._uuid))
 
     @property
     def uuid(self):
         return self._uuid
-
-    @property
-    def address(self):
-        return self._address
 
     @property
     def name(self):

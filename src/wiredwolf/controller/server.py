@@ -38,24 +38,36 @@ class GameServer:
                 # If the lobby is password-protected, ask for the password
                 req = PasswordRequest()
                 self._message_handler.send_obj(socket, req)
-                resp: PasswordRequest = self._message_handler.receive_obj(socket)
+                resp: PasswordRequest = self._message_handler.receive_obj(
+                    socket)
                 if resp.id != req.id:
                     self._message_handler.send_obj(
                         socket, ValueError("Invalid password request."))
                     return
                 if resp.password and self._lobby.check_password(resp.password):
-                    # TODO add peer to lobby and notify everyone
+                    self._add_peer_and_notify_updates(peer, socket)
                     self._message_handler.send_obj(socket, self._lobby)
                 else:
                     self._message_handler.send_obj(
                         socket, ValueError("Incorrect password."))
             else:
                 # If no password is set, add the peer directly
-                # TODO add peer to lobby and notify everyone
+                self._add_peer_and_notify_updates(peer, socket)
                 self._message_handler.send_obj(socket, self._lobby)
         except Exception as e:
             self.__logger.error(f"Error handling new peer {peer}: {e}")
             socket.close()
+
+    def _add_peer_and_notify_updates(self, peer: Peer, sock: socket.socket):
+        # Update lobby
+        self._lobby.add_peer(peer)
+        self._players[peer] = sock
+        # Notify other peers of the updated lobby sending the updated lobby object
+        for p in self._lobby.peers:
+            if p != peer:
+                self._message_handler.send_obj(self._players[p], self._lobby)
+        self.__logger.info(
+            f"Peer {peer} joined the lobby. Current peers: {self._lobby.peers}")
 
     def start_game(self):
         # TODO: Implement game start logic
@@ -67,6 +79,3 @@ class GameServer:
 
     def stop_new_connections(self):
         self._server.stop_new_connections()
-
-
-

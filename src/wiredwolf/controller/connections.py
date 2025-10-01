@@ -1,3 +1,4 @@
+import abc
 from collections.abc import Callable
 import logging
 import socket
@@ -9,7 +10,17 @@ from wiredwolf.controller import TIMEOUT
 from wiredwolf.controller.commons import Peer
 
 
-class PickleSerializer():
+class Serializer(abc.ABC):
+    @abc.abstractmethod
+    def serialize(self, data: Any) -> bytes:
+        pass
+
+    @abc.abstractmethod
+    def deserialize(self, data: bytes) -> Any:
+        pass
+
+
+class PickleSerializer(Serializer):
 
     def __init__(self):
         pass
@@ -25,8 +36,8 @@ class MessageHandler():
 
     PREFIX_LEN: int = 4
 
-    def __init__(self, Serializer: PickleSerializer):
-        self._serializer = Serializer
+    def __init__(self, serializer: Serializer):
+        self._serializer = serializer
 
     def add_length_prefix(self, data: bytes) -> bytes:
         if len(data) < int("9"*self.PREFIX_LEN):
@@ -83,13 +94,14 @@ class ServerConnectionHandler():
 
     def __init__(self, on_new_peer: Callable[[Peer, socket.socket], None], bind_address: tuple[str, int] = ("", 0), server_socket: socket.socket | None = None):
         self._on_new_peer = on_new_peer
-        self._receiver_socket = server_socket if server_socket else socket.create_server(bind_address)
+        self._receiver_socket = server_socket if server_socket else socket.create_server(
+            bind_address)
         self._receiver_thread = threading.Thread(
             target=self._handle_connections)
         self._receiver_thread.start()
         self.__logger.info(
             f"Server listening on {self._receiver_socket.getsockname()}")
-        self._receiver_message_handler = MessageHandler(PickleSerializer())
+        self._receiver_message_handler = MessageHandlerFactory.getDefault()
 
     def stop_new_connections(self):
         self.receive_conn = False
@@ -111,12 +123,9 @@ class ServerConnectionHandler():
                     # First thing peer sends is their identification (serialized peer object)
                     peer: Peer = self._receiver_message_handler.receive_obj(
                         client_socket)
-                    self._on_new_peer(
-                        Peer(peer.name, client_address), client_socket)
+                    self._on_new_peer(peer, client_socket)
                 except TimeoutError:
                     continue
-                finally:
-                    client_socket.close()
             except OSError as e:
                 if not self.receive_conn:
                     self.__logger.info(
@@ -132,7 +141,7 @@ class ClientConnectionHandler(MessageHandler):
 
     def __init__(self, peer: Peer):
         self._peer = peer
-        self._message_handler = MessageHandler(PickleSerializer())
+        self._message_handler = MessageHandlerFactory.getDefault()
 
     def connect_to_server(self, address: tuple[str, int]) -> socket.socket | None:
         """Connects to a server at the specified address and port."""

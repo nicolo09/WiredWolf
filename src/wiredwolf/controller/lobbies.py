@@ -42,9 +42,9 @@ class Lobby:
         self._state = LobbyState.WAITING_FOR_PLAYERS
         self._name = name
         self._password = password
-        self._message_handler = MessageHandler(PickleSerializer())
+        self._message_handler = MessageHandlerFactory.getDefault()
 
-    def add_peer(self, peer: Peer, socket: socket.socket):
+    def add_peer(self, peer: Peer):
         self._peers.append(peer)
 
     def remove_peer(self, peer: Peer):

@@ -46,7 +46,7 @@ class ServerConnectionTest(unittest.TestCase):
             assertPeer, ("127.0.0.1", 0))
         myServerName = myServer.get_receiver_socket().getsockname()
         clientConnHandler = connections.ClientConnectionHandler(
-            connections.Peer(peer_name, "127.0.0.1"))
+            connections.Peer(peer_name))
         clientSocket = clientConnHandler.connect_to_server(myServerName)
         self.assertIsNotNone(clientSocket)
         myServer.stop_new_connections()
