@@ -1,71 +1,60 @@
 import logging
-import socket
-from wiredwolf.controller import TIMEOUT
 from wiredwolf.controller.commons import PasswordRequest, Peer
-from wiredwolf.controller.connections import MessageHandler, ServerConnectionHandler
+from wiredwolf.controller.connections import ServerConnectionHandler, TCPServerConnectionHandler
 from wiredwolf.controller.lobbies import Lobby
 
 
 class GameServer:
     __logger = logging.getLogger(__name__)
-    _server: ServerConnectionHandler
+    _server_conn_handler: ServerConnectionHandler
     _lobby: Lobby
-    _players: dict[Peer, socket.socket]
 
     def __init__(self, lobby: Lobby):  # TODO: Add owner peer and socket
         self._lobby = lobby
-        self._server = ServerConnectionHandler(
-            lambda peer, socket: self._on_new_peer(peer, socket))
+        self._server_conn_handler = TCPServerConnectionHandler(
+            lambda peer: self._on_new_peer(peer))
         self._players = {}
 
     @property
-    def _message_handler(self) -> MessageHandler:
-        """Returns the message handler for the lobby."""
-        return self._lobby.message_handler
-
-    @property
-    def connection_socket(self) -> socket.socket:
+    def connection_handler(self) -> ServerConnectionHandler:
         """
-        Returns the socket used by this server to receive new connections in the lobby.
+        Returns the connection handler for this server.
         """
-        return self._server.get_receiver_socket()
+        return self._server_conn_handler
 
-    def _on_new_peer(self, peer: Peer, socket: socket.socket):
+    def _on_new_peer(self, peer: Peer):
         self.__logger.info(f"New peer attempting connection: {peer}")
         try:
             if self._lobby.is_password_protected():
-                socket.settimeout(TIMEOUT)
                 # If the lobby is password-protected, ask for the password
                 req = PasswordRequest()
-                self._message_handler.send_obj(socket, req)
-                resp: PasswordRequest = self._message_handler.receive_obj(
-                    socket)
+                self._server_conn_handler.send_obj(peer, req)
+                resp: PasswordRequest = self._server_conn_handler.receive_obj(
+                    peer)
                 if resp.id != req.id:
-                    self._message_handler.send_obj(
-                        socket, ValueError("Invalid password request."))
+                    self._server_conn_handler.send_obj(
+                        peer, ValueError("Invalid password request."))
                     return
                 if resp.password and self._lobby.check_password(resp.password):
-                    self._add_peer_and_notify_updates(peer, socket)
-                    self._message_handler.send_obj(socket, self._lobby)
+                    self._add_peer_and_notify_updates(peer)
+                    self._server_conn_handler.send_obj(peer, self._lobby)
                 else:
-                    self._message_handler.send_obj(
-                        socket, ValueError("Incorrect password."))
+                    self._server_conn_handler.send_obj(
+                        peer, ValueError("Incorrect password."))
             else:
                 # If no password is set, add the peer directly
-                self._add_peer_and_notify_updates(peer, socket)
-                self._message_handler.send_obj(socket, self._lobby)
+                self._add_peer_and_notify_updates(peer)
+                self._server_conn_handler.send_obj(peer, self._lobby)
         except Exception as e:
             self.__logger.error(f"Error handling new peer {peer}: {e}")
-            socket.close()
 
-    def _add_peer_and_notify_updates(self, peer: Peer, sock: socket.socket):
+    def _add_peer_and_notify_updates(self, peer: Peer):
         # Update lobby
         self._lobby.add_peer(peer)
-        self._players[peer] = sock
         # Notify other peers of the updated lobby sending the updated lobby object
         for p in self._lobby.peers:
             if p != peer:
-                self._message_handler.send_obj(self._players[p], self._lobby)
+                self._server_conn_handler.send_obj(p, self._lobby)
         self.__logger.info(
             f"Peer {peer} joined the lobby. Current peers: {self._lobby.peers}")
 
@@ -78,4 +67,4 @@ class GameServer:
         pass
 
     def stop_new_connections(self):
-        self._server.stop_new_connections()
+        self._server_conn_handler.stop_new_connections()

@@ -32,7 +32,7 @@ class PickleSerializer(Serializer):
         return pickle.loads(data)
 
 
-class MessageHandler():
+class TCPMessageHandler():
 
     PREFIX_LEN: int = 4
 
@@ -78,30 +78,67 @@ class MessageHandler():
 class MessageHandlerFactory:
 
     @staticmethod
-    def getDefault() -> MessageHandler:
-        return MessageHandler(PickleSerializer())
+    def getDefaultSerializer() -> Serializer:
+        return PickleSerializer()
+
+    @staticmethod
+    def getDefault() -> TCPMessageHandler:
+        return TCPMessageHandler(PickleSerializer())
 
 
-class ServerConnectionHandler():
+class ServerConnectionHandler(abc.ABC):
 
-    __logger = logging.getLogger(__name__)
+    _logger = logging.getLogger(__name__)
+    _message_handler: TCPMessageHandler
 
+    def __init__(self):
+        self._message_handler = MessageHandlerFactory.getDefault()
+
+    @abc.abstractmethod
+    def send_obj(self, receiver: Peer, obj: Any) -> None:
+        pass
+
+    @abc.abstractmethod
+    def receive_obj(self, sender: Peer) -> Any:
+        pass
+    
+    @abc.abstractmethod
+    def stop_new_connections(self):
+        pass
+
+
+class TCPServerConnectionHandler(ServerConnectionHandler):
+
+    _on_new_peer: Callable[[Peer], None]
     _receiver_socket: socket.socket
     _receiver_thread: threading.Thread
-    _receiver_message_handler: MessageHandler
-
+    _endpoints: dict[Peer, socket.socket] = {}
     receive_conn: bool = True
 
-    def __init__(self, on_new_peer: Callable[[Peer, socket.socket], None], bind_address: tuple[str, int] = ("", 0), server_socket: socket.socket | None = None):
+    def __init__(self, on_new_peer: Callable[[Peer], None], bind_address: tuple[str, int] = ("", 0), server_socket: socket.socket | None = None):
+        super().__init__()
         self._on_new_peer = on_new_peer
         self._receiver_socket = server_socket if server_socket else socket.create_server(
             bind_address)
         self._receiver_thread = threading.Thread(
             target=self._handle_connections)
         self._receiver_thread.start()
-        self.__logger.info(
-            f"Server listening on {self._receiver_socket.getsockname()}")
-        self._receiver_message_handler = MessageHandlerFactory.getDefault()
+        self._logger.info(
+            "Server listening on %s", self._receiver_socket.getsockname())
+
+    def send_obj(self, receiver: Peer, obj: Any) -> None:
+        endpoint = self._endpoints.get(receiver)
+        if endpoint:
+            self._message_handler.send_obj(endpoint, obj)
+        else:
+            raise ValueError("No such peer connected.")
+
+    def receive_obj(self, sender: Peer) -> Any:
+        endpoint = self._endpoints.get(sender)
+        if endpoint:
+            return self._message_handler.receive_obj(endpoint)
+        else:
+            raise ValueError("No such peer connected.")
 
     def stop_new_connections(self):
         self.receive_conn = False
@@ -114,32 +151,43 @@ class ServerConnectionHandler():
     def _handle_connections(self):
         while self.receive_conn:
             try:
-                self.__logger.debug("Waiting for new connections...")
+                self._logger.debug("Waiting for new connections...")
                 client_socket, client_address = self._receiver_socket.accept()
-                self.__logger.info(
-                    f"Accepted connection from {client_address}")
+                self._logger.info(
+                    "Accepted connection from %s", client_address)
                 client_socket.settimeout(TIMEOUT)
                 try:
                     # First thing peer sends is their identification (serialized peer object)
-                    peer: Peer = self._receiver_message_handler.receive_obj(
+                    peer: Peer = self._message_handler.receive_obj(
                         client_socket)
-                    self._on_new_peer(peer, client_socket)
+                    try:
+                        # Add the endpoint
+                        self._endpoints[peer] = client_socket
+                        # Try to handle the new peer connection
+                        self._on_new_peer(peer)
+                    except Exception as e:
+                        # If handling the new peer fails, remove the endpoint
+                        self._endpoints.pop(peer)
+                        self._logger.error(
+                            "Error handling new peer %s: %s", peer, e)
                 except TimeoutError:
                     continue
             except OSError as e:
                 if not self.receive_conn:
-                    self.__logger.info(
-                        f"Server stopped accepting new connections")
+                    self._logger.info(
+                        "Server stopped accepting new connections")
                 else:
-                    self.__logger.error(f"Error handling connections: {e}")
+                    self._logger.error("Error handling connections: %s", e)
 
 
-class ClientConnectionHandler(MessageHandler):
+class TCPClientConnectionHandler(TCPMessageHandler):
 
     __logger = logging.getLogger(__name__)
-    _message_handler: MessageHandler
+    _message_handler: TCPMessageHandler
+    _socket: socket.socket | None = None
 
     def __init__(self, peer: Peer):
+        super().__init__(MessageHandlerFactory.getDefaultSerializer())
         self._peer = peer
         self._message_handler = MessageHandlerFactory.getDefault()
 
@@ -152,5 +200,16 @@ class ClientConnectionHandler(MessageHandler):
             self._message_handler.send_obj(self._socket, self._peer)
             return self._socket
         except OSError as e:
-            self.__logger.error(f"Error connecting to server: {e}")
+            self.__logger.error("Error connecting to server: %s", e)
             return None
+
+
+class ConnectionHandlerFactory:
+
+    @staticmethod
+    def getDefaultClientHandler(peer: Peer) -> TCPClientConnectionHandler:
+        return TCPClientConnectionHandler(peer)
+    
+    @staticmethod
+    def getDefaultServerHandler(on_new_peer: Callable[[Peer], None]) -> TCPServerConnectionHandler:
+        return TCPServerConnectionHandler(on_new_peer) 

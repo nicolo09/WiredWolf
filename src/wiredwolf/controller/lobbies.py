@@ -1,5 +1,5 @@
 from wiredwolf.controller import TIMEOUT
-from wiredwolf.controller.connections import MessageHandler, MessageHandlerFactory, PickleSerializer
+from wiredwolf.controller.connections import MessageHandlerFactory, TCPMessageHandler
 from collections.abc import Callable
 from enum import Enum
 import socket
@@ -29,7 +29,6 @@ class Lobby:
     _state: LobbyState = LobbyState.WAITING_FOR_PLAYERS
     _name: str = ""
     _password: str | None = None
-    _message_handler: MessageHandler
 
     def __init__(self, name: str, password: str | None = None):
         """Initializes a Lobby instance.
@@ -42,7 +41,6 @@ class Lobby:
         self._state = LobbyState.WAITING_FOR_PLAYERS
         self._name = name
         self._password = password
-        self._message_handler = MessageHandlerFactory.getDefault()
 
     def add_peer(self, peer: Peer):
         self._peers.append(peer)
@@ -53,11 +51,6 @@ class Lobby:
     def is_password_protected(self) -> bool:
         """Returns whether the lobby is password-protected."""
         return self._password is not None
-
-    @property
-    def message_handler(self) -> MessageHandler:
-        """Returns the message handler for the lobby."""
-        return self._message_handler
 
     @property
     def peers(self) -> list[Peer]:
@@ -107,7 +100,7 @@ class Lobby:
                 self._state == value._state)
 
 
-class LobbyBrowser:
+class TcpMdnsLobbyBrowser:
     """
     Handles the discovery and creations/publishment of game lobbies through mDNS.
     """
@@ -159,7 +152,7 @@ class LobbyBrowser:
             raise RuntimeError("No lobby is currently being published.")
 
     def _connect(self, sock: socket.socket, peer: Peer,lobby_password: str | None) -> tuple[socket.socket, Lobby]:
-        msgHandler = MessageHandlerFactory.getDefault() #TODO: Allow custom message handlers by constructor parameter
+        msgHandler: TCPMessageHandler = TCPMessageHandler(MessageHandlerFactory.getDefaultSerializer())
         # Sending my peer info to the server
         msgHandler.send_obj(sock, peer)
         # Expecting PasswordRequest or lobby
