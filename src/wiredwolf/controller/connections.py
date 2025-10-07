@@ -121,7 +121,8 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
         self._receiver_socket = server_socket if server_socket else socket.create_server(
             bind_address)
         self._receiver_thread = threading.Thread(
-            target=self._handle_connections)
+            target=self._handle_connections,
+            name="TCPServerConnectionHandlerThread")
         self._receiver_thread.start()
         self._logger.info(
             "Server listening on %s", self._receiver_socket.getsockname())

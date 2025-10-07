@@ -1,8 +1,8 @@
-from wiredwolf.controller import TIMEOUT
-from wiredwolf.controller.connections import MessageHandlerFactory, TCPMessageHandler
+import socket
 from collections.abc import Callable
 from enum import Enum
-import socket
+from wiredwolf.controller import TIMEOUT
+from wiredwolf.controller.connections import MessageHandlerFactory, TCPMessageHandler
 
 from wiredwolf.controller.commons import Peer
 from wiredwolf.controller.commons import PasswordRequest
@@ -35,7 +35,7 @@ class Lobby:
 
         Args:
             name (str): The name of the lobby.
-            password (str | None, optional): The password for the lobby, if any. Defaults to None (not password protected).
+            password (str | None, optional): The lobby password, if any.
         """
         self._peers = []
         self._state = LobbyState.WAITING_FOR_PLAYERS
@@ -43,9 +43,19 @@ class Lobby:
         self._password = password
 
     def add_peer(self, peer: Peer):
+        """Adds a peer to the lobby.
+
+        Args:
+            peer (Peer): The peer to add.
+        """
         self._peers.append(peer)
 
     def remove_peer(self, peer: Peer):
+        """Removes a peer from the lobby.
+
+        Args:
+            peer (Peer): The peer to remove.
+        """
         self._peers.remove(peer)
 
     def is_password_protected(self) -> bool:
@@ -69,28 +79,12 @@ class Lobby:
 
     def check_password(self, password: str) -> bool:
         """Checks if the provided password matches the lobby's password."""
-        return self._password == password  # TODO: Hash? Maybe not, since it's not saved persistently
+        return self._password == password  # TODO: Hash? Maybe not necessary, since it's not saved persistently
 
     @state.setter
     def state(self, state: LobbyState):
         self._state = state
 
-    def send_chat_message(self, message: str):
-        # TODO: Implement chat message sending logic
-        pass
-
-    def choose_player(self, player: Peer):
-        # TODO: Implement player selection logic
-        pass
-
-    def vote_guilty(self):
-        # TODO: Implement voting logic
-        pass
-
-    def vote_innocent(self):
-        # TODO: Implement voting logic
-        pass
-    
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, Lobby):
             return NotImplemented
@@ -114,7 +108,14 @@ class TcpMdnsLobbyBrowser:
         self._published_lobby_service_info = None
 
     def start_lobby_browser(self, on_lobby_found: Callable[[str], None], on_lobby_lost: Callable[[str], None], on_lobby_updated: Callable[[str], None]) -> None:
-        """Starts the lobby browser to discover available lobbies. When appropriate the lobby browser should be stopped by calling stop_lobby_browser()."""
+        """Starts the lobby browser to discover available lobbies. 
+        When appropriate the lobby browser should be stopped by calling stop_lobby_browser().
+        
+        args:
+            on_lobby_found (Callable[[str], None]): Callback invoked when a new lobby is found.
+            on_lobby_lost (Callable[[str], None]): Callback invoked when a lobby is lost.
+            on_lobby_updated (Callable[[str], None]): Callback invoked when a lobby is updated.
+        """
         if not self._browser:
             listener = CallbackServiceListener(
                 on_service_added=on_lobby_found,
@@ -152,18 +153,18 @@ class TcpMdnsLobbyBrowser:
             raise RuntimeError("No lobby is currently being published.")
 
     def _connect(self, sock: socket.socket, peer: Peer,lobby_password: str | None) -> tuple[socket.socket, Lobby]:
-        msgHandler: TCPMessageHandler = TCPMessageHandler(MessageHandlerFactory.getDefaultSerializer())
+        msg_handler: TCPMessageHandler = TCPMessageHandler(MessageHandlerFactory.getDefaultSerializer())
         # Sending my peer info to the server
-        msgHandler.send_obj(sock, peer)
+        msg_handler.send_obj(sock, peer)
         # Expecting PasswordRequest or lobby
-        recvMsg = msgHandler.receive_obj(sock)
-        if isinstance(recvMsg, PasswordRequest):
+        recv_msg = msg_handler.receive_obj(sock)
+        if isinstance(recv_msg, PasswordRequest):
             # Server requested a password...
             if lobby_password:
                 # ...send the password
-                recvMsg.password = lobby_password
-                msgHandler.send_obj(sock, recvMsg)
-                lobby = msgHandler.receive_obj(sock)
+                recv_msg.password = lobby_password
+                msg_handler.send_obj(sock, recv_msg)
+                lobby = msg_handler.receive_obj(sock)
                 if isinstance(lobby, Exception):
                     # The server returned an error
                     sock.close()
@@ -175,13 +176,13 @@ class TcpMdnsLobbyBrowser:
                 # ...but no password was provided
                 sock.close()
                 raise ValueError("Lobby requires a password.")
-        elif isinstance(recvMsg, Lobby):
+        elif isinstance(recv_msg, Lobby):
             if lobby_password:
                 # Password was provided but not needed
                 sock.close()
                 raise ValueError("Lobby does not require a password.")
             # Successfully joined the lobby
-            return sock, recvMsg
+            return sock, recv_msg
         else:
             sock.close()
             raise RuntimeError("Unexpected message received.")
