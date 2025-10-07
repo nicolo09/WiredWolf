@@ -3,6 +3,7 @@ import unittest
 
 from wiredwolf.controller.commons import Peer
 import wiredwolf.controller.connections as connections
+from wiredwolf.controller.lobbies import TcpMdnsLobbyBrowser
 
 
 class BaseConnectionTest(unittest.TestCase):
@@ -35,18 +36,3 @@ class ServerConnectionTest(unittest.TestCase):
 
     def test_server_creation(self):
         self.assertIsNotNone(self.serverName)
-
-    def test_client_connect_to_server(self):
-        def assertPeer(peer: Peer) -> None:
-            self.assertIsInstance(peer, connections.Peer)
-            self.assertEqual(peer.name, peer_name)
-
-        peer_name = "client"
-        myServer = connections.TCPServerConnectionHandler(
-            assertPeer, ("127.0.0.1", 0))
-        myServerName = myServer.get_receiver_socket().getsockname()
-        clientConnHandler = connections.TCPClientConnectionHandler(
-            connections.Peer(peer_name))
-        clientSocket = clientConnHandler.connect_to_server(myServerName)
-        self.assertIsNotNone(clientSocket)
-        myServer.stop_new_connections()

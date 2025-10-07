@@ -1,17 +1,47 @@
 from wiredwolf.controller.commons import Peer
-from wiredwolf.controller.connections import TCPServerConnectionHandler
+from wiredwolf.controller.connections import ClientConnectionHandler, TCPServerConnectionHandler
 from wiredwolf.controller.lobbies import TcpMdnsLobbyBrowser
 from wiredwolf.controller.lobbies import Lobby
 from wiredwolf.controller.server import GameServer
 
 
+class ChatMessage:
+    """Represents a chat message sent by a peer.
+    """
+
+    _sender: Peer
+    _message: str
+
+    def __init__(self, sender: Peer, message: str):
+        self._sender = sender
+        self._message = message
+
+    @property
+    def sender(self) -> Peer:
+        """Gets the sender of the chat message.
+        Returns:
+            Peer: The sender of the chat message.
+        """
+        return self._sender
+
+    @property
+    def message(self) -> str:
+        """Gets the chat message.
+        Returns:
+            str: The chat message.
+        """
+        return self._message
+
+
 class GameController:
-    """Handles the game logic and player interactions.
+    """Handles the game logic and player interactions. This controller is implemented by means of 
+    TCP connections and mDNS for lobby discovery.
     """
 
     _lobby_browser: TcpMdnsLobbyBrowser
     _lobby: Lobby
     _server: GameServer
+    _client_connection_handler: ClientConnectionHandler
     _my_self: Peer
 
     def __init__(self):
@@ -49,7 +79,7 @@ class GameController:
             lobby_name (str): The name of the lobby to join.
             lobby_password (str | None): The password for the lobby or None if no password is set.
         """
-        self._lobby_browser.connect_to_lobby_by_name(
+        self._client_connection_handler, self._lobby = self._lobby_browser.connect_to_lobby_by_name(
             self._my_self, lobby_name, lobby_password)
 
     @property
@@ -67,15 +97,16 @@ class GameController:
             Lobby: The current lobby.
         """
         return self._lobby
-    
+
     def send_chat_message(self, message: str):
         """Sends a chat message to all peers in the lobby.
 
         Args:
             message (str): The chat message to send.
         """
-        # TODO: Implement chat message sending logic
-        pass
+        # TODO: Check if in lobby
+        self._client_connection_handler.send_obj(
+            ChatMessage(self._my_self, message))
 
     def choose_player(self, player: Peer):
         """Votes a player in the lobby. This method may be called only during a voting phase.

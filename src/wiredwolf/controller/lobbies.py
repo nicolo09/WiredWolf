@@ -2,7 +2,7 @@ import socket
 from collections.abc import Callable
 from enum import Enum
 from wiredwolf.controller import TIMEOUT
-from wiredwolf.controller.connections import MessageHandlerFactory, TCPMessageHandler
+from wiredwolf.controller.connections import ClientConnectionHandler, MessageHandlerFactory, TCPClientConnectionHandler, TCPMessageHandler
 
 from wiredwolf.controller.commons import Peer
 from wiredwolf.controller.commons import PasswordRequest
@@ -152,7 +152,7 @@ class TcpMdnsLobbyBrowser:
         else:
             raise RuntimeError("No lobby is currently being published.")
 
-    def _connect(self, sock: socket.socket, peer: Peer,lobby_password: str | None) -> tuple[socket.socket, Lobby]:
+    def _connect(self, sock: socket.socket, peer: Peer,lobby_password: str | None) -> tuple[ClientConnectionHandler, Lobby]:
         msg_handler: TCPMessageHandler = TCPMessageHandler(MessageHandlerFactory.getDefaultSerializer())
         # Sending my peer info to the server
         msg_handler.send_obj(sock, peer)
@@ -171,7 +171,7 @@ class TcpMdnsLobbyBrowser:
                     raise lobby
                 else:
                     # The server returned a lobby, successfully joined
-                    return sock, lobby
+                    return TCPClientConnectionHandler(peer, sock), lobby
             else:
                 # ...but no password was provided
                 sock.close()
@@ -182,12 +182,12 @@ class TcpMdnsLobbyBrowser:
                 sock.close()
                 raise ValueError("Lobby does not require a password.")
             # Successfully joined the lobby
-            return sock, recv_msg
+            return TCPClientConnectionHandler(peer, sock), recv_msg
         else:
             sock.close()
             raise RuntimeError("Unexpected message received.")
 
-    def connect_to_lobby_directly(self, peer: Peer, address: tuple[str, int], lobby_password: str | None) -> tuple[socket.socket, Lobby]:
+    def connect_to_lobby_directly(self, peer: Peer, address: tuple[str, int], lobby_password: str | None) -> tuple[ClientConnectionHandler, Lobby]:
         """
         Connects directly to a lobby at the given address with the provided password.
 
@@ -202,7 +202,7 @@ class TcpMdnsLobbyBrowser:
         sock = socket.create_connection(address, timeout=TIMEOUT)
         return self._connect(sock, peer, lobby_password)
 
-    def connect_to_lobby_by_name(self, peer: Peer, lobby_name: str, lobby_password: str | None) -> tuple[socket.socket, Lobby]:
+    def connect_to_lobby_by_name(self, peer: Peer, lobby_name: str, lobby_password: str | None) -> tuple[ClientConnectionHandler, Lobby]:
         """
         Connects to a lobby with the given name and password.
 

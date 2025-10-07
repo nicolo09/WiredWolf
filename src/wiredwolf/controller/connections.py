@@ -101,7 +101,7 @@ class ServerConnectionHandler(abc.ABC):
     @abc.abstractmethod
     def receive_obj(self, sender: Peer) -> Any:
         pass
-    
+
     @abc.abstractmethod
     def stop_new_connections(self):
         pass
@@ -181,36 +181,76 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
                     self._logger.error("Error handling connections: %s", e)
 
 
-class TCPClientConnectionHandler(TCPMessageHandler):
+class ClientConnectionHandler(abc.ABC):
+    """Abstract base class for client connection handlers.
+    """
 
-    __logger = logging.getLogger(__name__)
+    _logger = logging.getLogger(__name__)
+    _on_message: Callable[[Any], None] | None
+
+    def __init__(self):
+        """Initialize the client connection handler.
+        """
+        self._on_message = None
+
+    def set_on_message(self, on_message: Callable[[Any], None]) -> None:
+        """Set the callback function to handle incoming messages.
+
+        Args:
+            on_message (Callable[[Any], None]): The callback function.
+        """
+        self._on_message = on_message
+
+    @abc.abstractmethod
+    def send_obj(self, obj: Any) -> None:
+        """Send an object to the server.
+
+        Args:
+            obj (Any): The object to send.
+        """
+
+
+class TCPClientConnectionHandler(ClientConnectionHandler):
+    """TCP implementation of a client connection handler.
+    """
+
     _message_handler: TCPMessageHandler
-    _socket: socket.socket | None = None
+    _peer: Peer
+    _socket: socket.socket
 
-    def __init__(self, peer: Peer):
-        super().__init__(MessageHandlerFactory.getDefaultSerializer())
-        self._peer = peer
+    def __init__(self, my_self: Peer, endpoint: socket.socket):
+        """Initialize the TCP client connection handler.
+
+        Args:
+            my_self (Peer): The local peer object.
+            endpoint (socket.socket): The socket endpoint for the connection.
+            on_message (Callable[[Any], None]): Callback function to handle incoming messages.
+        """
+        super().__init__()
         self._message_handler = MessageHandlerFactory.getDefault()
+        self._peer = my_self
+        self._socket = endpoint
 
-    def connect_to_server(self, address: tuple[str, int]) -> socket.socket | None:
-        """Connects to a server at the specified address and port."""
-        try:
-            self._socket = socket.create_connection(
-                address, timeout=TIMEOUT)
-            self._socket.settimeout(TIMEOUT)
-            self._message_handler.send_obj(self._socket, self._peer)
-            return self._socket
-        except OSError as e:
-            self.__logger.error("Error connecting to server: %s", e)
-            return None
+    def send_obj(self, obj: Any) -> None:
+        if self._socket:
+            self._message_handler.send_obj(self._socket, obj)
+        else:
+            raise RuntimeError("Not connected to server.")
 
 
 class ConnectionHandlerFactory:
+    """Factory class for creating connection handlers.
+    """
 
     @staticmethod
-    def getDefaultClientHandler(peer: Peer) -> TCPClientConnectionHandler:
-        return TCPClientConnectionHandler(peer)
-    
-    @staticmethod
     def getDefaultServerHandler(on_new_peer: Callable[[Peer], None]) -> TCPServerConnectionHandler:
-        return TCPServerConnectionHandler(on_new_peer) 
+        """Get the default server connection handler.
+
+        Args:
+            on_new_peer (Callable[[Peer], None]): Callback function to call on new peer connections.
+
+        Returns:
+            ServerConnectionHandler: The default server connection handler.
+        """
+        # TODO: Make this generic implementing ServerConnectionHandler interface
+        return TCPServerConnectionHandler(on_new_peer)

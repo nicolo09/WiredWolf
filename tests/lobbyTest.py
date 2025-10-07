@@ -11,7 +11,7 @@ class LobbyTest(unittest.TestCase):
         # Start the lobby browser
         lobby_browser = TcpMdnsLobbyBrowser()
         lobbies: list[Lobby] = []
-        lobby_browser.start_lobby_browser(on_lobby_found=lambda x: lobbies.append(x), on_lobby_lost=lambda x: lobbies.remove(x), on_lobby_updated=lambda x: None) # type: ignore
+        lobby_browser.start_lobby_browser(on_lobby_found=lobbies.append, on_lobby_lost=lobbies.remove, on_lobby_updated=lambda x: None) # type: ignore
 
         # Create and publish a new lobby
         lobby = Lobby("Test Lobby", "password123")
