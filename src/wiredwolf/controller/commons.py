@@ -8,16 +8,16 @@ class Peer:
     _name: str
     _uuid: str
 
-    def __init__(self, name: str, id: str | None = None):
+    def __init__(self, name: str, peer_id: str | None = None):
         self._name = name
-        self._uuid = id or str(uuid.uuid4())
+        self._uuid = peer_id or str(uuid.uuid4())
 
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, Peer):
             return NotImplemented
         return (self._name == value._name and
                 self._uuid == value._uuid)
-        
+
     def __hash__(self) -> int:
         return hash((self._name, self._uuid))
 
