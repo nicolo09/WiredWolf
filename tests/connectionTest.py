@@ -1,9 +1,7 @@
 import socket
 import unittest
 
-from wiredwolf.controller.commons import Peer
 import wiredwolf.controller.connections as connections
-from wiredwolf.controller.lobbies import TcpMdnsLobbyBrowser
 
 
 class BaseConnectionTest(unittest.TestCase):
