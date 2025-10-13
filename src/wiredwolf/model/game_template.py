@@ -1,53 +1,44 @@
 from abc import ABC, abstractmethod
+from typing import final, TypeVar, Type
 from wiredwolf.model.game import GamePhase
 from wiredwolf.model.player import Player, Status, Role
-from typing import final, TypeVar, Type
 from wiredwolf.model.exceptions import *
 
 # Type variable for generic decorator searching
 T = TypeVar('T', bound='AbstractGameInfo')
 
-#TODO: implement a ActionOutcome class to better handle the results of actions?
+
 class AbstractGameInfo(ABC):
     """
     Abstract base class for managing game state, votes, and night actions.
-
-    Subclasses must implement methods for handling votes, night actions,
-    end game conditions, and supported roles.
     """
 
     @property
     @abstractmethod
     def accusation_votes(self) -> dict[Player, Player]:
         """Returns the current accusation votes."""
-        pass
 
     @property
     @abstractmethod
     def ballot_votes(self) -> dict[Player, bool]:
         """Returns the current ballot votes."""
-        pass
 
     @property
     @abstractmethod
     def werewolves_votes(self) -> dict[Player, Player]:
         """Returns the current werewolves votes."""
-        pass
 
     @abstractmethod
     def reset_actions(self) -> None:
         """Clears all votes and night actions for a new round."""
-        pass
 
     @abstractmethod
     def handle_accusation_vote(self, accuser: Player, accused: Player) -> None:
         """Handles an accusation vote from one player against another."""
-        pass
 
     @abstractmethod
     def handle_ballot_vote(self, voter: Player, vote: bool) -> None:
         """Handles a ballot vote from a player."""
-        pass
 
     @final
     def handle_night_actions(self, actor: Player, target: Player) -> bool | None:
@@ -68,7 +59,6 @@ class AbstractGameInfo(ABC):
     @abstractmethod
     def _handle_night_actions(self, actor: Player, target: Player) -> bool | None:
         """Internal method for handling night actions. To be implemented by subclasses."""
-        pass
     
     @abstractmethod
     def remove_player(self, player: Player, gamephase: GamePhase) -> None:
@@ -79,7 +69,6 @@ class AbstractGameInfo(ABC):
             player (Player): The player to remove.
             gamephase (GamePhase): The current game phase.
         """
-        pass
 
     @abstractmethod
     def end_game_conditions(self, players: list[Player]) -> GamePhase | None:
@@ -92,12 +81,10 @@ class AbstractGameInfo(ABC):
         Returns:
             The winning phase, or None if the game continues.
         """
-        pass
 
     @abstractmethod
     def get_handled_roles(self) -> list[Role]:
         """Returns a list of roles handled by this game."""
-        pass
 
     def _find_decorator(self, decorator_type: Type[T], game_info: 'AbstractGameInfo') -> T | None:
         """
@@ -119,22 +106,7 @@ class AbstractGameInfo(ABC):
         return None
 
     def __eq__(self, other: object) -> bool:
-        """
-        Compare two AbstractGameInfo instances for equality.
-        
-        Two game info instances are considered equal if they have the same:
-        accusation votes, ballot votes, werewolves votes, handled roles
-        
-        Note: This base implementation only compares the vote dictionaries and handled roles.
-        Subclasses with additional state (like whether special roles have acted) should
-        override this method to include their specific state comparisons.
-        
-        Args:
-            other: The object to compare with
-            
-        Returns:
-            True if the instances are equal, False otherwise
-        """
+        """Compare two AbstractGameInfo instances for equality."""
         if not isinstance(other, AbstractGameInfo):
             return False
             
@@ -146,8 +118,15 @@ class AbstractGameInfo(ABC):
             sorted(role.value for role in other.get_handled_roles())
         )
 
-# Minimal implementation: handles Villager, Werewolf, and end game conditions
-class MinimalGameInfo(AbstractGameInfo):
+
+class SimpleGameInfo(AbstractGameInfo):
+    """
+    Basic game template supporting Villager and Werewolf roles.
+    
+    This is the foundation template that handles the core game mechanics
+    without any special roles. It can be extended using decorators to
+    add support for additional roles.
+    """
 
     def __init__(self) -> None:
         self._accusation_votes: dict[Player, Player] = {}
@@ -201,7 +180,6 @@ class MinimalGameInfo(AbstractGameInfo):
         self._werewolves_votes.clear()
         
     def remove_player(self, player: Player, gamephase: GamePhase) -> None:
-        
         match gamephase:
             case GamePhase.DAY_ACCUSING:
                 if player in self._accusation_votes:
@@ -236,8 +214,12 @@ class MinimalGameInfo(AbstractGameInfo):
     def get_handled_roles(self) -> list[Role]:
         return [Role.VILLAGER, Role.WEREWOLF]
 
-# Decorator base class
+
 class GameInfoDecorator(AbstractGameInfo):
+    """
+    Base decorator template for extending game functionality.
+    """
+    
     def __init__(self, wrapped: AbstractGameInfo) -> None:
         self._wrapped = wrapped
 
@@ -273,184 +255,3 @@ class GameInfoDecorator(AbstractGameInfo):
 
     def get_handled_roles(self) -> list[Role]:
         return self._wrapped.get_handled_roles()
-
-# Decorator for Clairvoyant role
-class ClairvoyantGameInfoDecorator(GameInfoDecorator):
-    def __init__(self, wrapped: AbstractGameInfo) -> None:
-        super().__init__(wrapped)
-        self._clairvoyant_acted = False
-
-    def reset_actions(self) -> None:
-        super().reset_actions()
-        self._clairvoyant_acted = False
-
-    def _handle_night_actions(self, actor: Player, target: Player) -> bool | None:
-        if actor.role == Role.CLAIRVOYANT:
-            if not actor.is_alive():
-                raise InvalidActionError(f"{actor.role} cannot perform action as dead player.")
-            if self._clairvoyant_acted:
-                raise InvalidActionError("Clairvoyant has already acted this night.")
-            if not target.is_alive():
-                raise InvalidActionError("Clairvoyant cannot target dead players.")
-            self._clairvoyant_acted = True
-            return target.is_evil()
-        return super()._handle_night_actions(actor, target)
-
-    def get_handled_roles(self) -> list[Role]:
-        return super().get_handled_roles() + [Role.CLAIRVOYANT]
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, AbstractGameInfo):
-            return False
-        
-        # First check if the other object has a clairvoyant decorator
-        other_clairvoyant = self._find_decorator(ClairvoyantGameInfoDecorator, other)
-        
-        # If the other object doesn't have a clairvoyant decorator, they're not equal
-        if other_clairvoyant is None:
-            return False
-        
-        # Compare the clairvoyant-specific state
-        if self._clairvoyant_acted != other_clairvoyant._clairvoyant_acted:
-            return False
-        
-        # If clairvoyant states match, check the base comparison
-        return super().__eq__(other)
-
-# Decorator for Escort role
-class EscortGameInfoDecorator(GameInfoDecorator):
-    def __init__(self, wrapped: AbstractGameInfo) -> None:
-        super().__init__(wrapped)
-        self._escort_acted = False
-        self._protected_player: Player | None = None
-
-    def reset_actions(self) -> None:
-        super().reset_actions()
-        self._escort_acted = False
-        if self._protected_player is not None:
-            self._protected_player.status = Status.ALIVE
-            self._protected_player = None 
-
-    def _handle_night_actions(self, actor: Player, target: Player) -> bool | None:
-        if actor.role == Role.ESCORT:
-            if not actor.is_alive():
-                raise PlayerStatusError(f"{actor.role} cannot perform action as dead player.")
-            if self._escort_acted:
-                raise InvalidActionError("Escort has already acted this night.")
-            if not target.is_alive():
-                raise InvalidActionError("Escort cannot target dead players.")
-            self._escort_acted = True
-            target.status = Status.PROTECTED
-            self._protected_player = target
-            return
-        return super()._handle_night_actions(actor, target)
-    
-    def remove_player(self, player: Player, gamephase: GamePhase) -> None:
-        if gamephase == GamePhase.NIGHT:
-            if player == self._protected_player:
-                self._protected_player = None
-            elif player.role == Role.ESCORT:
-                player.status = Status.ALIVE
-                self._escort_acted = False
-        super().remove_player(player, gamephase)
-
-    def get_handled_roles(self) -> list[Role]:
-        return super().get_handled_roles() + [Role.ESCORT]
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, AbstractGameInfo):
-            return False
-        
-        # First check if the other object has an escort decorator
-        other_escort = self._find_decorator(EscortGameInfoDecorator, other)
-        
-        # If the other object doesn't have an escort decorator, they're not equal
-        if other_escort is None:
-            return False
-        
-        # Compare the escort-specific state
-        if (self._escort_acted != other_escort._escort_acted or 
-            self._protected_player != other_escort._protected_player):
-            return False
-        
-        # If escort states match, check the base comparison
-        return super().__eq__(other)
-
-# Decorator for Medium role
-class MediumGameInfoDecorator(GameInfoDecorator):
-    def __init__(self, wrapped: AbstractGameInfo) -> None:
-        super().__init__(wrapped)
-        self._medium_acted = False
-
-    def reset_actions(self) -> None:
-        super().reset_actions()
-        self._medium_acted = False
-
-    def _handle_night_actions(self, actor: Player, target: Player) -> bool | None:
-        if actor.role == Role.MEDIUM:
-            if not actor.is_alive():
-                raise PlayerStatusError(f"{actor.role} cannot perform action as dead player.")
-            if self._medium_acted:
-                raise InvalidActionError("Medium has already acted this night.")
-            if target.is_alive():
-                raise InvalidActionError("Medium cannot target alive players.")
-            self._medium_acted = True
-            return target.is_evil()
-        return super()._handle_night_actions(actor, target)
-
-    def get_handled_roles(self) -> list[Role]:
-        return super().get_handled_roles() + [Role.MEDIUM]
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, AbstractGameInfo):
-            return False
-        
-        # First check if the other object has a medium decorator
-        other_medium = self._find_decorator(MediumGameInfoDecorator, other)
-        
-        # If the other object doesn't have a medium decorator, they're not equal
-        if other_medium is None:
-            return False
-        
-        # Compare the medium-specific state
-        if self._medium_acted != other_medium._medium_acted:
-            return False
-        
-        # If medium states match, check the base comparison
-        return super().__eq__(other)
-
-
-class BasicGameInfoBuilder:
-    """
-    Builder for constructing AbstractGameInfo instances.
-    """
-    
-    def __init__(self, game_info: AbstractGameInfo):
-        self._game_info = game_info
-    
-    @staticmethod
-    def basics() -> 'BasicGameInfoBuilder':
-        """Start with a basic game (Villager and Werewolf support)."""
-        return BasicGameInfoBuilder(MinimalGameInfo())
-    
-    def add_clairvoyant(self) -> 'BasicGameInfoBuilder':
-        """Add Clairvoyant role support."""
-        if Role.CLAIRVOYANT not in self._game_info.get_handled_roles():
-            self._game_info = ClairvoyantGameInfoDecorator(self._game_info)
-        return self
-    
-    def add_escort(self) -> 'BasicGameInfoBuilder':
-        """Add Escort role support."""
-        if Role.ESCORT not in self._game_info.get_handled_roles():
-            self._game_info = EscortGameInfoDecorator(self._game_info)
-        return self
-    
-    def add_medium(self) -> 'BasicGameInfoBuilder':
-        """Add Medium role support."""
-        if Role.MEDIUM not in self._game_info.get_handled_roles():
-            self._game_info = MediumGameInfoDecorator(self._game_info)
-        return self
-    
-    def build(self) -> AbstractGameInfo:
-        """Build and return the configured AbstractGameInfo instance."""
-        return self._game_info

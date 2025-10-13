@@ -1,6 +1,7 @@
 import unittest
 from wiredwolf.model.game import Game, GamePhase, GameStatus
-from wiredwolf.model.game_modifiers import AbstractGameInfo, BasicGameInfoBuilder
+from wiredwolf.model.game_template import AbstractGameInfo
+from wiredwolf.model.role_extensions import create_standard_game, BasicGameInfoBuilder
 from wiredwolf.model.player import Player, Role, Status
 
 def populate_players() -> list[Player]:
@@ -19,13 +20,7 @@ def populate_players() -> list[Player]:
     ]
 
 def create_game_info() -> AbstractGameInfo:
-    return (
-        BasicGameInfoBuilder.basics()
-        .add_escort()
-        .add_medium()
-        .add_clairvoyant()
-        .build()
-    )
+    return create_standard_game()
 
 def get_index_by_name(players: list[Player], name: str) -> int:
     """
@@ -50,10 +45,10 @@ class GameTest(unittest.TestCase):
 
     def test_game_info_equals(self):
         game_info_comparison: AbstractGameInfo = (
-            BasicGameInfoBuilder.basics()
-            .add_medium()
-            .add_clairvoyant()
-            .add_escort()
+            BasicGameInfoBuilder.default()
+            .with_medium()
+            .with_clairvoyant()
+            .with_escort()
             .build()
         )
 
@@ -61,9 +56,9 @@ class GameTest(unittest.TestCase):
 
     def test_game_info_not_equals(self):
         game_info_different: AbstractGameInfo = (
-            BasicGameInfoBuilder.basics()
-            .add_medium()
-            .add_clairvoyant()
+            BasicGameInfoBuilder.default()
+            .with_medium()
+            .with_clairvoyant()
             .build()
         )
         

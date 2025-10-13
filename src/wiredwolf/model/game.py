@@ -10,7 +10,7 @@ class GamePhase(Enum):
     VILLAGERS_VICTORY = 5
     WEREWOLVES_VICTORY = 6
     
-from wiredwolf.model.game_modifiers import AbstractGameInfo
+from wiredwolf.model.game_template import AbstractGameInfo
 
 class GameStatus:
     """
