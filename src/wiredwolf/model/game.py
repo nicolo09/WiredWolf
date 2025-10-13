@@ -1,6 +1,6 @@
 from enum import Enum
-from collections import Counter
 from wiredwolf.model.player import Player, Status
+from wiredwolf.model.exceptions import *
 
 class GamePhase(Enum):
     DAY_DISCUSSION = 1
@@ -172,18 +172,19 @@ class Game:
             True/False for clairvoyant/medium actions, None for others.
 
         Raises:
-            ValueError: If not in NIGHT phase, or if actor/target does not exist.
+            GamePhaseError: If not in NIGHT phase
+            MissingPlayerError: If actor or target does not exist.
         """
         if self._phase != GamePhase.NIGHT:
-            raise ValueError("Night actions can only be performed during the NIGHT phase.")
+            raise GamePhaseError("Night actions can only be performed during the NIGHT phase.")
 
         actor: Player | None = self.__get_player_from_id(actor_id)
         if actor is None:
-            raise ValueError(f"Player with ID {actor_id} does not exist.")
-        
+            raise MissingPlayerError(f"Player with ID {actor_id} does not exist.")
+
         target: Player | None = self.__get_player_from_id(target_id)
         if target is None:
-            raise ValueError(f"Target with ID {target_id} does not exist.")
+            raise MissingPlayerError(f"Target with ID {target_id} does not exist.")
 
         return self._game_info.handle_night_actions(actor, target)
 
@@ -196,20 +197,21 @@ class Game:
             target_id (str): The ID of the player to accuse.
 
         Raises:
-            ValueError: If not in DAY_ACCUSING phase, or if voter/target does not exist.
+            GamePhaseError: If not in DAY_ACCUSING phase
+            MissingPlayerError: If voter/target does not exist.
         """
         if self._phase != GamePhase.DAY_ACCUSING:
-            raise ValueError("Accusations can only be made during the DAY_ACCUSING phase.")
+            raise GamePhaseError("Accusations can only be made during the DAY_ACCUSING phase.")
         
         voter: Player | None = self.__get_player_from_id(voter_id)
         
         if voter is None:
-            raise ValueError(f"Voter with ID {voter_id} does not exist.")
+            raise MissingPlayerError(f"Voter with ID {voter_id} does not exist.")
 
         target: Player | None = self.__get_player_from_id(target_id)
         
         if target is None:
-            raise ValueError(f"Target with ID {target_id} does not exist.")
+            raise MissingPlayerError(f"Target with ID {target_id} does not exist.")
         
         self._game_info.handle_accusation_vote(voter, target)
 
@@ -222,15 +224,16 @@ class Game:
             vote (bool): True to confirm the accusation, False to reject.
 
         Raises:
-            ValueError: If not in DAY_BALLOT phase, or if voter does not exist.
+            GamePhaseError: If not in DAY_BALLOT phase
+            MissingPlayerError: If voter does not exist or is not alive.
         """
         if self._phase != GamePhase.DAY_BALLOT:
-            raise ValueError("Ballots can only be confirmed during the DAY_BALLOT phase.")
+            raise GamePhaseError("Ballots can only be confirmed during the DAY_BALLOT phase.")
         
         voter: Player | None = self.__get_player_from_id(voter_id)
         
         if voter is None:
-            raise ValueError(f"Player with ID {voter_id} does not exist or is not alive.")
+            raise MissingPlayerError(f"Player with ID {voter_id} does not exist or is not alive.")
         
         self._game_info.handle_ballot_vote(voter, vote)
 
@@ -242,11 +245,17 @@ class Game:
         Should only be used by the game controller to remove a player from the game.
         Args:
             player_id: ID of the player to kill.
+            
+        Returns:
+            The current game phase after the player is killed.
+            
+        Raises:
+            MissingPlayerError: If player does not exist.
         """
         player: Player | None = self.__get_player_from_id(player_id)
         
         if not player:
-            raise ValueError(f"Player with ID {player_id} does not exist.")
+            raise MissingPlayerError(f"Player with ID {player_id} does not exist.")
 
         if player.is_alive():
             
@@ -287,6 +296,7 @@ class Game:
             return None
             
         # Count votes for each target
+        from collections import Counter
         vote_counts = Counter(votes.values())
         
         # Find the maximum vote count

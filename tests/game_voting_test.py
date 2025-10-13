@@ -1,6 +1,7 @@
 import unittest
 from wiredwolf.model.game import Game, GamePhase
 from wiredwolf.model.player import Status
+from wiredwolf.model.exceptions import *
 from tests.game_test import populate_players, get_index_by_name, create_game_info
 
 class GameVotingTest(unittest.TestCase):
@@ -11,19 +12,19 @@ class GameVotingTest(unittest.TestCase):
     def test_double_vote(self):
         self.game.advance_phase()
         self.game.accuse_player("Alice", "Bob")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(InvalidActionError):
             self.game.accuse_player("Alice", "Charlie")
 
     def test_vote_dead_player(self):
         self.game.advance_phase()
         self.game.kill_player("Bob")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(InvalidActionError):
             self.game.accuse_player("Alice", "Bob")
 
     def test_vote_after_death(self):
         self.game.advance_phase()
         self.game.kill_player("Bob")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(PlayerStatusError):
             self.game.accuse_player("Bob", "Alice")
 
     def test_reset_vote(self):
@@ -35,7 +36,7 @@ class GameVotingTest(unittest.TestCase):
         self.game.kill_player("Alice")
         self.game.accuse_player("Bob", "Charlie")
         self.assertEqual(self.game.players[alice_index].status, Status.DEAD)
-        with self.assertRaises(ValueError):
+        with self.assertRaises(InvalidActionError):
             self.game.accuse_player("Bob", "Eve")
 
     def test_accusation_vote_draw(self):

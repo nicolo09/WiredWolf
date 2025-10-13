@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from wiredwolf.model.game import GamePhase
 from wiredwolf.model.player import Player, Status, Role
 from typing import final, TypeVar, Type
+from wiredwolf.model.exceptions import *
 
 # Type variable for generic decorator searching
 T = TypeVar('T', bound='AbstractGameInfo')
@@ -167,30 +168,30 @@ class MinimalGameInfo(AbstractGameInfo):
 
     def handle_accusation_vote(self, accuser: Player, accused: Player) -> None:
         if not accuser.is_alive():
-            raise ValueError("Cannot accuse as dead player.")
+            raise PlayerStatusError("Cannot accuse as dead player.")
         if not accused.is_alive():
-            raise ValueError("Cannot accuse dead player.")
+            raise InvalidActionError("Cannot accuse dead player.")
         if accuser in self._accusation_votes:
-            raise ValueError(f"{accuser.id} has already voted.")
+            raise InvalidActionError(f"{accuser.id} has already voted.")
         self._accusation_votes[accuser] = accused
 
     def handle_ballot_vote(self, voter: Player, vote: bool) -> None:
         if not voter.is_alive():
-            raise ValueError("Cannot vote as dead player.")
+            raise PlayerStatusError("Cannot vote as dead player.")
         if voter in self._ballot_votes:
-            raise ValueError(f"{voter.id} has already voted.")
+            raise InvalidActionError(f"{voter.id} has already voted.")
         self._ballot_votes[voter] = vote
 
     def _handle_night_actions(self, actor: Player, target: Player) -> bool | None:
         if actor.role == Role.WEREWOLF:
             if not actor.is_alive():
-                raise ValueError(f"{actor.role} cannot perform action as dead player.")
+                raise PlayerStatusError(f"{actor.role} cannot perform action as dead player.")
             if actor in self._werewolves_votes:
-                raise ValueError(f"{actor.id} has already voted.")
+                raise InvalidActionError(f"{actor.id} has already voted.")
             if target.role == Role.WEREWOLF:
-                raise ValueError("Werewolves cannot vote for other werewolves.")
+                raise InvalidActionError("Werewolves cannot vote for other werewolves.")
             if not target.is_alive():
-                raise ValueError("Cannot vote for dead player.")
+                raise InvalidActionError("Cannot vote for dead player.")
             self._werewolves_votes[actor] = target
         return None
     
@@ -286,11 +287,11 @@ class ClairvoyantGameInfoDecorator(GameInfoDecorator):
     def _handle_night_actions(self, actor: Player, target: Player) -> bool | None:
         if actor.role == Role.CLAIRVOYANT:
             if not actor.is_alive():
-                raise ValueError(f"{actor.role} cannot perform action as dead player.")
+                raise InvalidActionError(f"{actor.role} cannot perform action as dead player.")
             if self._clairvoyant_acted:
-                raise ValueError("Clairvoyant has already acted this night.")
+                raise InvalidActionError("Clairvoyant has already acted this night.")
             if not target.is_alive():
-                raise ValueError("Clairvoyant cannot target dead players.")
+                raise InvalidActionError("Clairvoyant cannot target dead players.")
             self._clairvoyant_acted = True
             return target.is_evil()
         return super()._handle_night_actions(actor, target)
@@ -333,11 +334,11 @@ class EscortGameInfoDecorator(GameInfoDecorator):
     def _handle_night_actions(self, actor: Player, target: Player) -> bool | None:
         if actor.role == Role.ESCORT:
             if not actor.is_alive():
-                raise ValueError(f"{actor.role} cannot perform action as dead player.")
+                raise PlayerStatusError(f"{actor.role} cannot perform action as dead player.")
             if self._escort_acted:
-                raise ValueError("Escort has already acted this night.")
+                raise InvalidActionError("Escort has already acted this night.")
             if not target.is_alive():
-                raise ValueError("Escort cannot target dead players.")
+                raise InvalidActionError("Escort cannot target dead players.")
             self._escort_acted = True
             target.status = Status.PROTECTED
             self._protected_player = target
@@ -388,11 +389,11 @@ class MediumGameInfoDecorator(GameInfoDecorator):
     def _handle_night_actions(self, actor: Player, target: Player) -> bool | None:
         if actor.role == Role.MEDIUM:
             if not actor.is_alive():
-                raise ValueError(f"{actor.role} cannot perform action as dead player.")
+                raise PlayerStatusError(f"{actor.role} cannot perform action as dead player.")
             if self._medium_acted:
-                raise ValueError("Medium has already acted this night.")
+                raise InvalidActionError("Medium has already acted this night.")
             if target.is_alive():
-                raise ValueError("Medium cannot target alive players.")
+                raise InvalidActionError("Medium cannot target alive players.")
             self._medium_acted = True
             return target.is_evil()
         return super()._handle_night_actions(actor, target)
