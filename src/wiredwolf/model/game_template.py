@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import final, TypeVar, Type
 from wiredwolf.model.game import GamePhase
 from wiredwolf.model.player import Player, Status, Role
@@ -7,6 +8,13 @@ from wiredwolf.model.exceptions import *
 # Type variable for generic decorator searching
 T = TypeVar('T', bound='AbstractGameInfo')
 
+@dataclass
+class NightActionResult:
+    """
+    Represents the result of a game action, including success status (if any, otherwise None) and a message.
+    """
+    result: bool | None = None
+    message: str = ""
 
 class AbstractGameInfo(ABC):
     """
@@ -41,7 +49,7 @@ class AbstractGameInfo(ABC):
         """Handles a ballot vote from a player."""
 
     @final
-    def handle_night_actions(self, actor: Player, target: Player) -> bool | None:
+    def handle_night_actions(self, actor: Player, target: Player) -> NightActionResult:
         """
         Handles a night action performed by an actor on a target.
 
@@ -57,7 +65,7 @@ class AbstractGameInfo(ABC):
         return self._handle_night_actions(actor, target)
 
     @abstractmethod
-    def _handle_night_actions(self, actor: Player, target: Player) -> bool | None:
+    def _handle_night_actions(self, actor: Player, target: Player) -> NightActionResult:
         """Internal method for handling night actions. To be implemented by subclasses."""
     
     @abstractmethod
@@ -161,7 +169,7 @@ class SimpleGameInfo(AbstractGameInfo):
             raise InvalidActionError(f"{voter.id} has already voted.")
         self._ballot_votes[voter] = vote
 
-    def _handle_night_actions(self, actor: Player, target: Player) -> bool | None:
+    def _handle_night_actions(self, actor: Player, target: Player) -> NightActionResult:
         if actor.role == Role.WEREWOLF:
             if not actor.is_alive():
                 raise PlayerStatusError(f"{actor.role} cannot perform action as dead player.")
@@ -172,7 +180,7 @@ class SimpleGameInfo(AbstractGameInfo):
             if not target.is_alive():
                 raise InvalidActionError("Cannot vote for dead player.")
             self._werewolves_votes[actor] = target
-        return None
+        return NightActionResult(message="Action processed.")
     
     def reset_actions(self) -> None:
         self._accusation_votes.clear()
@@ -244,7 +252,7 @@ class GameInfoDecorator(AbstractGameInfo):
     def handle_ballot_vote(self, voter: Player, vote: bool) -> None:
         self._wrapped.handle_ballot_vote(voter, vote)
 
-    def _handle_night_actions(self, actor: Player, target: Player) -> bool | None:
+    def _handle_night_actions(self, actor: Player, target: Player) -> NightActionResult:
         return self._wrapped._handle_night_actions(actor, target)
     
     def remove_player(self, player: Player, gamephase: GamePhase) -> None:

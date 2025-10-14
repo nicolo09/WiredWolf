@@ -1,7 +1,7 @@
 from wiredwolf.model.game import GamePhase
 from wiredwolf.model.player import Player, Status, Role
 from wiredwolf.model.exceptions import *
-from .game_template import AbstractGameInfo, SimpleGameInfo, GameInfoDecorator
+from wiredwolf.model.game_template import *
 
 
 class ClairvoyantDecorator(GameInfoDecorator):
@@ -20,7 +20,7 @@ class ClairvoyantDecorator(GameInfoDecorator):
         super().reset_actions()
         self._clairvoyant_acted = False
 
-    def _handle_night_actions(self, actor: Player, target: Player) -> bool | None:
+    def _handle_night_actions(self, actor: Player, target: Player) -> NightActionResult:
         if actor.role == Role.CLAIRVOYANT:
             if not actor.is_alive():
                 raise InvalidActionError(f"{actor.role} cannot perform action as dead player.")
@@ -29,7 +29,7 @@ class ClairvoyantDecorator(GameInfoDecorator):
             if not target.is_alive():
                 raise InvalidActionError("Clairvoyant cannot target dead players.")
             self._clairvoyant_acted = True
-            return target.is_evil()
+            return NightActionResult(target.is_evil(), f"Clairvoyant investigated {target.id}.")
         return super()._handle_night_actions(actor, target)
 
     def get_handled_roles(self) -> list[Role]:
@@ -68,7 +68,7 @@ class EscortDecorator(GameInfoDecorator):
             self._protected_player.status = Status.ALIVE
             self._protected_player = None 
 
-    def _handle_night_actions(self, actor: Player, target: Player) -> bool | None:
+    def _handle_night_actions(self, actor: Player, target: Player) -> NightActionResult:
         if actor.role == Role.ESCORT:
             if not actor.is_alive():
                 raise PlayerStatusError(f"{actor.role} cannot perform action as dead player.")
@@ -79,7 +79,7 @@ class EscortDecorator(GameInfoDecorator):
             self._escort_acted = True
             target.status = Status.PROTECTED
             self._protected_player = target
-            return
+            return NightActionResult(message = f"Escort protected {target.id}.")
         return super()._handle_night_actions(actor, target)
     
     def remove_player(self, player: Player, gamephase: GamePhase) -> None:
@@ -125,7 +125,7 @@ class MediumDecorator(GameInfoDecorator):
         super().reset_actions()
         self._medium_acted = False
 
-    def _handle_night_actions(self, actor: Player, target: Player) -> bool | None:
+    def _handle_night_actions(self, actor: Player, target: Player) -> NightActionResult:
         if actor.role == Role.MEDIUM:
             if not actor.is_alive():
                 raise PlayerStatusError(f"{actor.role} cannot perform action as dead player.")
@@ -134,7 +134,7 @@ class MediumDecorator(GameInfoDecorator):
             if target.is_alive():
                 raise InvalidActionError("Medium cannot target alive players.")
             self._medium_acted = True
-            return target.is_evil()
+            return NightActionResult(target.is_evil(), f"Medium communicated with {target.id}.")
         return super()._handle_night_actions(actor, target)
 
     def get_handled_roles(self) -> list[Role]:
@@ -154,7 +154,6 @@ class MediumDecorator(GameInfoDecorator):
         return super().__eq__(other)
 
 
-# Game builder
 class BasicGameInfoBuilder:
     """
     Builder for creating game configurations with specific role support.
@@ -236,7 +235,6 @@ class BasicGameInfoBuilder:
         return self._game_info
 
 
-# Convenience factory functions
 def create_standard_game() -> AbstractGameInfo:
     """
     Create a standard game with all available roles.

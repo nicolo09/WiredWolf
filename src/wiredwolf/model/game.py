@@ -10,7 +10,7 @@ class GamePhase(Enum):
     VILLAGERS_VICTORY = 5
     WEREWOLVES_VICTORY = 6
     
-from wiredwolf.model.game_template import AbstractGameInfo
+from wiredwolf.model.game_template import AbstractGameInfo, NightActionResult
 
 class GameStatus:
     """
@@ -160,7 +160,7 @@ class Game:
             
         return self._phase
 
-    def perform_night_action(self, actor_id: str, target_id: str) -> bool | None:
+    def perform_night_action(self, actor_id: str, target_id: str) -> NightActionResult:
         """
         Perform a night action for a given actor and target, according to their roles.
 
