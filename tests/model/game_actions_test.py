@@ -2,7 +2,7 @@ import unittest
 from wiredwolf.model.game import Game
 from wiredwolf.model.player import Status
 from wiredwolf.model.exceptions import *
-from tests.game_test import populate_players, get_index_by_name, create_game_info
+from tests.model.game_test import populate_players, get_index_by_name, create_game_info
 
 class GameActionsTest(unittest.TestCase):
     def setUp(self):

@@ -1,7 +1,7 @@
 import unittest
 from wiredwolf.model.game import Game, GamePhase
 from wiredwolf.model.player import Status
-from tests.game_test import populate_players, get_index_by_name, create_game_info
+from tests.model.game_test import populate_players, get_index_by_name, create_game_info
 
 class GamePhaseTest(unittest.TestCase):
     def setUp(self):
