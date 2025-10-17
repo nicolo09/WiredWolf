@@ -26,7 +26,7 @@ class ServerConnectionTest(unittest.TestCase):
 
     def setUp(self) -> None:
         self.serverConnHandler = connections.TCPServerConnectionHandler(
-            lambda peer: self.assertIsInstance(peer, connections.Peer), ("127.0.0.1", 0))
+            lambda peer: self.assertIsInstance(peer, connections.Peer), lambda msg: self.assertIsInstance(msg, connections.BaseMessage), ("127.0.0.1", 0))
         self.serverName = self.serverConnHandler.get_receiver_socket().getsockname()
 
     def tearDown(self) -> None:

@@ -2,7 +2,8 @@ import socket
 import unittest
 
 from wiredwolf.controller.commons import PasswordRequest, Peer
-from wiredwolf.controller.connections import MessageHandlerFactory, TCPServerConnectionHandler
+from wiredwolf.controller.connections import MessageHandlerFactory
+from wiredwolf.controller.connections import TCPServerConnectionHandler
 from wiredwolf.controller.lobbies import Lobby, TcpMdnsLobbyBrowser
 from wiredwolf.controller.server import GameServer
 
