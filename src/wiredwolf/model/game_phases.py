@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from enum import Enum
 
 from wiredwolf.model.player import Player
@@ -11,6 +12,7 @@ class GamePhase(Enum):
     VILLAGERS_VICTORY = 5
     WEREWOLVES_VICTORY = 6
 
+
 class GamePhaseOutcome:
     """
     Represents the outcome of a game phase transition.
@@ -18,13 +20,23 @@ class GamePhaseOutcome:
         new_phase (GamePhase): The new phase after the transition.
         deaths (list[Player]): List of players who died because of the phase transition.
     """
+
     new_phase: GamePhase
     deaths: list[Player]
-    
+
     def __init__(self, new_phase: GamePhase, deaths: list[Player] = []):
         self.new_phase = new_phase
         self.deaths = deaths
-        
+
     def someone_died(self) -> bool:
         return len(self.deaths) > 0
-    
+
+
+@dataclass
+class NightActionResult:
+    """
+    Represents the result of a night action, including success status (if any, otherwise None) and a message.
+    """
+
+    result: bool | None = None
+    message: str = ""

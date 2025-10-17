@@ -1,20 +1,11 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from typing import final, TypeVar, Type
-from wiredwolf.model.game_phases import GamePhase
+from wiredwolf.model.game_phases import GamePhase, NightActionResult
 from wiredwolf.model.player import Player, Status, Role
 from wiredwolf.model.exceptions import *
 
 # Type variable for generic decorator searching
 T = TypeVar('T', bound='AbstractGameInfo')
-
-@dataclass
-class NightActionResult:
-    """
-    Represents the result of a game action, including success status (if any, otherwise None) and a message.
-    """
-    result: bool | None = None
-    message: str = ""
 
 class AbstractGameInfo(ABC):
     """

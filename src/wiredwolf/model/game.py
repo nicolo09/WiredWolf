@@ -1,7 +1,7 @@
 from wiredwolf.model.game_phases import *
 from wiredwolf.model.player import Player, Status
 from wiredwolf.model.exceptions import *    
-from wiredwolf.model.game_template import AbstractGameInfo, NightActionResult
+from wiredwolf.model.game_template import AbstractGameInfo
 
 class GameStatus:
     """

@@ -1,4 +1,4 @@
-from wiredwolf.model.game import GamePhase
+from wiredwolf.model.game_phases import GamePhase, NightActionResult
 from wiredwolf.model.player import Player, Status, Role
 from wiredwolf.model.exceptions import *
 from wiredwolf.model.game_template import *
