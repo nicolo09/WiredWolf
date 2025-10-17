@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import final, TypeVar, Type
-from wiredwolf.model.game import GamePhase
+from wiredwolf.model.game_phases import GamePhase
 from wiredwolf.model.player import Player, Status, Role
 from wiredwolf.model.exceptions import *
 

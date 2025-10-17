@@ -1,15 +1,6 @@
-from enum import Enum
+from wiredwolf.model.game_phases import *
 from wiredwolf.model.player import Player, Status
-from wiredwolf.model.exceptions import *
-
-class GamePhase(Enum):
-    DAY_DISCUSSION = 1
-    DAY_ACCUSING = 2
-    DAY_BALLOT = 3
-    NIGHT = 4
-    VILLAGERS_VICTORY = 5
-    WEREWOLVES_VICTORY = 6
-    
+from wiredwolf.model.exceptions import *    
 from wiredwolf.model.game_template import AbstractGameInfo, NightActionResult
 
 class GameStatus:
@@ -102,7 +93,7 @@ class Game:
         """
         return GameStatus(self._players.copy(), self._game_info, self._phase)
 
-    def advance_phase(self) -> GamePhase:
+    def advance_phase(self) -> GamePhaseOutcome:
         """
         Advance to the next game phase based on current state.
         
@@ -114,6 +105,7 @@ class Game:
         Returns:
             The new game phase after advancement.
         """
+        deaths: list[Player] = []
 
         match self._phase:
             case GamePhase.DAY_DISCUSSION:
@@ -139,6 +131,7 @@ class Game:
                     )
                     if voting_count > 0 and confirm_ballot_votes > voting_count / 2:
                         self._current_accusation.status = Status.DEAD
+                        deaths.append(self._current_accusation)
                     self._current_accusation = None
                 self._phase = GamePhase.NIGHT
 
@@ -148,17 +141,19 @@ class Game:
                 
                 if victim is not None and victim.status != Status.PROTECTED:
                     victim.status = Status.DEAD
+                    deaths.append(victim)
                     
                 self._game_info.reset_actions()
                 self._phase = GamePhase.DAY_DISCUSSION
             case _:
-                return self._phase
+                # Game is over, no further phase advancement
+                return GamePhaseOutcome(self._phase)
 
         game_over: GamePhase | None = self._game_info.end_game_conditions(self._players)
         if game_over:
             self._phase = game_over
             
-        return self._phase
+        return GamePhaseOutcome(self._phase, deaths)
 
     def perform_night_action(self, actor_id: str, target_id: str) -> NightActionResult:
         """
