@@ -1,5 +1,6 @@
 import unittest
-from wiredwolf.model.game import Game, GamePhase, GameStatus
+from wiredwolf.model.game import Game, GameStatus
+from wiredwolf.model.game_phases import GamePhase
 from wiredwolf.model.game_template import AbstractGameInfo
 from wiredwolf.model.role_extensions import create_standard_game, BasicGameInfoBuilder
 from wiredwolf.model.player import Player, Role, Status

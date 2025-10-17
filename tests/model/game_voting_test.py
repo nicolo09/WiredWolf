@@ -1,5 +1,6 @@
 import unittest
-from wiredwolf.model.game import Game, GamePhase
+from wiredwolf.model.game import Game
+from wiredwolf.model.game_phases import GamePhase, GamePhaseOutcome
 from wiredwolf.model.player import Status
 from wiredwolf.model.exceptions import *
 from tests.model.game_test import populate_players, get_index_by_name, create_game_info
@@ -61,7 +62,9 @@ class GameVotingTest(unittest.TestCase):
         self.game.ballot_vote("Charlie", True)
         self.game.ballot_vote("Diana", True)
         self.game.ballot_vote("Frank", False)
-        self.game.advance_phase()
+        outcome: GamePhaseOutcome = self.game.advance_phase()
+        self.assertTrue(outcome.someone_died())
+        self.assertEqual(outcome.deaths[0], self.game.players[bob_index])
         self.assertEqual(self.game.players[bob_index].status, Status.DEAD)
 
     def test_ballot_vote_rejected(self):
