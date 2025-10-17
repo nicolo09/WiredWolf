@@ -10,7 +10,7 @@ class TestPlayer(unittest.TestCase):
         
     def test_player_creation(self):
         ids: list[str] = ["Alice", "Bob", "Charlie", "Diana", "Eve", "Frank", "Grace", "Hank"]
-        special_roles: list[Role] = [Role.ESCORT, Role.CLAIRVOYANT]
+        special_roles: set[Role] = {Role.ESCORT, Role.CLAIRVOYANT, Role.WEREWOLF, Role.VILLAGER}
         players = create_players(ids, special_roles)
         self.assertEqual(len(players), 8)
 

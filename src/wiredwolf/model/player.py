@@ -59,12 +59,12 @@ class Player:
     def __hash__(self) -> int:
         return hash((self._id, self._role, self._status))
     
-def create_players(ids: list[str], special_roles: list[Role]) -> list[Player]:
+def create_players(ids: list[str], roles: set[Role]) -> list[Player]:
     """Creates a list of players with the given ids and assigns roles randomly.
     Args:
         ids (list[str]): A list of player IDs.
-        special_roles (list[Role]): A list of special roles to assign to players.
-        
+        special_roles (set[Role]): A set of special roles to assign to players.
+
     Returns:
         list[Player]: A list of Player objects with assigned roles.
         
@@ -75,14 +75,9 @@ def create_players(ids: list[str], special_roles: list[Role]) -> list[Player]:
     """
     
     players: list[Player] = []
+    special_roles: set[Role] = roles - {Role.VILLAGER, Role.WEREWOLF}  # Create a local copy excluding default roles
     werewolves_number = max(2, len(ids) // 4)
-    
-    # Ensure no duplicates of Villager or Werewolf in special roles
-    if Role.VILLAGER in special_roles:
-        special_roles.remove(Role.VILLAGER)
-    if Role.WEREWOLF in special_roles:
-        special_roles.remove(Role.WEREWOLF)
-    
+
     if len(ids) < len(special_roles) + werewolves_number:
         raise ValueError("Not enough players to assign the specified special roles and werewolves (minimum 2 werewolves required).")
 
@@ -90,7 +85,7 @@ def create_players(ids: list[str], special_roles: list[Role]) -> list[Player]:
 
     for id in ids:
         if special_roles:
-            role = special_roles.pop(0)
+            role = special_roles.pop()
         elif werewolves_number > 0:
             role = Role.WEREWOLF
             werewolves_number -= 1
