@@ -1,18 +1,23 @@
 import logging
 from wiredwolf.controller.commons import PasswordRequest, Peer
 from wiredwolf.controller.connections import ServerConnectionHandler, TCPServerConnectionHandler
+from wiredwolf.controller.messages import BaseMessage
 from wiredwolf.controller.lobbies import Lobby
+from wiredwolf.controller.server_plugins import ServerPlugin
 
 
 class GameServer:
+    """Represents a wiredwolf server that manages a game lobby and player connections.
+    """
     __logger = logging.getLogger(__name__)
     _server_conn_handler: ServerConnectionHandler
     _lobby: Lobby
+    _plugins: list[ServerPlugin]
 
     def __init__(self, lobby: Lobby):  # TODO: Add owner peer and socket
         self._lobby = lobby
         self._server_conn_handler = TCPServerConnectionHandler(
-            lambda peer: self._on_new_peer(peer))
+            self._on_new_peer, self.process_incoming_message)
         self._players = {}
 
     @property
@@ -23,7 +28,7 @@ class GameServer:
         return self._server_conn_handler
 
     def _on_new_peer(self, peer: Peer):
-        self.__logger.info(f"New peer attempting connection: {peer}")
+        self.__logger.info("New peer attempting connection: %s", peer)
         try:
             if self._lobby.is_password_protected():
                 # If the lobby is password-protected, ask for the password
@@ -46,7 +51,7 @@ class GameServer:
                 self._add_peer_and_notify_updates(peer)
                 self._server_conn_handler.send_obj(peer, self._lobby)
         except Exception as e:
-            self.__logger.error(f"Error handling new peer {peer}: {e}")
+            self.__logger.error("Error handling new peer %s: %s", peer, e)
 
     def _add_peer_and_notify_updates(self, peer: Peer):
         # Update lobby
@@ -55,16 +60,51 @@ class GameServer:
         for p in self._lobby.peers:
             if p != peer:
                 self._server_conn_handler.send_obj(p, self._lobby)
-        self.__logger.info(
-            f"Peer {peer} joined the lobby. Current peers: {self._lobby.peers}")
+        self.__logger.info("Peer %s joined the lobby. Current peers: %s", peer, self._lobby.peers)
 
-    def start_game(self):
+    def send_to_all(self, message: BaseMessage):
+        """Sends a message to all connected peers in the lobby.
+        """
+        for peer in self._lobby.peers:
+            try:
+                self._server_conn_handler.send_obj(peer, message)
+            except Exception as e:
+                self.__logger.error("Error sending message to %s: %s", peer, e)
+
+    def add_plugin(self, plugin: ServerPlugin):
+        """Adds a new message handling plugin to this server
+
+        Args:
+            plugin (ServerPlugin): The plugin to add.
+        """
+        self._plugins.append(plugin)
+        plugin.server = self
+
+    def start_game(self) -> None:
         # TODO: Implement game start logic
-        pass
+        self.__logger.info("Starting game in lobby: %s", self._lobby)
+        raise NotImplementedError("Game start logic not implemented yet.")
 
-    def end_game(self):
+    def end_game(self) -> None:
         # TODO: Implement game end logic
-        pass
+        self.__logger.info("Ending game in lobby: %s", self._lobby)
+        raise NotImplementedError("Game end logic not implemented yet.")
 
     def stop_new_connections(self):
+        """Stop accepting new peer connections
+        """
         self._server_conn_handler.stop_new_connections()
+
+    def process_incoming_message(self, message: BaseMessage):
+        """Handles a message coming from a peer.
+
+        Args:
+            message (BaseMessage): The message to handle.
+        """
+        for plugin in self._plugins:
+            if type(message) in plugin.handled_messages:
+                should_stop: bool = plugin.handle_message(message)
+                self.__logger.info("Message of type %s handled by plugin %s", type(message), plugin)
+                if should_stop:
+                    return
+        # self.__logger.warning("No plugin found to handle message of type %s", type(message))

@@ -1,26 +1,49 @@
 import abc
 from collections.abc import Callable
 import logging
+import select
 import socket
 import threading
+from enum import Enum
 from typing import Any
 import pickle
 
 from wiredwolf.controller import TIMEOUT
 from wiredwolf.controller.commons import Peer
+from wiredwolf.controller.messages import BaseMessage
+
+SELECT_TIMEOUT: float = 1.0  # Timeout for select calls in seconds
 
 
 class Serializer(abc.ABC):
+    """Base class for serializing and deserializing objects
+    """
     @abc.abstractmethod
     def serialize(self, data: Any) -> bytes:
-        pass
+        """Serializes a given object into a byte stream
+
+        Args:
+            data (Any): the object to serialize
+
+        Returns:
+            bytes: the serialized byte stream
+        """
 
     @abc.abstractmethod
     def deserialize(self, data: bytes) -> Any:
-        pass
+        """Deserializes a byte stream into an object
+
+        Args:
+            data (bytes): the byte stream to deserialize
+
+        Returns:
+            Any: the deserialized object
+        """
 
 
 class PickleSerializer(Serializer):
+    """Serializer implementation using Python's pickle module
+    """
 
     def __init__(self):
         pass
@@ -62,7 +85,7 @@ class TCPMessageHandler():
     def receive(self, endpoint: socket.socket) -> bytes:
         data_len = endpoint.recv(self.PREFIX_LEN)
         if not data_len:
-            return b""
+            raise ConnectionError("Connection closed by the other side.")
         data_len = int(data_len.decode('utf-8').strip())
         return endpoint.recv(data_len)
 
@@ -84,6 +107,12 @@ class MessageHandlerFactory:
     @staticmethod
     def getDefault() -> TCPMessageHandler:
         return TCPMessageHandler(PickleSerializer())
+    
+
+class ConnectionStatus(Enum):
+    CONNECTING = 1
+    CONNECTED = 2
+    RECOVERING = 3
 
 
 class ServerConnectionHandler(abc.ABC):
@@ -108,21 +137,32 @@ class ServerConnectionHandler(abc.ABC):
 
 
 class TCPServerConnectionHandler(ServerConnectionHandler):
+    """ServerConnectionHandler implementation based on TCP connections
+    """
 
     _on_new_peer: Callable[[Peer], None]
+    _on_new_message: Callable[[BaseMessage], None]
     _receiver_socket: socket.socket
+    _new_conn_thread: threading.Thread
     _receiver_thread: threading.Thread
     _endpoints: dict[Peer, socket.socket] = {}
-    receive_conn: bool = True
+    _status: dict[Peer, ConnectionStatus] = {}
+    _receive_conn: bool = True
 
-    def __init__(self, on_new_peer: Callable[[Peer], None], bind_address: tuple[str, int] = ("", 0), server_socket: socket.socket | None = None):
+    def __init__(self, on_new_peer: Callable[[Peer], None], on_new_message: Callable[[BaseMessage], None], bind_address: tuple[str, int] = ("", 0), server_socket: socket.socket | None = None):
         super().__init__()
         self._on_new_peer = on_new_peer
+        self._on_new_message = on_new_message
         self._receiver_socket = server_socket if server_socket else socket.create_server(
             bind_address)
-        self._receiver_thread = threading.Thread(
+        # Starts the thread to handle new incoming connections
+        self._new_conn_thread = threading.Thread(
             target=self._handle_connections,
             name="TCPServerConnectionHandlerThread")
+        self._new_conn_thread.start()
+        self._receiver_thread = threading.Thread(
+            target=self._handle_messages,
+            name="TCPServerMessageReceiverThread")
         self._receiver_thread.start()
         self._logger.info(
             "Server listening on %s", self._receiver_socket.getsockname())
@@ -142,15 +182,20 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
             raise ValueError("No such peer connected.")
 
     def stop_new_connections(self):
-        self.receive_conn = False
+        self._receive_conn = False
         self._receiver_socket.close()
-        self._receiver_thread.join()
+        self._new_conn_thread.join()
 
     def get_receiver_socket(self) -> socket.socket:
+        """Returns the socket that handles new connections for this handler
+
+        Returns:
+            socket.socket: The receiver socket
+        """
         return self._receiver_socket
 
     def _handle_connections(self):
-        while self.receive_conn:
+        while self._receive_conn:
             try:
                 self._logger.debug("Waiting for new connections...")
                 client_socket, client_address = self._receiver_socket.accept()
@@ -164,8 +209,10 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
                     try:
                         # Add the endpoint
                         self._endpoints[peer] = client_socket
+                        self._status[peer] = ConnectionStatus.CONNECTING
                         # Try to handle the new peer connection
                         self._on_new_peer(peer)
+                        self._status[peer] = ConnectionStatus.CONNECTED
                     except Exception as e:
                         # If handling the new peer fails, remove the endpoint
                         self._endpoints.pop(peer)
@@ -174,11 +221,26 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
                 except TimeoutError:
                     continue
             except OSError as e:
-                if not self.receive_conn:
+                if not self._receive_conn:
                     self._logger.info(
                         "Server stopped accepting new connections")
                 else:
                     self._logger.error("Error handling connections: %s", e)
+
+    def _handle_messages(self):
+        while self._receive_conn:
+            ready_sockets, _, _ = select.select(self._endpoints.values(), [], [], SELECT_TIMEOUT)
+            for sock in ready_sockets:
+                try:
+                    peer = next((p for p, s in self._endpoints.items() if s == sock), None)
+                    if peer and self._status.get(peer) == ConnectionStatus.CONNECTED:
+                        msg = self._message_handler.receive_obj(sock)
+                        self._logger.info("Received message from %s: %s", peer, msg)
+                        self._on_new_message(msg)
+                except Exception as e:
+                    self._logger.error("Error receiving message: %s", e)
+                    self._endpoints = {p: s for p, s in self._endpoints.items() if s != sock}
+                    sock.close()
 
 
 class ClientConnectionHandler(abc.ABC):
@@ -243,7 +305,7 @@ class ConnectionHandlerFactory:
     """
 
     @staticmethod
-    def getDefaultServerHandler(on_new_peer: Callable[[Peer], None]) -> TCPServerConnectionHandler:
+    def get_default_server_handler(on_new_peer: Callable[[Peer], None], on_new_message: Callable[[BaseMessage], None]) -> TCPServerConnectionHandler:
         """Get the default server connection handler.
 
         Args:
@@ -253,4 +315,4 @@ class ConnectionHandlerFactory:
             ServerConnectionHandler: The default server connection handler.
         """
         # TODO: Make this generic implementing ServerConnectionHandler interface
-        return TCPServerConnectionHandler(on_new_peer)
+        return TCPServerConnectionHandler(on_new_peer, on_new_message)

@@ -1,36 +1,9 @@
-from wiredwolf.controller.commons import Peer
 from wiredwolf.controller.connections import ClientConnectionHandler, TCPServerConnectionHandler
 from wiredwolf.controller.lobbies import TcpMdnsLobbyBrowser
 from wiredwolf.controller.lobbies import Lobby
+from wiredwolf.controller.messages import ChatMessage
 from wiredwolf.controller.server import GameServer
-
-
-class ChatMessage:
-    """Represents a chat message sent by a peer.
-    """
-
-    _sender: Peer
-    _message: str
-
-    def __init__(self, sender: Peer, message: str):
-        self._sender = sender
-        self._message = message
-
-    @property
-    def sender(self) -> Peer:
-        """Gets the sender of the chat message.
-        Returns:
-            Peer: The sender of the chat message.
-        """
-        return self._sender
-
-    @property
-    def message(self) -> str:
-        """Gets the chat message.
-        Returns:
-            str: The chat message.
-        """
-        return self._message
+from wiredwolf.controller.commons import Peer
 
 
 class GameController:
