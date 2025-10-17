@@ -126,11 +126,15 @@ class SimpleGameInfo(AbstractGameInfo):
     without any special roles. It can be extended using decorators to
     add support for additional roles.
     """
+    
+    _accusation_votes: dict[Player, Player]
+    _ballot_votes: dict[Player, bool]
+    _werewolves_votes: dict[Player, Player]
 
     def __init__(self) -> None:
-        self._accusation_votes: dict[Player, Player] = {}
-        self._ballot_votes: dict[Player, bool] = {}
-        self._werewolves_votes: dict[Player, Player] = {}
+        self._accusation_votes = {}
+        self._ballot_votes = {}
+        self._werewolves_votes = {}
     
     @property    
     def accusation_votes(self) -> dict[Player, Player]:
@@ -218,6 +222,8 @@ class GameInfoDecorator(AbstractGameInfo):
     """
     Base decorator template for extending game functionality.
     """
+    
+    _wrapped: AbstractGameInfo
     
     def __init__(self, wrapped: AbstractGameInfo) -> None:
         self._wrapped = wrapped

@@ -11,6 +11,7 @@ class ClairvoyantDecorator(GameInfoDecorator):
     The Clairvoyant can investigate one player per night to determine
     if they are evil (part of the werewolf team).
     """
+    _clairvoyant_acted: bool
     
     def __init__(self, wrapped: AbstractGameInfo) -> None:
         super().__init__(wrapped)
@@ -56,10 +57,13 @@ class EscortDecorator(GameInfoDecorator):
     The Escort can protect one player per night from werewolf attacks.
     """
     
+    _escort_acted: bool
+    _protected_player: Player | None
+    
     def __init__(self, wrapped: AbstractGameInfo) -> None:
         super().__init__(wrapped)
         self._escort_acted = False
-        self._protected_player: Player | None = None
+        self._protected_player = None
 
     def reset_actions(self) -> None:
         super().reset_actions()
@@ -116,7 +120,9 @@ class MediumDecorator(GameInfoDecorator):
     The Medium can communicate with dead players to determine if they
     were evil.
     """
-    
+
+    _medium_acted: bool
+
     def __init__(self, wrapped: AbstractGameInfo) -> None:
         super().__init__(wrapped)
         self._medium_acted = False
@@ -158,6 +164,8 @@ class BasicGameInfoBuilder:
     """
     Builder for creating game configurations with specific role support.
     """
+    
+    _game_info: AbstractGameInfo
     
     def __init__(self, game_info: AbstractGameInfo):
         self._game_info = game_info

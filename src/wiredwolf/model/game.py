@@ -7,6 +7,10 @@ class GameStatus:
     """
     Represents the status of the game, including the current phase, players and game information.
     """
+    
+    _players: list[Player]
+    _game_info: AbstractGameInfo
+    phase: GamePhase
 
     def __init__(self, players: list[Player], game_info: AbstractGameInfo, phase: GamePhase = GamePhase.DAY_DISCUSSION):
         self._players = players
@@ -47,6 +51,12 @@ class Game:
     methods to advance the game phase, handle player actions, accusations, voting,
     and player elimination.
     """
+    
+    _players: list[Player]
+    _phase: GamePhase
+    _game_info: AbstractGameInfo
+    _current_accusation: Player | None
+    
     def __init__(self, players: list[Player], game_info: AbstractGameInfo, phase: GamePhase = GamePhase.DAY_DISCUSSION):
         """
         Initialize a new game instance.
@@ -55,12 +65,12 @@ class Game:
             players (list[Player]): List of Player objects participating in the game.
             game_info (AbstractGameInfo): The information to handle game rules, votes, and actions.
         """
-        self._players: list[Player] = players
-        self._phase: GamePhase = phase
-        self._game_info: AbstractGameInfo = game_info
+        self._players = players
+        self._phase = phase
+        self._game_info = game_info
 
-        self._current_accusation: Player | None = None
-        
+        self._current_accusation = None
+
     @classmethod
     def from_game_status(cls, game_status: GameStatus) -> "Game":
         """

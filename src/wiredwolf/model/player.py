@@ -18,6 +18,11 @@ class Status(Enum):
     DEAD = "Dead"
 
 class Player:
+    
+    _id: str
+    _role: Role
+    _status: Status
+    
     def __init__(self, id: str, role: Role):
         self._id = id
         self._status = Status.ALIVE
