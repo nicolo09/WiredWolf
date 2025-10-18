@@ -11,8 +11,56 @@ lobby_name=""
 WRAP_LINE_WIDTH=25
 MAX_MESSAGES_DISPLAYED=10
 CONTAINER_FACTOR=14 #this value is chosen by testing with different font sizes which value * wrap line withd fits all texts
+
+class GameStateManager:
+    """The game state manager internally stores which scene is displayed"""
+    _current_state:Screens
+
+    def __init__(self, start_screen:Screens) -> None:
+        self._current_state=start_screen
+
+    @property
+    def current_state(self)->Screens:
+        """Returns the screen the app game is on"""
+        return self._current_state
+    
+    @current_state.setter
+    def current_state(self, screen:Screens)->None:
+        """Sets the current game state as the parameter given"""
+        self._current_state=screen
+
+class AbstractScreen(ABC):
+    """A screen abstraction, handling the base work of any screen implementation"""
+
+    _display:pygame.Surface
+    _game_state_manager:GameStateManager
+
+    def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
+        self._display=display
+        self._game_state_manager=game_state_manager
+    
+    @abstractmethod
+    def run(self, event:pygame.event.Event | None)->None:
+        """This is where your screen is displayed"""
+        raise NotImplementedError("Please implement this method")
+
 class App:
     """The main window for the Wiredwolf game"""
+    _size:tuple[int,int]
+    _icon:pygame.Surface
+    _display_screen:pygame.Surface
+    _running:bool
+    _game_state_manager:GameStateManager
+    _start_screen:AbstractScreen
+    _test_screen:AbstractScreen
+    _new_lobby_screen:AbstractScreen
+    _search_lobby_screen:AbstractScreen
+    _waiting_lobby:AbstractScreen
+    _day_chat:AbstractScreen
+    _dictionary:dict[Screens, AbstractScreen]
+    _clock:pygame.time.Clock
+    _next_event:pygame.event.Event | None
+
     def __init__(self)-> None:
         pygame.init() #initializes pygame modules
         self._size=(640, 400) #default starting values
@@ -75,34 +123,10 @@ class App:
             self._on_event(event) #handles generated events 
         self._clock.tick(FPS)
 
-class GameStateManager:
-    """The game state manager internally stores which scene is displayed"""
-    def __init__(self, start_screen:Screens) -> None:
-        self._current_state=start_screen
-
-    @property
-    def current_state(self)->Screens:
-        """Returns the screen the app game is on"""
-        return self._current_state
-    
-    @current_state.setter
-    def current_state(self, screen:Screens)->None:
-        """Sets the current game state as the parameter given"""
-        self._current_state=screen
-
-class AbstractScreen(ABC):
-    """A screen abstraction, handling the base work of any screen implementation"""
-    def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
-        self._display=display
-        self._game_state_manager=game_state_manager
-    
-    @abstractmethod
-    def run(self, event:pygame.event.Event)->None:
-        """This is where your screen is displayed"""
-        raise NotImplementedError("Please implement this method")
 
 def change_screen(game_state_manager:GameStateManager, target_screen:Screens)->None:
     """A function to change the application screen to the given one"""
+    #TODO: Why is this a standalone function instead of a function of the game state manager??
     game_state_manager.current_state=target_screen
 
 class StartScreen(AbstractScreen):
@@ -120,7 +144,7 @@ class StartScreen(AbstractScreen):
         self._v_container=VContainer(10, list, self._display.get_size())
         self._title_container=VContainer(0, [Text("Wiredwolf", (0, 10))], self._display.get_size(), (50, 15))
         
-    def run(self,event:pygame.event.Event)->None:
+    def run(self,event:pygame.event.Event | None)->None:
         """The start screen, the first screen showed at startup"""
         self._display.fill(BACKGROUND_COLOR) #fills the background color for the application
         self._v_container.draw(self._display)
@@ -149,7 +173,7 @@ class NewLobbyScreen(AbstractScreen):
         self._button_container=VContainer(10, [lobby_name, self._field, self._create_lobby_button], self._display.get_size())
         self._button_back=VContainer(10, [go_home_button], self._display.get_size(), (50, 80))
     
-    def run(self,event:pygame.event.Event)->None:
+    def run(self,event:pygame.event.Event | None)->None:
         """The new lobby screen, to create a new lobby"""
         self._display.fill(BACKGROUND_COLOR)
         self._title.draw(self._display)
@@ -180,7 +204,7 @@ class SearchLobbyScreen(AbstractScreen):
         self._join_button=EnabledButton(join_lobby, 'Join selected lobby', 300, 50,font=FontSize.H2)
         self._buttons=HContainer(10, [CallbackButton(go_home, 'Go back to start screen', 300, 50,font=FontSize.H2), self._join_button], self._display.get_size(), (50, 80))
     
-    def run(self,event:pygame.event.Event)->None:
+    def run(self,event:pygame.event.Event | None)->None:
         """The search lobby screen, to search for existing lobbies"""
         self._display.fill(BACKGROUND_COLOR)
         self._title.draw(self._display)
@@ -204,7 +228,7 @@ class TestScreen(AbstractScreen):
         button_list=[my_button1]
         self._button_container=VContainer(10, button_list, self._display.get_size())
     
-    def run(self,event:pygame.event.Event)->None:
+    def run(self,event:pygame.event.Event | None)->None:
         """The test screen, to check for scene changes"""
         self._display.fill("#25A839")
         self._button_container.draw(self._display)
@@ -221,7 +245,7 @@ class WaitingLobbyScreen(AbstractScreen):
         self._waiting=VContainer(0,[Text("1 player connected...", font=FontSize.H2)], self._display.get_size()) #TODO: how many connected users are waiting?
         self._trigger_update=False
         
-    def run(self,event:pygame.event.Event)->None:
+    def run(self,event:pygame.event.Event | None)->None:
         """A simple waiting screen"""
         global lobby_name
         if lobby_name!=self._local_lobby:
@@ -253,7 +277,7 @@ class DayChat(AbstractScreen):
         self._container_text=VContainer(0, [self._text_box], self._display.get_size(), (70,90))
         self._last_message=""
 
-    def run(self,event:pygame.event.Event)->None:
+    def run(self,event:pygame.event.Event | None)->None:
         """A simple waiting screen"""
         self._display.fill(BACKGROUND_COLOR)
         self._multiple_texts.draw(self._display)

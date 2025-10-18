@@ -34,6 +34,16 @@ class DrawableComponent(ABC):
 
 class AbstractButton(DrawableComponent):
     """A button abstraction, handling all internal button logic"""
+    _button_rect:pygame.Rect
+    _button_color_not_hover: str
+    _button_color_hover:str
+    _button_color:str
+    _button_clicked:bool
+    _font:pygame.font.Font
+    _text:str
+    _text_surface:pygame.Surface
+    _text_rect:pygame.Rect
+
     def __init__(self, text: str, width:int, height:int, position:tuple[int, int]=(0,0), font:FontSize=FontSize.H1, default_color:str=BUTTON_COLOR, activation_color:str=BUTTON_HOVER_COLOR)-> None:
         self._button_rect=pygame.Rect(position, (width, height)) #position is for top left
         self._button_color_not_hover=default_color #default color when not hovering
@@ -93,6 +103,12 @@ class AbstractButton(DrawableComponent):
     
 class Text(DrawableComponent):
     """Text displayed in the window"""
+
+    _font:pygame.font.Font
+    _text:str
+    _coords:tuple[int,int]
+    _text_surface:pygame.Surface
+    
     def __init__(self, text: str, coords:tuple[int, int]=(0,0), font:FontSize=FontSize.H1, color:str=TEXT_COLOR)-> None:
         self._font=font.value
         self._text=text
@@ -130,6 +146,17 @@ class Text(DrawableComponent):
         
 class VContainer():
     """A drawable container that displays the given components vertically"""
+
+    _divider:int
+    _elements:Sequence[DrawableComponent]
+    _win_size:tuple[int, int]
+    _color:str
+    _dimensions:tuple[int, int]
+    _offset:tuple[int, int]
+    _fixed_width:int
+    _top_left_pos:tuple[int, int]
+    _rect:pygame.Rect
+
     def __init__(self, vert_div:int, elements:Sequence[DrawableComponent], win_size:tuple[int, int], position:tuple[int,int]=(50,50), color:str=BACKGROUND_COLOR, fixed_width:int=0)-> None:
         if len(elements)==0:
             raise ValueError("Must contain at least a button")
@@ -214,6 +241,17 @@ class VContainer():
 
 class HContainer():
     """A drawable container that displays the given components horizontally"""
+
+    _divider:int
+    _elements:Sequence[DrawableComponent]
+    _win_size:tuple[int, int]
+    _color:str
+    _dimensions:tuple[int, int]
+    _offset:tuple[int, int]
+    _fixed_height:int
+    _top_left_pos:tuple[int, int]
+    _rect:pygame.Rect
+
     def __init__(self, horiz_div:int, elements:Sequence[DrawableComponent], win_size:tuple[int, int], position:tuple[int,int]=(50,50), color:str=BACKGROUND_COLOR, fixed_height:int=0)-> None:
         if len(elements)==0:
             raise ValueError("Must contain at least a button")
@@ -304,6 +342,9 @@ class PrintButton(AbstractButton):
 
 class CallbackButton(AbstractButton):
     """A button that calls the callback on click"""
+
+    _callback:Callable[[],None]
+
     def __init__(self, callback:Callable[[],None], text: str, width:int, height:int, position:tuple[int, int]=(0,0), font:FontSize=FontSize.H1, default_color:str=BUTTON_COLOR, activation_color:str=BUTTON_HOVER_COLOR)-> None:
         super().__init__(text, width, height, position, font, default_color, activation_color)
         self._callback=callback
@@ -313,6 +354,10 @@ class CallbackButton(AbstractButton):
 
 class EnabledButton(CallbackButton):
     """A button that calls the callback on click, if the button is enabled"""
+
+    _is_enabled:bool
+    _disabled_color:str
+
     def __init__(self, callback:Callable[[],None], text: str, width:int, height:int, position:tuple[int, int]=(0,0), font:FontSize=FontSize.H1, disabled_color:str=BUTTON_DISABLED_COLOR,default_color:str=BUTTON_COLOR, activation_color:str=BUTTON_HOVER_COLOR)-> None:
         super().__init__(callback, text, width, height, position, font, default_color, activation_color)
         self._is_enabled=False
@@ -349,6 +394,11 @@ class EnabledButton(CallbackButton):
 
 class SelectorButton(AbstractButton):
     """A button that can be selected or unselected"""
+
+    _selected:bool
+    _selected_color:str
+    _callback:Callable[[],None]
+
     def __init__(self, text: str, width:int, height:int, position:tuple[int, int]=(0,0), font:FontSize=FontSize.H1, default_color:str=BUTTON_COLOR, activation_color:str=BUTTON_HOVER_COLOR, selected_color:str=SELECTED_COLOR)-> None:
         super().__init__(text, width, height, position, font, default_color, activation_color)
         self._selected=False
@@ -414,6 +464,10 @@ class SelectorButton(AbstractButton):
 
 class SelectorGroup():
     """A group of selectors. Only 0 or 1 at most elements can be selected at once"""
+
+    _selectors:dict[int, SelectorButton] 
+    _selected_element:int | None  
+
     def __init__(self, selectors:Sequence[SelectorButton])->None:
         assert(len(selectors)>=1) #A selector group with 0 elements doesn't make sense
         self._selectors=self._convert_sequence_to_dictionary(selectors)
@@ -463,6 +517,17 @@ class SelectorGroup():
 
 class TextField(DrawableComponent):
     """A drawable text field. When the user clicks on the field and writes, it displays what is being written"""
+
+    _rect:pygame.Rect
+    _not_active_color:str
+    _active_color:str
+    _current_color:str
+    _text_color:str
+    _text:str
+    _font:pygame.font.Font
+    _txt_surface:pygame.Surface
+    _active:bool
+
     def __init__(self, width:int, height:int, position:tuple[int, int]=(0,0), font:FontSize=FontSize.H1, text_color:str=TEXT_COLOR, active_color:str=BUTTON_HOVER_COLOR, not_active_color:str=BUTTON_COLOR)->None:
         self._rect = pygame.Rect(position, (width, height))
         self._not_active_color = not_active_color
@@ -522,6 +587,9 @@ class TextField(DrawableComponent):
 
 class MemoryTextField(TextField):
     """A drawable text field. When the user clicks on the field and writes, it displays what is being written. On enter the text is cleared and saved in last_input"""
+
+    _last_input:str
+
     def __init__(self, width:int, height:int, position:tuple[int, int]=(0,0), font:FontSize=FontSize.H1, text_color:str=TEXT_COLOR, active_color:str=BUTTON_HOVER_COLOR, not_active_color:str=BUTTON_COLOR)->None:
         super().__init__(width, height, position, font, text_color, active_color, not_active_color)
         self._last_input=""
@@ -560,6 +628,10 @@ class MemoryTextField(TextField):
 
 class LimitedList():
     """This class models a list with a limited number of elements. After the limit is reached, the element in the last position is removed"""
+
+    _list:list[str]
+    _max_elements:int
+
     def __init__(self, max_elements:int) -> None:
         self._list=[]
         self._max_elements=max_elements
@@ -583,6 +655,13 @@ class LimitedList():
 
 class MultipleTexts():
     """Displays vertically multiple texts, the elements as shown in the given list. If list is not full, empty texts are created"""
+
+    _list:LimitedList
+    _max_elements:int
+    _trigger_update:bool
+    _texts_list:list[Text]
+    _container:VContainer
+
     def __init__(self, list:LimitedList, vertical_div:int, win_size:tuple[int,int], position:tuple[int,int]=(50,50), fixed_width:int=0, background_color:str=BACKGROUND_COLOR) -> None:
         self._list=list
         self._max_elements=list.max_elements
