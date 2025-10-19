@@ -3,8 +3,44 @@ from wiredwolf.controller.commons import PasswordRequest, Peer
 from wiredwolf.controller.connections import ServerConnectionHandler, TCPServerConnectionHandler
 from wiredwolf.controller.messages import BaseMessage
 from wiredwolf.controller.lobbies import Lobby
-from wiredwolf.controller.server_plugins import ServerPlugin
+import abc
 
+class ServerPlugin(abc.ABC):
+    """Abstract base class for server pieces that adds common functionalities.
+    A plugin should not be added to multiple servers.
+    """
+    
+    _server: "GameServer"
+    _handled_messages: list[type]
+
+    @property
+    def server(self) -> "GameServer":
+        return self._server
+    
+    @server.setter
+    def server(self, server: "GameServer") -> None:
+        self._server = server
+        
+    @property
+    def handled_messages(self) -> list[type]:
+        return self._handled_messages
+    
+    @abc.abstractmethod
+    def handle_message(self, message: BaseMessage) -> bool:
+        """Handles received messages, subclasses should implement this method but call super().handle_message().
+
+        Args:
+            message (BaseMessage): The message to handle.
+
+        Raises:
+            ValueError: If the message type is not handled by this plugin.
+
+        Returns:
+            bool: True if the message should not be passed to other handlers, False otherwise.
+        """
+        if type(message) not in self._handled_messages:
+            raise ValueError(f"Message of type {type(message)} not handled by this plugin.")
+        # To be implemented by subclasses
 
 class GameServer:
     """Represents a wiredwolf server that manages a game lobby and player connections.
@@ -94,6 +130,12 @@ class GameServer:
         """Stop accepting new peer connections
         """
         self._server_conn_handler.stop_new_connections()
+
+    def close(self):
+        """Closes the server and all associated connections.
+        """
+        self.stop_new_connections()
+        self._server_conn_handler.close()
 
     def process_incoming_message(self, message: BaseMessage):
         """Handles a message coming from a peer.

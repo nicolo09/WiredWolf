@@ -135,6 +135,10 @@ class ServerConnectionHandler(abc.ABC):
     def stop_new_connections(self):
         pass
 
+    @abc.abstractmethod
+    def close(self):
+        pass
+
 
 class TCPServerConnectionHandler(ServerConnectionHandler):
     """ServerConnectionHandler implementation based on TCP connections
@@ -142,18 +146,19 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
 
     _on_new_peer: Callable[[Peer], None]
     _on_new_message: Callable[[BaseMessage], None]
-    _receiver_socket: socket.socket
+    _new_conn_socket: socket.socket
     _new_conn_thread: threading.Thread
     _receiver_thread: threading.Thread
     _endpoints: dict[Peer, socket.socket] = {}
     _status: dict[Peer, ConnectionStatus] = {}
     _receive_conn: bool = True
+    _closed: bool = False
 
     def __init__(self, on_new_peer: Callable[[Peer], None], on_new_message: Callable[[BaseMessage], None], bind_address: tuple[str, int] = ("", 0), server_socket: socket.socket | None = None):
         super().__init__()
         self._on_new_peer = on_new_peer
         self._on_new_message = on_new_message
-        self._receiver_socket = server_socket if server_socket else socket.create_server(
+        self._new_conn_socket = server_socket if server_socket else socket.create_server(
             bind_address)
         # Starts the thread to handle new incoming connections
         self._new_conn_thread = threading.Thread(
@@ -165,7 +170,7 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
             name="TCPServerMessageReceiverThread")
         self._receiver_thread.start()
         self._logger.info(
-            "Server listening on %s", self._receiver_socket.getsockname())
+            "Server listening on %s", self._new_conn_socket.getsockname())
 
     def send_obj(self, receiver: Peer, obj: Any) -> None:
         endpoint = self._endpoints.get(receiver)
@@ -183,8 +188,9 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
 
     def stop_new_connections(self):
         self._receive_conn = False
-        self._receiver_socket.close()
+        self._new_conn_socket.shutdown(socket.SHUT_RDWR)
         self._new_conn_thread.join()
+        self._new_conn_socket.close()
 
     def get_receiver_socket(self) -> socket.socket:
         """Returns the socket that handles new connections for this handler
@@ -192,13 +198,13 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
         Returns:
             socket.socket: The receiver socket
         """
-        return self._receiver_socket
+        return self._new_conn_socket
 
     def _handle_connections(self):
         while self._receive_conn:
             try:
                 self._logger.debug("Waiting for new connections...")
-                client_socket, client_address = self._receiver_socket.accept()
+                client_socket, client_address = self._new_conn_socket.accept()
                 self._logger.info(
                     "Accepted connection from %s", client_address)
                 client_socket.settimeout(TIMEOUT)
@@ -220,7 +226,7 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
                             "Error handling new peer %s: %s", peer, e)
                 except TimeoutError:
                     continue
-            except OSError as e:
+            except Exception as e:
                 if not self._receive_conn:
                     self._logger.info(
                         "Server stopped accepting new connections")
@@ -228,7 +234,7 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
                     self._logger.error("Error handling connections: %s", e)
 
     def _handle_messages(self):
-        while self._receive_conn:
+        while not self._closed:
             ready_sockets, _, _ = select.select(self._endpoints.values(), [], [], SELECT_TIMEOUT)
             for sock in ready_sockets:
                 try:
@@ -241,6 +247,16 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
                     self._logger.error("Error receiving message: %s", e)
                     self._endpoints = {p: s for p, s in self._endpoints.items() if s != sock}
                     sock.close()
+    
+    def close(self):
+        """Closes the server connection handler and all associated sockets.
+        """
+        self.stop_new_connections()
+        self._closed = True
+        for sock in self._endpoints.values():
+            sock.close()
+        self._new_conn_thread.join()
+        self._receiver_thread.join()
 
 
 class ClientConnectionHandler(abc.ABC):

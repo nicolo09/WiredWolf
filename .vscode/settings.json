@@ -11,5 +11,9 @@
     "python.analysis.typeCheckingMode": "strict",
     "python.analysis.extraPaths": [
         "./src"
-    ]
+    ],
+    "python.useEnvironmentsExtension": true,
+    "files.watcherExclude": {
+        "**/target": true
+    }
 }
