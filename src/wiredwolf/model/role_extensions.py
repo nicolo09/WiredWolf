@@ -118,7 +118,7 @@ class MediumDecorator(GameInfoDecorator):
     Adds Medium role support.
     
     The Medium can communicate with dead players to determine if they
-    were evil.
+    were evil (part of the werewolf team).
     """
 
     _medium_acted: bool
@@ -176,7 +176,7 @@ class BasicGameInfoBuilder:
         Create a builder with basic game support (Villager and Werewolf).
         
         Returns:
-            GameBuilder: A new builder with basic functionality.
+            BasicGameInfoBuilder: A new builder with basic functionality.
         """
         return cls(SimpleGameInfo())
     
@@ -185,7 +185,7 @@ class BasicGameInfoBuilder:
         Add Clairvoyant role support.
         
         Returns:
-            GameBuilder: This builder.
+            BasicGameInfoBuilder: This builder.
         """
         if Role.CLAIRVOYANT not in self._game_info.get_handled_roles():
             self._game_info = ClairvoyantDecorator(self._game_info)
@@ -196,7 +196,7 @@ class BasicGameInfoBuilder:
         Add Escort role support.
         
         Returns:
-            GameBuilder: This builder.
+            BasicGameInfoBuilder: This builder.
         """
         if Role.ESCORT not in self._game_info.get_handled_roles():
             self._game_info = EscortDecorator(self._game_info)
@@ -207,7 +207,7 @@ class BasicGameInfoBuilder:
         Add Medium role support.
         
         Returns:
-            GameBuilder: This builder.
+            BasicGameInfoBuilder: This builder.
         """
         if Role.MEDIUM not in self._game_info.get_handled_roles():
             self._game_info = MediumDecorator(self._game_info)
@@ -221,7 +221,7 @@ class BasicGameInfoBuilder:
             *roles: Variable number of Role enum values to add.
             
         Returns:
-            GameBuilder: This builder.
+            BasicGameInfoBuilder: This builder.
         """
         for role in roles:
             if role == Role.CLAIRVOYANT:

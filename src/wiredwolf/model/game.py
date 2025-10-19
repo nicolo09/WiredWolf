@@ -5,7 +5,7 @@ from wiredwolf.model.game_template import AbstractGameInfo
 
 class GameStatus:
     """
-    Represents the status of the game, including the current phase, players and game information.
+    Represents the status of the game, containing the current phase, players and game information.
     """
     
     _players: list[Player]
@@ -96,7 +96,7 @@ class Game:
 
     def get_game_status(self) -> GameStatus:
         """
-        Get the current game status.
+        Creates a GameStatus object representing the current state of the game.
 
         Returns:
             GameStatus: The current game status.
@@ -113,7 +113,7 @@ class Game:
         - NIGHT -> DAY_DISCUSSION (after processing werewolf attacks and resetting for new day)
         
         Returns:
-            The new game phase after advancement.
+            GamePhaseOutcome: contains the new game phase and any deaths that occurred during the transition.
         """
         deaths: list[Player] = []
 
@@ -174,7 +174,7 @@ class Game:
             target_id (str): The ID of the target player.
 
         Returns:
-            True/False for clairvoyant/medium actions, None for others.
+            NightActionResult: Result of the action, containing success status and optionally a message.
 
         Raises:
             GamePhaseError: If not in NIGHT phase
@@ -245,14 +245,14 @@ class Game:
     def kill_player(self, player_id: str) -> GamePhase:
         """
         Kills a player in any moment of the game.
-        If the player has already cast a vote or performed an action this will not be canceled.
+        How the elimination is handled is defined by the GameInfo object.
 
         Should only be used by the game controller to remove a player from the game.
         Args:
             player_id: ID of the player to kill.
             
         Returns:
-            The current game phase after the player is killed.
+            The new game phase after the player has been killed.
             
         Raises:
             MissingPlayerError: If player does not exist.

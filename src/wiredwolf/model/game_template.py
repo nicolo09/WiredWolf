@@ -45,11 +45,12 @@ class AbstractGameInfo(ABC):
         Handles a night action performed by an actor on a target.
 
         Args:
-            target (Player): The player being targeted.
             actor (Player): The player performing the action.
+            target (Player): The player being targeted.
+            
 
         Returns:
-            bool | None: Result of the action, if applicable.
+            NightActionResult: Result of the action, containing success status and optionally a message.
         """
         if actor.role not in self.get_handled_roles():
             raise ValueError(f"{actor.role} is unhandled.")
@@ -105,7 +106,6 @@ class AbstractGameInfo(ABC):
         return None
 
     def __eq__(self, other: object) -> bool:
-        """Compare two AbstractGameInfo instances for equality."""
         if not isinstance(other, AbstractGameInfo):
             return False
             
