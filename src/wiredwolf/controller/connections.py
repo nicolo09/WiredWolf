@@ -1,7 +1,6 @@
 import abc
 from collections.abc import Callable
 import logging
-from math import log
 import select
 import socket
 import threading
@@ -141,6 +140,8 @@ class ServerConnectionHandler(abc.ABC):
 class TCPServerConnectionHandler(ServerConnectionHandler):
     """ServerConnectionHandler implementation based on TCP connections"""
 
+    _logger = logging.getLogger(__name__)
+
     _on_new_peer: Callable[[Peer], None]
     _on_new_message: Callable[[BaseMessage], None]
     _new_conn_socket: socket.socket
@@ -262,8 +263,10 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
         if not self._closed:
             self._closed = True
             for sock in self._endpoints.values():
-                if sock:
+                try:
                     sock.shutdown(socket.SHUT_RDWR)
+                except Exception as e:
+                    self._logger.warning("Error shutting down socket: %s \n Maybe it was already closed?", e)
             self._receiver_thread.join()
             for sock in self._endpoints.values():
                 sock.close()
