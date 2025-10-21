@@ -1,4 +1,5 @@
 import socket
+from typing import Any
 
 from wiredwolf.controller.commons import Peer
 from wiredwolf.controller.connections import (
@@ -38,6 +39,15 @@ class TestFactory:
                         server.connection_handler.get_receiver_socket().getsockname()
                     ),
                 )
+
+                def on_message(msg: Any) -> None:
+                    if type(msg) is not Lobby:
+                        raise RuntimeError("Unexpected message type")
+                    else:
+                        return None
+
+                client_handler.set_on_message(on_message)
+                client_handler.start_receiving()
                 client_handler.send_obj(client_peer)
                 clients.append(client_handler)
 

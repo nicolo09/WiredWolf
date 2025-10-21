@@ -149,8 +149,8 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
     _receiver_thread: threading.Thread
     _endpoints: dict[Peer, socket.socket] = {}
     _status: dict[Peer, ConnectionStatus] = {}
-    _receive_conn: bool = True
-    _closed: bool = False
+    _closed_new_conn: threading.Event = threading.Event()
+    _closed: threading.Event = threading.Event()
 
     def __init__(
         self,
@@ -191,8 +191,8 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
             raise ValueError("No such peer connected.")
 
     def stop_new_connections(self):
-        if self._receive_conn:
-            self._receive_conn = False
+        if not self._closed_new_conn.is_set():
+            self._closed_new_conn.set()
             self._new_conn_socket.shutdown(socket.SHUT_RDWR)
             self._new_conn_thread.join()
             self._new_conn_socket.close()
@@ -206,7 +206,7 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
         return self._new_conn_socket
 
     def _handle_connections(self):
-        while self._receive_conn:
+        while not self._closed_new_conn.is_set():
             try:
                 self._logger.debug("Waiting for new connections...")
                 client_socket, client_address = self._new_conn_socket.accept()
@@ -230,16 +230,17 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
                 except TimeoutError:
                     continue
             except Exception as e:
-                if not self._receive_conn:
+                if self._closed_new_conn.is_set():
                     self._logger.info("Server stopped accepting new connections")
                 else:
                     self._logger.error("Error handling connections: %s", e)
 
     def _handle_messages(self):
-        while not self._closed:
+        while not self._closed.is_set():
             ready_sockets, _, _ = select.select(
                 self._endpoints.values(), [], [], SELECT_TIMEOUT
             )
+
             for sock in ready_sockets:
                 try:
                     # Find the peer associated with the ready to receive socket
@@ -261,8 +262,8 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
     def close(self):
         """Closes the server connection handler and all associated sockets."""
         self.stop_new_connections()
-        if not self._closed:
-            self._closed = True
+        if not self._closed.is_set():
+            self._closed.set()
             for sock in self._endpoints.values():
                 try:
                     sock.shutdown(socket.SHUT_RDWR)
@@ -273,11 +274,13 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
                 sock.close()
 
 
+
 class ClientConnectionHandler(abc.ABC):
     """Abstract base class for client connection handlers."""
 
     _logger = logging.getLogger(__name__)
     _on_message: Callable[[Any], None] | None
+    _on_message_lock: threading.Lock = threading.Lock()
 
     def __init__(self):
         """Initialize the client connection handler."""
@@ -289,7 +292,8 @@ class ClientConnectionHandler(abc.ABC):
         Args:
             on_message (Callable[[Any], None]): The callback function.
         """
-        self._on_message = on_message
+        with self._on_message_lock:
+            self._on_message = on_message
 
     @abc.abstractmethod
     def send_obj(self, obj: Any) -> None:
@@ -298,7 +302,7 @@ class ClientConnectionHandler(abc.ABC):
         Args:
             obj (Any): The object to send.
         """
-    
+
     @abc.abstractmethod
     def start_receiving(self):
         """Start receiving messages from the server."""
@@ -360,8 +364,9 @@ class TCPClientConnectionHandler(ClientConnectionHandler):
         while True:
             try:
                 msg = self._message_handler.receive_obj(self._socket)
-                if self._on_message:
-                    self._on_message(msg)
+                with self._on_message_lock:
+                    if self._on_message:
+                        self._on_message(msg)
             except Exception as e:
                 self._logger.error("Error receiving message: %s", e)
                 break

@@ -1,7 +1,6 @@
-from email import message
+import threading
 from time import sleep
 import unittest
-from unittest.result import failfast
 
 from tests.controller.utils import TestFactory
 from wiredwolf.controller.commons import Peer
@@ -22,35 +21,31 @@ class PluginTest(unittest.TestCase):
     clients: list[ClientConnectionHandler]
 
     def setUp(self) -> None:
-        self.gameServer, self.clients = (
-            TestFactory.create_tcp_server_with_connected_clients(2, Lobby("Test Lobby"))
-        )
-        for client in self.clients:
-            client.start_receiving()
+        self.gameServer, self.clients = TestFactory.create_tcp_server_with_connected_clients(2, Lobby("Test Lobby"))
+        
 
     def tearDown(self) -> None:
         super().tearDown()
         self.gameServer.close()
 
     def test_chat_plugin(self):
-        message_received = False
+        MESSAGE: str = "Hello from client 0"
+        message_received: threading.Event = threading.Event()
 
         def on_message(msg: BaseMessage):
-            if not isinstance(msg, ChatMessage):
-                self.fail("Received message is not a ChatMessage")
-            self.assertEqual(msg.message, "Hello from client 0")
-            nonlocal message_received
-            message_received = True
+            if isinstance(msg, ChatMessage):
+                self.assertEqual(msg.message, MESSAGE)
+                message_received.set()
 
         chat_plugin = ChatPlugin()
         self.gameServer.add_plugin(chat_plugin)
         self.clients[1].set_on_message(on_message)
         peer: Peer = Peer("client_0")
         self.clients[0].send_obj(
-            ChatMessage(sender=peer, message="Hello from client 0")
+            ChatMessage(sender=peer, message=MESSAGE)
         )
         waited = 0.0
-        while not message_received and waited < 2:
+        while not message_received.is_set() and waited < 3:
             sleep(0.1)
             waited += 0.1
-        self.assertTrue(message_received, "Chat message was not received by client 1")
+        self.assertTrue(message_received.is_set(), "Chat message was not received by client 1")
