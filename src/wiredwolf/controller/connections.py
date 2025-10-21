@@ -214,6 +214,7 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
                 client_socket.settimeout(TIMEOUT)
                 try:
                     # First thing peer sends is their identification (serialized peer object)
+                    #TODO: If this receive obj takes too long the system doesn't accept new connections, this should be made asynchronous
                     peer: Peer = self._message_handler.receive_obj(client_socket)
                     try:
                         # Add the endpoint
@@ -297,6 +298,16 @@ class ClientConnectionHandler(abc.ABC):
         Args:
             obj (Any): The object to send.
         """
+    
+    @abc.abstractmethod
+    def start_receiving(self):
+        """Start receiving messages from the server."""
+        pass
+
+    @abc.abstractmethod
+    def close(self):
+        """Close the client connection handler."""
+        pass
 
 
 class TCPClientConnectionHandler(ClientConnectionHandler):
@@ -305,8 +316,9 @@ class TCPClientConnectionHandler(ClientConnectionHandler):
     _message_handler: TCPMessageHandler
     _peer: Peer
     _socket: socket.socket
+    _receiver_thread: threading.Thread
 
-    def __init__(self, my_self: Peer, endpoint: socket.socket):
+    def __init__(self, my_self: Peer, socket: socket.socket):
         """Initialize the TCP client connection handler.
 
         Args:
@@ -317,13 +329,42 @@ class TCPClientConnectionHandler(ClientConnectionHandler):
         super().__init__()
         self._message_handler = MessageHandlerFactory.getDefault()
         self._peer = my_self
-        self._socket = endpoint
+        self._socket = socket
 
     def send_obj(self, obj: Any) -> None:
         if self._socket:
             self._message_handler.send_obj(self._socket, obj)
         else:
             raise RuntimeError("Not connected to server.")
+        
+    def start_receiving(self):
+        """Start the thread to handle incoming messages."""
+        self._receiver_thread = threading.Thread(
+            target=self._handle_incoming_messages,
+            name="TCPClientMessageReceiverThread",
+            daemon=False,
+        )
+        self._receiver_thread.start()
+
+    def close(self):
+        """Close the TCP client connection handler."""
+        if self._socket:
+            try:
+                self._socket.shutdown(socket.SHUT_RDWR)
+            except Exception as e:
+                self._logger.warning("Error shutting down socket: %s \n Maybe it was already closed?", e)
+            self._receiver_thread.join()
+            self._socket.close()
+        
+    def _handle_incoming_messages(self):
+        while True:
+            try:
+                msg = self._message_handler.receive_obj(self._socket)
+                if self._on_message:
+                    self._on_message(msg)
+            except Exception as e:
+                self._logger.error("Error receiving message: %s", e)
+                break
 
 
 class ConnectionHandlerFactory:

@@ -55,6 +55,7 @@ class GameServer:
         self._server_conn_handler = TCPServerConnectionHandler(
             self._on_new_peer, self.process_incoming_message)
         self._players = {}
+        self._plugins = []
 
     @property
     def connection_handler(self) -> ServerConnectionHandler:
