@@ -1,4 +1,5 @@
 import socket
+from time import sleep
 import unittest
 
 import wiredwolf.controller.connections as connections
@@ -32,6 +33,7 @@ class ServerConnectionTest(unittest.TestCase):
     def tearDown(self) -> None:
         self.serverConnHandler.stop_new_connections()
         self.serverConnHandler.close()
+        sleep(0.1)
 
     def test_server_creation(self):
         self.assertIsNotNone(self.serverName)

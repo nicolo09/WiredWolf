@@ -9,7 +9,7 @@ from wiredwolf.controller.server import GameServer
 
 
 class ServerTest(unittest.TestCase):
-    PASSWORD = "password123"
+    PASSWORD: str = "password123"
     server: GameServer
     handler: TCPMessageHandler
     lobby: Lobby

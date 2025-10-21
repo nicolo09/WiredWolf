@@ -15,8 +15,7 @@ class Peer:
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, Peer):
             return NotImplemented
-        return (self._name == value._name and
-                self._uuid == value._uuid)
+        return self._name == value._name and self._uuid == value._uuid
 
     def __hash__(self) -> int:
         return hash((self._name, self._uuid))
@@ -33,5 +32,6 @@ class Peer:
 @dataclass
 class PasswordRequest:
     """Represents a password request message."""
+
     password: str | None = None
     id: str = str(uuid.uuid4())
