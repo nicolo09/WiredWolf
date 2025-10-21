@@ -22,11 +22,12 @@ class PluginTest(unittest.TestCase):
 
     def setUp(self) -> None:
         self.gameServer, self.clients = TestFactory.create_tcp_server_with_connected_clients(2, Lobby("Test Lobby"))
-        
 
     def tearDown(self) -> None:
         super().tearDown()
         self.gameServer.close()
+        for client in self.clients:
+            client.close()
 
     def test_chat_plugin(self):
         MESSAGE: str = "Hello from client 0"

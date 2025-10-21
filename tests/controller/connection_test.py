@@ -1,39 +1,44 @@
 import socket
-from time import sleep
-import unittest
-
+from typing import Any
+import pytest
 import wiredwolf.controller.connections as connections
 
 
-class BaseConnectionTest(unittest.TestCase):
+class TestBaseConnection:
     def test_too_long_data_raises(self):
         handler = connections.TCPMessageHandler(connections.PickleSerializer())
-        with self.assertRaises(ValueError):
-            handler.add_length_prefix(b"x" * (int("9"*handler.PREFIX_LEN)+1))
+        with pytest.raises(ValueError):
+            handler.add_length_prefix(b"x" * (int("9" * handler.PREFIX_LEN) + 1))
 
     def test_base_connection_handler(self):
         handler = connections.TCPMessageHandler(connections.PickleSerializer())
-        self.assertEqual(handler.add_length_prefix(b"test"), b'0004test')
+        assert handler.add_length_prefix(b"test") == b"0004test"
 
     def test_send_and_receive(self):
         server_socket, client_socket = socket.socketpair()
         handler = connections.TCPMessageHandler(connections.PickleSerializer())
         handler.send(server_socket, b"test")
         received = handler.receive(client_socket)
-        self.assertEqual(received, b"test")
+        assert received == b"test"
 
 
-class ServerConnectionTest(unittest.TestCase):
+@pytest.fixture
+def server_conn_handler():
+    def check_is_instance(obj: Any, cls: type):
+        assert isinstance(obj, cls)
 
-    def setUp(self) -> None:
-        self.serverConnHandler = connections.TCPServerConnectionHandler(
-            lambda peer: self.assertIsInstance(peer, connections.Peer), lambda msg: self.assertIsInstance(msg, connections.BaseMessage), ("127.0.0.1", 0))
-        self.serverName = self.serverConnHandler.get_receiver_socket().getsockname()
+    serverConnHandler = connections.TCPServerConnectionHandler(
+        lambda peer: check_is_instance(peer, connections.Peer),
+        lambda msg: check_is_instance(msg, connections.BaseMessage),
+        ("127.0.0.1", 0),
+    )
+    yield serverConnHandler
+    serverConnHandler.stop_new_connections()
+    serverConnHandler.close()
 
-    def tearDown(self) -> None:
-        self.serverConnHandler.stop_new_connections()
-        self.serverConnHandler.close()
-        sleep(0.1)
 
-    def test_server_creation(self):
-        self.assertIsNotNone(self.serverName)
+class TestServerConnection:
+    def test_server_creation(
+        self, server_conn_handler: connections.TCPServerConnectionHandler
+    ):
+        assert server_conn_handler is not None

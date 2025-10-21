@@ -1,8 +1,27 @@
 import unittest
+
+import pytest
 from wiredwolf.controller.commons import Peer
 from wiredwolf.controller.connections import TCPServerConnectionHandler
 from wiredwolf.controller.lobbies import Lobby, TcpMdnsLobbyBrowser
 from wiredwolf.controller.server import GameServer
+
+@pytest.fixture
+def lobby():
+    lobby = Lobby("Test Lobby", "password123")
+    yield lobby
+
+@pytest.fixture
+def server(lobby: Lobby):
+    server = GameServer(lobby)
+    yield server
+    server.stop_new_connections()
+    server.close()
+
+@pytest.fixture
+def browser():
+    browser = TcpMdnsLobbyBrowser()
+    yield browser
 
 
 class LobbyTest(unittest.TestCase):
@@ -26,7 +45,7 @@ class LobbyTest(unittest.TestCase):
         handler, recv_lobby = self.browser.connect_to_lobby_directly(
             myself,
             (
-                "127.0.0.1",
+                "localhost",
                 self.server.connection_handler.get_receiver_socket().getsockname()[1],
             ),
             self.PASSWORD,
@@ -48,5 +67,6 @@ class LobbyTest(unittest.TestCase):
         while not lobbies:
             pass
         self.browser.stop_publishing_lobby()
+        self.browser.stop_lobby_browser()
         self.server.stop_new_connections()
         self.server.close()
