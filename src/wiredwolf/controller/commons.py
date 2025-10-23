@@ -5,12 +5,10 @@ import uuid
 class Peer:
     """Represents a peer in the network."""
 
-    _name: str
-    _uuid: str
 
     def __init__(self, name: str, peer_id: str | None = None):
-        self._name = name
-        self._uuid = peer_id or str(uuid.uuid4())
+        self._name: str = name
+        self._uuid: str = peer_id or str(uuid.uuid4())
 
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, Peer):

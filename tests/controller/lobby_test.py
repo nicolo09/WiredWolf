@@ -6,19 +6,19 @@ from wiredwolf.controller.connections import TCPServerConnectionHandler
 from wiredwolf.controller.lobbies import Lobby, TcpMdnsLobbyBrowser
 from wiredwolf.controller.server import GameServer
 
-@pytest.fixture
+@pytest.fixture()
 def lobby():
     lobby = Lobby("Test Lobby", "password123")
     yield lobby
 
-@pytest.fixture
+@pytest.fixture()
 def server(lobby: Lobby):
     server = GameServer(lobby)
     yield server
     server.stop_new_connections()
     server.close()
 
-@pytest.fixture
+@pytest.fixture()
 def browser():
     browser = TcpMdnsLobbyBrowser()
     yield browser

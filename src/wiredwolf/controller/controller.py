@@ -11,16 +11,15 @@ class GameController:
     TCP connections and mDNS for lobby discovery.
     """
 
-    _lobby_browser: TcpMdnsLobbyBrowser
-    _lobby: Lobby
-    _server: GameServer
-    _client_connection_handler: ClientConnectionHandler
-    _my_self: Peer
 
     def __init__(self):
-        self._lobby_browser = TcpMdnsLobbyBrowser()
+        self._lobby_browser: TcpMdnsLobbyBrowser = TcpMdnsLobbyBrowser()
+        self._lobby: Lobby | None = None
+        self._server: GameServer | None = None
         # TODO: Default name, should be set by user
-        self._my_self = Peer("Player")
+        self._my_self: Peer = Peer("Player")
+        self._client_connection_handler: ClientConnectionHandler | None = None
+
 
     def create_lobby(self, name: str, password: str | None = None):
         """Creates a new lobby.
@@ -64,7 +63,7 @@ class GameController:
         return self._lobby_browser
 
     @property
-    def lobby(self) -> Lobby:
+    def lobby(self) -> Lobby | None:
         """Gets the current lobby.
         Returns:
             Lobby: The current lobby.
@@ -77,7 +76,8 @@ class GameController:
         Args:
             message (str): The chat message to send.
         """
-        # TODO: Check if in lobby
+        if self._client_connection_handler is None:
+            raise RuntimeError("Not connected to a lobby.")
         self._client_connection_handler.send_obj(
             ChatMessage(self._my_self, message))
 

@@ -115,10 +115,9 @@ class ConnectionStatus(Enum):
 
 class ServerConnectionHandler(abc.ABC):
     _logger = logging.getLogger(__name__)
-    _message_handler: TCPMessageHandler
 
     def __init__(self):
-        self._message_handler = MessageHandlerFactory.getDefault()
+        self._message_handler: TCPMessageHandler = MessageHandlerFactory.getDefault()
 
     @abc.abstractmethod
     def send_obj(self, receiver: Peer, obj: Any) -> None:
@@ -142,16 +141,6 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
 
     _logger = logging.getLogger(__name__)
 
-    _on_new_peer: Callable[[Peer], None]
-    _on_new_message: Callable[[BaseMessage], None]
-    _new_conn_socket: socket.socket
-    _new_conn_thread: threading.Thread
-    _receiver_thread: threading.Thread
-    _endpoints: dict[Peer, socket.socket]
-    _status: dict[Peer, ConnectionStatus]
-    _closed_new_conn: threading.Event
-    _closed: threading.Event
-
     def __init__(
         self,
         on_new_peer: Callable[[Peer], None],
@@ -160,23 +149,24 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
         server_socket: socket.socket | None = None,
     ):
         super().__init__()
-        self._endpoints = {}
-        self._status = {}
-        self._closed_new_conn = threading.Event()
-        self._closed = threading.Event()
-        self._on_new_peer = on_new_peer
-        self._on_new_message = on_new_message
-        self._new_conn_socket = (
+        self._endpoints: dict[Peer, socket.socket] = {}
+        self._status: dict[Peer, ConnectionStatus] = {}
+        self._closed_new_conn: threading.Event = threading.Event()
+        self._closed: threading.Event = threading.Event()
+        self._on_new_peer: Callable[[Peer], None] = on_new_peer
+        self._on_new_message: Callable[[BaseMessage], None] = on_new_message
+        self._new_conn_socket: socket.socket = (
             server_socket if server_socket else socket.create_server(bind_address)
         )
         # Starts the thread to handle new incoming connections
-        self._new_conn_thread = threading.Thread(
+        self._new_conn_thread: threading.Thread = threading.Thread(
             target=self._handle_connections, name="TCPServerConnectionHandlerThread"
         )
-        self._new_conn_thread.start()
-        self._receiver_thread = threading.Thread(
+        self._receiver_thread: threading.Thread = threading.Thread(
             target=self._handle_messages, name="TCPServerMessageReceiverThread"
         )
+
+        self._new_conn_thread.start()
         self._receiver_thread.start()
         self._logger.info("Server listening on %s", self._new_conn_socket.getsockname())
 
@@ -285,12 +275,11 @@ class ClientConnectionHandler(abc.ABC):
     """Abstract base class for client connection handlers."""
 
     _logger = logging.getLogger(__name__)
-    _on_message: Callable[[Any], None] | None
-    _on_message_lock: threading.Lock = threading.Lock()
 
     def __init__(self):
         """Initialize the client connection handler."""
-        self._on_message = None
+        self._on_message: Callable[[Any], None] | None = None
+        self._on_message_lock = threading.Lock()
 
     def set_on_message(self, on_message: Callable[[Any], None]) -> None:
         """Set the callback function to handle incoming messages.
@@ -323,24 +312,21 @@ class ClientConnectionHandler(abc.ABC):
 class TCPClientConnectionHandler(ClientConnectionHandler):
     """TCP implementation of a client connection handler."""
 
-    _message_handler: TCPMessageHandler
-    _peer: Peer
-    _socket: socket.socket
-    _receiver_thread: threading.Thread | None
+    _logger = logging.getLogger(__name__)
 
-    def __init__(self, my_self: Peer, socket: socket.socket):
+    def __init__(self, my_self: Peer, conn_socket: socket.socket):
         """Initialize the TCP client connection handler.
 
         Args:
             my_self (Peer): The local peer object.
-            endpoint (socket.socket): The socket endpoint for the connection.
+            conn_socket (socket.socket): The socket connected to the server.
             on_message (Callable[[Any], None]): Callback function to handle incoming messages.
         """
         super().__init__()
-        self._message_handler = MessageHandlerFactory.getDefault()
-        self._peer = my_self
-        self._socket = socket
-        self._receiver_thread = None
+        self._message_handler: TCPMessageHandler = MessageHandlerFactory.getDefault()
+        self._my_self: Peer = my_self
+        self._socket: socket.socket = conn_socket
+        self._receiver_thread: threading.Thread | None = None
 
     def send_obj(self, obj: Any) -> None:
         if self._socket:

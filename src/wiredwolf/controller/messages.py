@@ -2,22 +2,18 @@ import abc
 from wiredwolf.controller.commons import Peer
 
 
-class BaseMessage(abc.ABC): #TODO: Move to wiredwolf.controller.messages
-    """Abstract base class for messages exchanged between peers.
-    """
+class BaseMessage(abc.ABC):  # TODO: Move to wiredwolf.controller.messages
+    """Abstract base class for messages exchanged between peers."""
+
     pass
 
 
-class ChatMessage(BaseMessage): #TODO: Move to wiredwolf.controller.messages
-    """Represents a chat message sent by a peer.
-    """
-
-    _sender: Peer
-    _message: str
+class ChatMessage(BaseMessage):  # TODO: Move to wiredwolf.controller.messages
+    """Represents a chat message sent by a peer."""
 
     def __init__(self, sender: Peer, message: str):
-        self._sender = sender
-        self._message = message
+        self._sender: Peer = sender
+        self._message: str = message
 
     @property
     def sender(self) -> Peer:
@@ -34,4 +30,3 @@ class ChatMessage(BaseMessage): #TODO: Move to wiredwolf.controller.messages
             str: The chat message.
         """
         return self._message
-

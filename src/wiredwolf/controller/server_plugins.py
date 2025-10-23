@@ -7,10 +7,12 @@ class ChatPlugin(ServerPlugin):
     A plugin should not be added to multiple servers.
     """
     def __init__(self):
-        self._handled_messages = [ChatMessage]
+        super().__init__([ChatMessage])
         
     def handle_message(self, message: BaseMessage) -> bool:
         super().handle_message(message)
+        if not self.server:
+            raise RuntimeError("Plugin is not attached to any server.")
         if isinstance(message, ChatMessage):
             self.server.send_to_all(message)
             return True
