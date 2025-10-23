@@ -361,7 +361,7 @@ class EnabledButton(CallbackButton):
     def __init__(self, callback:Callable[[],None], text: str, width:int, height:int, position:tuple[int, int]=(0,0), font:FontSize=FontSize.H1, disabled_color:str=BUTTON_DISABLED_COLOR,default_color:str=BUTTON_COLOR, activation_color:str=BUTTON_HOVER_COLOR)-> None:
         super().__init__(callback, text, width, height, position, font, default_color, activation_color)
         self._is_enabled=False
-        self._disabled_color=BUTTON_DISABLED_COLOR
+        self._disabled_color=disabled_color
     
     @property
     def is_enabled(self)->bool:
@@ -395,20 +395,35 @@ class EnabledButton(CallbackButton):
 class SelectorButton(AbstractButton):
     """A button that can be selected or unselected"""
 
+    _is_enabled:bool
     _selected:bool
     _selected_color:str
+    _disabled_color:str
+    _default_color:str
     _callback:Callable[[],None]
 
-    def __init__(self, text: str, width:int, height:int, position:tuple[int, int]=(0,0), font:FontSize=FontSize.H1, default_color:str=BUTTON_COLOR, activation_color:str=BUTTON_HOVER_COLOR, selected_color:str=SELECTED_COLOR)-> None:
+    def __init__(self, text: str, width:int, height:int, position:tuple[int, int]=(0,0), font:FontSize=FontSize.H1, default_color:str=BUTTON_COLOR, activation_color:str=BUTTON_HOVER_COLOR, selected_color:str=SELECTED_COLOR, disabled_color:str=BUTTON_DISABLED_COLOR)-> None:
         super().__init__(text, width, height, position, font, default_color, activation_color)
         self._selected=False
         self._selected_color=selected_color
+        self._disabled_color=disabled_color
         self._callback=print #Placeholder function. Selector buttons should be grouped into a Selector Group, which sets the correct callback
+        self._is_enabled=True
 
     @property
     def selected(self)->bool:
         """Returns selected status"""
         return self._selected
+    
+    @property
+    def is_enabled(self)->bool:
+        """Returns if the selector button is enabled"""
+        return self._is_enabled
+    
+    @is_enabled.setter
+    def is_enabled(self, value:bool)->None:
+        """Sets the selector button is enabled to the given value"""
+        self._is_enabled=value
     
     @selected.setter
     def selected(self, selected:bool)->None:
@@ -434,16 +449,17 @@ class SelectorButton(AbstractButton):
 
     def _handle_button_click(self)-> None:
         """Checks if button has been pressed and starts on click function"""
-        mouse_pos =pygame.mouse.get_pos() #returns mouse position
-        if self._button_rect.collidepoint(mouse_pos): #is the mouse over the button?
-            if pygame.mouse.get_pressed()[0]: #[left mouse, middle mouse, right mouse] boolean
-                self._button_clicked=True #sets button as pressed
-            else:
-                if self._button_clicked==True:
-                    self._selected=not self.selected #inverts selection
-                    self.on_click() #does action
-                    self._button_clicked=False #resets button
-                    #if no check is applied the button would be pressed many times per frame
+        if self._is_enabled==True:
+            mouse_pos =pygame.mouse.get_pos() #returns mouse position
+            if self._button_rect.collidepoint(mouse_pos): #is the mouse over the button?
+                if pygame.mouse.get_pressed()[0]: #[left mouse, middle mouse, right mouse] boolean
+                    self._button_clicked=True #sets button as pressed
+                else:
+                    if self._button_clicked==True:
+                        self._selected=not self.selected #inverts selection
+                        self.on_click() #does action
+                        self._button_clicked=False #resets button
+                        #if no check is applied the button would be pressed many times per frame
 
     def on_click(self)-> None:
         """Calls the on click function"""
@@ -457,7 +473,10 @@ class SelectorButton(AbstractButton):
         if self._selected==True:
             self._button_color=self._selected_color #changes color if the button is selected
         else:
-            self._button_color=self._button_color_not_hover #default color
+            if self._is_enabled==False:
+                self._button_color=self._disabled_color #button is disabled
+            else:
+                self._button_color=self._button_color_not_hover #default color
         pygame.draw.rect(screen, self._button_color, self._button_rect, border_radius=12) #border radius is for rounded corners
         screen.blit(self._text_surface, self._text_rect) #draws the rectangle on the given screen
         self._handle_button_click() #function that checks if the button has been pressed 
@@ -514,6 +533,11 @@ class SelectorGroup():
             return ""
         else :
             return self._selectors[self._selected_element].text
+        
+    def set_enabled(self, value:bool)->None:
+        """Sets all selectors as enabled/disabled according to the value given"""
+        for id in self._selectors:
+            self._selectors[id].is_enabled=value
 
 class TextField(DrawableComponent):
     """A drawable text field. When the user clicks on the field and writes, it displays what is being written"""
