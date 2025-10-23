@@ -147,10 +147,10 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
     _new_conn_socket: socket.socket
     _new_conn_thread: threading.Thread
     _receiver_thread: threading.Thread
-    _endpoints: dict[Peer, socket.socket] = {}
-    _status: dict[Peer, ConnectionStatus] = {}
-    _closed_new_conn: threading.Event = threading.Event()
-    _closed: threading.Event = threading.Event()
+    _endpoints: dict[Peer, socket.socket]
+    _status: dict[Peer, ConnectionStatus]
+    _closed_new_conn: threading.Event
+    _closed: threading.Event
 
     def __init__(
         self,
@@ -160,6 +160,10 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
         server_socket: socket.socket | None = None,
     ):
         super().__init__()
+        self._endpoints = {}
+        self._status = {}
+        self._closed_new_conn = threading.Event()
+        self._closed = threading.Event()
         self._on_new_peer = on_new_peer
         self._on_new_message = on_new_message
         self._new_conn_socket = (
