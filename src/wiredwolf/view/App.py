@@ -8,6 +8,7 @@ from functools import partial
 FPS=60
 username=""
 lobby_name=""
+voted_user=""
 WRAP_LINE_WIDTH=25
 MAX_MESSAGES_DISPLAYED=10
 CONTAINER_FACTOR=14 #this value is chosen by testing with different font sizes which value * wrap line withd fits all texts
@@ -269,13 +270,21 @@ class DayChat(AbstractScreen):
     """The waiting room after joining a lobby"""
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
-        from wiredwolf.view.Components import MultipleTexts,LimitedList, MemoryTextField,Text
+        from wiredwolf.view.Components import MultipleTexts,LimitedList, MemoryTextField,Text,SelectorButton, SelectorGroup,EnabledButton
         self._title=VContainer(0, [Text("Day")], self._display.get_size(), (50, 5))
         self._my_limited_list=LimitedList(MAX_MESSAGES_DISPLAYED) #This is where the messages are stored, up to MAX_MESSAGES DISPLAYED
         self._multiple_texts=MultipleTexts(self._my_limited_list, 5, self._display.get_size(), (70, 45), CONTAINER_FACTOR*WRAP_LINE_WIDTH, CHAT_BACKGROUND) #This is where the messages are displayed vertically
         self._text_box=MemoryTextField(300, 50) #This is where the new messages are entered
         self._container_text=VContainer(0, [self._text_box], self._display.get_size(), (70,90))
         self._last_message=""
+        selector_list=[SelectorButton("Mario", 100,20), SelectorButton("Luigi", 100,20), SelectorButton("Antonio", 100,20)] #TODO: get actual usernames of players connected to lobby
+        self._selector=SelectorGroup(selector_list) #This handles how the selectors BEHAVE as a group
+        self._selector.set_enabled(False)
+        test=partial(change_screen, game_state_manager, Screens.TEST)
+        self._vote_player=EnabledButton(test, 'Vote to execute player', 250, 50,font=FontSize.H2)
+        self._vote_player.is_enabled=False
+        self._vote_player_group=VContainer(0, [self._vote_player], self._display.get_size(), (20, 90))
+        self._players=VContainer(20, selector_list, self._display.get_size(), (20, 50)) #This handles how the selectors are DISPLAYED
 
     def run(self,event:pygame.event.Event | None)->None:
         """A simple waiting screen"""
@@ -283,6 +292,19 @@ class DayChat(AbstractScreen):
         self._multiple_texts.draw(self._display)
         self._container_text.draw(self._display)
         self._title.draw(self._display)
+        self._players.draw(self._display)
+        self._vote_player_group.draw(self._display)
+        #gets selected player (if any is selected)
+        get_voted_player=self._selector.selectedText()
+        global voted_player
+        if len(get_voted_player)>0:
+            #can only vote a player if one is selected
+            self._vote_player.is_enabled=True
+            voted_player=get_voted_player
+        else:
+            self._vote_player.is_enabled=False
+            voted_player="" #deselects player voted to be executed
+        
         if event is not None:
             self._text_box.handle_event(event) #Textbox handles key input
             tmp=self._text_box.last_input #get last message sent (if it's not already handled)
@@ -295,6 +317,10 @@ class DayChat(AbstractScreen):
                 for elem in message:
                     self._my_limited_list.add_element(elem) #adds message to messages sent
                 self._multiple_texts.on_list_change() #displays the new message(s)
+            if event.type==pygame.KEYUP and event.key==pygame.K_DOWN:
+                #TODO: change selectors for voting on timer/event
+                self._selector.set_enabled(True)
+                self._vote_player.is_enabled=True
 
 if __name__ == "__main__":
     my_app=App()
