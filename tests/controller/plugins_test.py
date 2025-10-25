@@ -29,7 +29,7 @@ class PluginTest(unittest.TestCase):
         for client in self.clients:
             client.close()
 
-    def test_chat_plugin(self):
+    def test_chat_plugin(self): #TODO: Flaky test, sometimes message is not received or wrong message type
         MESSAGE: str = "Hello from client 0"
         message_received: threading.Event = threading.Event()
 

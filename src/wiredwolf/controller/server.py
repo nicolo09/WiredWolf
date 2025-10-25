@@ -1,8 +1,8 @@
 import logging
 from wiredwolf.controller.commons import PasswordRequest, Peer
 from wiredwolf.controller.connections import (
+    ClientConnectionHandler,
     ServerConnectionHandler,
-    TCPClientConnectionHandler,
     TCPServerConnectionHandler,
 )
 from wiredwolf.controller.messages import BaseMessage
@@ -59,10 +59,10 @@ class GameServer:
 
     def __init__(self, lobby: Lobby):  # TODO: Add owner peer and socket
         self._lobby: Lobby = lobby
-        self._server_conn_handler: TCPServerConnectionHandler = (
-            TCPServerConnectionHandler(self._on_new_peer, self.process_incoming_message)
+        self._server_conn_handler: ServerConnectionHandler = TCPServerConnectionHandler(
+            self._on_new_peer, self.process_incoming_message
         )
-        self._players: dict[Peer, TCPClientConnectionHandler] = {}
+        self._players: dict[Peer, ClientConnectionHandler] = {}
         self._plugins: list[ServerPlugin] = []
 
     @property

@@ -153,6 +153,8 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
         self._status: dict[Peer, ConnectionStatus] = {}
         self._closed_new_conn: threading.Event = threading.Event()
         self._closed: threading.Event = threading.Event()
+        self._endpoints_lock = threading.Lock()
+        self._empty_endpoints_condition = threading.Condition(self._endpoints_lock)
         self._on_new_peer: Callable[[Peer], None] = on_new_peer
         self._on_new_message: Callable[[BaseMessage], None] = on_new_message
         self._new_conn_socket: socket.socket = (
@@ -211,15 +213,19 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
                     # TODO: If this receive obj takes too long the system doesn't accept new connections, this should be made asynchronous
                     peer: Peer = self._message_handler.receive_obj(client_socket)
                     try:
-                        # Add the endpoint
-                        self._endpoints[peer] = client_socket
-                        self._status[peer] = ConnectionStatus.CONNECTING
-                        # Try to handle the new peer connection
+                        with self._endpoints_lock:
+                            # Add the endpoint
+                            self._endpoints[peer] = client_socket
+                            self._status[peer] = ConnectionStatus.CONNECTING
+                            # Try to handle the new peer connection
                         self._on_new_peer(peer)
-                        self._status[peer] = ConnectionStatus.CONNECTED
+                        with self._endpoints_lock:
+                            self._status[peer] = ConnectionStatus.CONNECTED
+                            self._empty_endpoints_condition.notify_all()  # Wake up the receiver thread if it's waiting
                     except Exception as e:
                         # If handling the new peer fails, remove the endpoint
-                        self._endpoints.pop(peer)
+                        with self._endpoints_lock:
+                            self._endpoints.pop(peer)
                         self._logger.error("Error handling new peer %s: %s", peer, e)
                 except TimeoutError:
                     continue
@@ -231,42 +237,53 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
 
     def _handle_messages(self):
         while not self._closed.is_set():
-            ready_sockets, _, _ = select.select(
-                self._endpoints.values(), [], [], SELECT_TIMEOUT
-            )
-
-            for sock in ready_sockets:
-                try:
-                    # Find the peer associated with the ready to receive socket
-                    peer = next(
-                        (p for p, s in self._endpoints.items() if s == sock), None
+            ready_sockets: list[socket.socket] = []
+            # Wait until there is at least one endpoint
+            with self._endpoints_lock:
+                if not self._endpoints:
+                    self._empty_endpoints_condition.wait()
+                    ready_sockets, _, _ = select.select(
+                        self._endpoints.values(), [], [], SELECT_TIMEOUT
                     )
-                    if peer and self._status.get(peer) == ConnectionStatus.CONNECTED:
-                        msg = self._message_handler.receive_obj(sock)
-                        self._logger.info("Received message from %s: %s", peer, msg)
-                        self._on_new_message(msg)
-                except Exception as e:
-                    # Remove endpoint and close socket on error
-                    self._logger.error("Error receiving message: %s", e)
-                    self._endpoints = {
-                        p: s for p, s in self._endpoints.items() if s != sock
-                    }
-                    sock.close()
+                    # Release the lock to allow modifications to endpoints before processing messages
+            if ready_sockets:
+                for sock in ready_sockets:
+                    try:
+                        # Find the peer associated with the ready to receive socket
+                        peer = next(
+                            (p for p, s in self._endpoints.items() if s == sock), None
+                        )
+                        if peer and self._status.get(peer) == ConnectionStatus.CONNECTED:
+                            msg = self._message_handler.receive_obj(sock)
+                            self._logger.info("Received message from %s: %s", peer, msg)
+                            self._on_new_message(msg)
+                    except Exception as e:
+                        # Remove endpoint and close socket on error
+                        self._logger.error("Error receiving message: %s", e)
+                        with self._endpoints_lock:
+                            self._endpoints = {
+                                p: s for p, s in self._endpoints.items() if s != sock
+                            }
+                        sock.close()
 
     def close(self):
         """Closes the server connection handler and all associated sockets."""
         self.stop_new_connections()
         if not self._closed.is_set():
-            self._closed.set()
-            for sock in self._endpoints.values():
-                try:
-                    sock.shutdown(socket.SHUT_RDWR)
-                except Exception as e:
-                    self._logger.warning(
-                        "Error shutting down socket: %s \n Maybe it was already closed?",
-                        e,
-                    )
-            self._receiver_thread.join()
+            self._closed.set() # Set the closed event to stop the receiver thread
+            with self._endpoints_lock:
+                self._empty_endpoints_condition.notify_all() # Wake up the receiver thread if it's waiting
+            self._receiver_thread.join() # Wait for the receiver thread to finish (waits on select for SELECT_TIMEOUT)
+            with self._endpoints_lock:
+                # Shutdown all sockets
+                for sock in self._endpoints.values():
+                    try:
+                        sock.shutdown(socket.SHUT_RDWR)
+                    except Exception as e:
+                        self._logger.warning(
+                            "Error shutting down socket: %s \n Maybe it was already closed?",
+                            e,
+                        )
             for sock in self._endpoints.values():
                 sock.close()
 
