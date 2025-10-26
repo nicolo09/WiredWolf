@@ -1,17 +1,21 @@
-import socket
+from logging import Logger
+import logging
 from typing import Any
+
 
 from wiredwolf.controller.commons import Peer
 from wiredwolf.controller.connections import (
     ClientConnectionHandler,
-    TCPClientConnectionHandler,
     TCPServerConnectionHandler,
 )
-from wiredwolf.controller.lobbies import Lobby
+from wiredwolf.controller.lobbies import Lobby, TcpMdnsLobbyBrowser
 from wiredwolf.controller.server import GameServer
 
 
 class TestFactory:
+
+    logger: Logger = logging.getLogger(__name__)
+
     @staticmethod
     def create_tcp_server_with_connected_clients(
         num_clients: int, lobby: Lobby
@@ -33,22 +37,22 @@ class TestFactory:
         if isinstance(server.connection_handler, TCPServerConnectionHandler):
             for i in range(num_clients):
                 client_peer = Peer(f"client_{i}")
-                client_handler = TCPClientConnectionHandler(
+                browser = TcpMdnsLobbyBrowser()
+                client_handler, _ = browser.connect_to_lobby_directly(
                     client_peer,
-                    socket.create_connection(
-                        server.connection_handler.get_receiver_socket().getsockname()
-                    ),
+                    server.connection_handler.get_receiver_socket().getsockname(),
+                    None
                 )
 
                 def on_message(msg: Any) -> None:
                     if type(msg) is not Lobby:
+                        TestFactory.logger.error(f"Unexpected message type received in test: {type(msg)}")
                         raise RuntimeError("Unexpected message type")
                     else:
                         return None
 
                 client_handler.set_on_message(on_message)
                 client_handler.start_receiving()
-                client_handler.send_obj(client_peer)
                 clients.append(client_handler)
 
         return server, clients

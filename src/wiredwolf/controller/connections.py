@@ -14,6 +14,10 @@ from wiredwolf.controller.messages import BaseMessage
 
 SELECT_TIMEOUT: float = 1.0  # Timeout for select calls in seconds
 
+class ConnectionClosedError(Exception):
+    """Exception raised when a connection is closed."""
+    pass
+
 
 class Serializer(abc.ABC):
     """Base class for serializing and deserializing objects"""
@@ -84,7 +88,7 @@ class TCPMessageHandler:
     def receive(self, endpoint: socket.socket) -> bytes:
         data_len = endpoint.recv(self.PREFIX_LEN)
         if not data_len:
-            raise ConnectionError("Connection closed by the other side.")
+            raise ConnectionClosedError("Connection closed by the other side.")
         data_len = int(data_len.decode("utf-8").strip())
         return endpoint.recv(data_len)
 
@@ -224,6 +228,7 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
                             self._empty_endpoints_condition.notify_all()  # Wake up the receiver thread if it's waiting
                     except Exception as e:
                         # If handling the new peer fails, remove the endpoint
+                        client_socket.close()
                         with self._endpoints_lock:
                             self._endpoints.pop(peer)
                         self._logger.error("Error handling new peer %s: %s", peer, e)
@@ -242,9 +247,9 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
             with self._endpoints_lock:
                 if not self._endpoints:
                     self._empty_endpoints_condition.wait()
-                    ready_sockets, _, _ = select.select(
-                        self._endpoints.values(), [], [], SELECT_TIMEOUT
-                    )
+                ready_sockets, _, _ = select.select(
+                    self._endpoints.values(), [], [], SELECT_TIMEOUT
+                )
                     # Release the lock to allow modifications to endpoints before processing messages
             if ready_sockets:
                 for sock in ready_sockets:
@@ -257,6 +262,14 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
                             msg = self._message_handler.receive_obj(sock)
                             self._logger.info("Received message from %s: %s", peer, msg)
                             self._on_new_message(msg)
+                    except ConnectionClosedError:
+                        # Remove endpoint and close socket on connection closed
+                        self._logger.info("Connection closed by remote peer.")
+                        with self._endpoints_lock:
+                            self._endpoints = {
+                                p: s for p, s in self._endpoints.items() if s != sock
+                            }
+                        sock.close()
                     except Exception as e:
                         # Remove endpoint and close socket on error
                         self._logger.error("Error receiving message: %s", e)
@@ -344,6 +357,7 @@ class TCPClientConnectionHandler(ClientConnectionHandler):
         self._my_self: Peer = my_self
         self._socket: socket.socket = conn_socket
         self._receiver_thread: threading.Thread | None = None
+        self._exit_event: threading.Event = threading.Event()
 
     def send_obj(self, obj: Any) -> None:
         if self._socket:
@@ -364,6 +378,7 @@ class TCPClientConnectionHandler(ClientConnectionHandler):
         """Close the TCP client connection handler."""
         if self._socket:
             try:
+                self._exit_event.set()
                 self._socket.shutdown(socket.SHUT_RDWR)
             except Exception as e:
                 self._logger.warning(
@@ -374,15 +389,20 @@ class TCPClientConnectionHandler(ClientConnectionHandler):
         self._socket.close()
 
     def _handle_incoming_messages(self):
-        while True:
+        while not self._exit_event.is_set():
             try:
                 msg = self._message_handler.receive_obj(self._socket)
                 with self._on_message_lock:
                     if self._on_message:
                         self._on_message(msg)
+            except TimeoutError:
+                # Just a timeout, loop again
+                continue
+            except ConnectionClosedError:
+                #TODO: Handle reconnection logic here
+                self._logger.info("Connection closed by server.")
             except Exception as e:
                 self._logger.error("Error receiving message: %s", e)
-                break
 
 
 class ConnectionHandlerFactory:

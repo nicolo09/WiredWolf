@@ -23,7 +23,7 @@ class ServiceManagerTest(unittest.TestCase):
         # Test service registration
         return self.service_manager.register_service(service_name, sck)
 
-    def test_service_registration(self):
+    def test_service_registration(self): # TODO: Flaky test, sometimes raises exception
         NAME = "WiredWolfTest1"
         try:
             serviceInfo = self.register_service(NAME)
@@ -56,7 +56,7 @@ class LobbyBrowserTest(unittest.TestCase):
     def setUp(self):
         self.lobby_browser = TcpMdnsLobbyBrowser()
 
-    def test_lobby_publish_and_discovery(self):
+    def test_lobby_publish_and_discovery(self): #TODO: Flaky test, sometimes fails
         discovered_lobbies: list[str] = []
 
         def on_lobby_found(name: str):
