@@ -1,5 +1,5 @@
 import logging
-from wiredwolf.controller.commons import PasswordRequest, Peer
+from wiredwolf.controller.commons import DEFAULT_SERVER_PORT, PasswordRequest, Peer
 from wiredwolf.controller.connections import (
     ClientConnectionHandler,
     ConnectionHandlerFactory,
@@ -57,7 +57,7 @@ class GameServer:
 
     __logger = logging.getLogger(__name__)
 
-    def __init__(self, lobby: Lobby):  # TODO: Add owner peer and socket
+    def __init__(self, lobby: Lobby):  # TODO: Add owner peer and socket on init
         self._lobby: Lobby = lobby
         self._server_conn_handler: ServerConnectionHandler = (
             ConnectionHandlerFactory.get_default_server_handler(
@@ -67,6 +67,9 @@ class GameServer:
         self._players: dict[Peer, ClientConnectionHandler] = {}
         self._plugins: list[ServerPlugin] = []
 
+    async def start_listening(self):
+        await self._server_conn_handler.start_listening(("127.0.0.1", DEFAULT_SERVER_PORT))
+
     @property
     def connection_handler(self) -> ServerConnectionHandler:
         """
@@ -74,49 +77,49 @@ class GameServer:
         """
         return self._server_conn_handler
 
-    def _on_new_peer(self, peer: Peer):
+    async def _on_new_peer(self, peer: Peer):
         self.__logger.info("New peer attempting connection: %s", peer)
         try:
             if self._lobby.is_password_protected():
                 # If the lobby is password-protected, ask for the password
                 req = PasswordRequest()
-                self._server_conn_handler.send_obj(peer, req)
-                resp: PasswordRequest = self._server_conn_handler.receive_obj(peer)
+                await self._server_conn_handler.send_obj(peer, req)
+                resp: PasswordRequest = await self._server_conn_handler.receive_obj(peer)
                 if resp.id != req.id:
-                    self._server_conn_handler.send_obj(
+                    await self._server_conn_handler.send_obj(
                         peer, ValueError("Invalid password request.")
                     )
                     return
                 if resp.password and self._lobby.check_password(resp.password):
-                    self._add_peer_and_notify_updates(peer)
-                    self._server_conn_handler.send_obj(peer, self._lobby)
+                    await self._add_peer_and_notify_updates(peer)
+                    await self._server_conn_handler.send_obj(peer, self._lobby)
                 else:
-                    self._server_conn_handler.send_obj(
+                    await self._server_conn_handler.send_obj(
                         peer, ValueError("Incorrect password.")
                     )
             else:
                 # If no password is set, add the peer directly
-                self._add_peer_and_notify_updates(peer)
-                self._server_conn_handler.send_obj(peer, self._lobby)
+                await self._add_peer_and_notify_updates(peer)
+                await self._server_conn_handler.send_obj(peer, self._lobby)
         except Exception as e:
             self.__logger.error("Error handling new peer %s: %s", peer, e)
 
-    def _add_peer_and_notify_updates(self, peer: Peer):
+    async def _add_peer_and_notify_updates(self, peer: Peer):
         # Update lobby
         self._lobby.add_peer(peer)
         # Notify other peers of the updated lobby sending the updated lobby object
         for p in self._lobby.peers:
-            if p != peer:
-                self._server_conn_handler.send_obj(p, self._lobby)
+            await self._server_conn_handler.send_obj(p, self._lobby)
         self.__logger.info(
             "Peer %s joined the lobby. Current peers: %s", peer, self._lobby.peers
         )
 
-    def send_to_all(self, message: BaseMessage):
+    async def send_to_all(self, message: BaseMessage):
         """Sends a message to all connected peers in the lobby."""
+        # TODO: Change to have them sent concurrently
         for peer in self._lobby.peers:
             try:
-                self._server_conn_handler.send_obj(peer, message)
+                await self._server_conn_handler.send_obj(peer, message)
             except Exception as e:
                 self.__logger.error("Error sending message to %s: %s", peer, e)
 

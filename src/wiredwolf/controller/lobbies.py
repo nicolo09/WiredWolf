@@ -1,15 +1,13 @@
-import socket
+import asyncio
 from collections.abc import Callable
 from enum import Enum
-from wiredwolf.controller import TIMEOUT
+from wiredwolf.controller.connections import AsyncTCPMessageHandler
 from wiredwolf.controller.connections import (
     ClientConnectionHandler,
     MessageHandlerFactory,
-    TCPClientConnectionHandler,
-    TCPMessageHandler,
 )
 
-from wiredwolf.controller.commons import Peer
+from wiredwolf.controller.commons import CONNECTION_TIMEOUT, Peer
 from wiredwolf.controller.commons import PasswordRequest
 from wiredwolf.controller.services import CallbackServiceListener, ServiceManager
 
@@ -142,11 +140,11 @@ class TcpMdnsLobbyBrowser:
         else:
             raise RuntimeError("Lobby browser is not running.")
 
-    def publish_lobby(self, lobby_name: str, connection_socket: socket.socket) -> None:
+    def publish_lobby(self, lobby_name: str, receiver_port: int) -> None:
         """Publishes a lobby to the network so that it can be discovered by other players."""
         if not self._published_lobby_service_info:
             self._published_lobby_service_info = self._service_manager.register_service(
-                name=lobby_name, receiverSocket=connection_socket
+                name=lobby_name, receiverPort=receiver_port
             )
         else:
             raise RuntimeError("There is already a lobby being published.")
@@ -159,46 +157,53 @@ class TcpMdnsLobbyBrowser:
         else:
             raise RuntimeError("No lobby is currently being published.")
 
-    def _connect(
-        self, sock: socket.socket, peer: Peer, lobby_password: str | None
+    async def _connect(
+        self, endpoint: tuple[str, int], my_self: Peer, lobby_password: str | None
     ) -> tuple[ClientConnectionHandler, Lobby]:
-        msg_handler: TCPMessageHandler = TCPMessageHandler(
-            MessageHandlerFactory.getDefaultSerializer()
-        )
-        # Sending my peer info to the server
-        msg_handler.send_obj(sock, peer)
-        # Expecting PasswordRequest or lobby
-        recv_msg = msg_handler.receive_obj(sock)
-        if isinstance(recv_msg, PasswordRequest):
-            # Server requested a password...
-            if lobby_password:
-                # ...send the password
-                recv_msg.password = lobby_password
-                msg_handler.send_obj(sock, recv_msg)
-                lobby = msg_handler.receive_obj(sock)
-                if isinstance(lobby, Exception):
-                    # The server returned an error
-                    sock.close()
-                    raise lobby
+        try:
+            async with asyncio.timeout(CONNECTION_TIMEOUT):
+                msg_handler: AsyncTCPMessageHandler = AsyncTCPMessageHandler(
+                    MessageHandlerFactory.getDefaultSerializer()
+                )
+                reader, writer = await asyncio.open_connection(endpoint[0], endpoint[1])
+                # Sending my peer info to the server
+                await msg_handler.send_obj(writer, my_self)
+                # Expecting PasswordRequest or lobby
+                recv_msg = await msg_handler.receive_obj(reader)
+                if isinstance(recv_msg, PasswordRequest):
+                    # Server requested a password...
+                    if lobby_password:
+                        # ...send the password
+                        recv_msg.password = lobby_password
+                        await msg_handler.send_obj(writer, recv_msg)
+                        lobby = await msg_handler.receive_obj(reader)
+                        if isinstance(lobby, Exception):
+                            # The server returned an error
+                            writer.close()
+                            raise lobby
+                        else:
+                            # The server returned a lobby, successfully joined
+                            # TODO Async client connection handler
+                            raise NotImplementedError("Finish implementation")
+                    else:
+                        # ...but no password was provided
+                        writer.close()
+                        raise ValueError("Lobby requires a password.")
+                elif isinstance(recv_msg, Lobby):
+                    if lobby_password:
+                        # Password was provided but not needed
+                        writer.close()
+                        raise ValueError("Lobby does not require a password.")
+                    # Successfully joined the lobby
+                    # TODO Async client connection handler
+                    raise NotImplementedError("Finish implementation")
                 else:
-                    # The server returned a lobby, successfully joined
-                    return TCPClientConnectionHandler(peer, sock), lobby
-            else:
-                # ...but no password was provided
-                sock.close()
-                raise ValueError("Lobby requires a password.")
-        elif isinstance(recv_msg, Lobby):
-            if lobby_password:
-                # Password was provided but not needed
-                sock.close()
-                raise ValueError("Lobby does not require a password.")
-            # Successfully joined the lobby
-            return TCPClientConnectionHandler(peer, sock), recv_msg
-        else:
-            sock.close()
-            raise RuntimeError("Unexpected message received.")
+                    writer.close()
+                    raise RuntimeError("Unexpected message received.")
+        except asyncio.TimeoutError:
+            raise TimeoutError("Connection to lobby timed out.")
 
-    def connect_to_lobby_directly(
+    async def connect_to_lobby_directly(
         self, peer: Peer, address: tuple[str, int], lobby_password: str | None
     ) -> tuple[ClientConnectionHandler, Lobby]:
         """
@@ -209,13 +214,12 @@ class TcpMdnsLobbyBrowser:
             lobby_password (str | None): The password for the lobby, or None if not required.
 
         Returns:
-            tuple[socket.socket, Lobby]: The connected socket and the joined lobby.
+            tuple[ClientConnectionHandler, Lobby]: The connected client handler and the joined lobby.
         """
 
-        sock = socket.create_connection(address, timeout=TIMEOUT)
-        return self._connect(sock, peer, lobby_password)
+        return await self._connect(address, peer, lobby_password)
 
-    def connect_to_lobby_by_name(
+    async def connect_to_lobby_by_name(
         self, peer: Peer, lobby_name: str, lobby_password: str | None
     ) -> tuple[ClientConnectionHandler, Lobby]:
         """
@@ -226,8 +230,8 @@ class TcpMdnsLobbyBrowser:
             lobby_password (str | None): The password for the lobby, or None if not required.
 
         Returns:
-            tuple[socket.socket, Lobby]: The connected socket and the joined lobby.
+            tuple[ClientConnectionHandler, Lobby]: The connected client handler and the joined lobby.
         """
 
-        sock = self._service_manager.connect_to_service(lobby_name)
-        return self._connect(sock, peer, lobby_password)
+        ip, port = self._service_manager.get_service_endpoint(lobby_name)
+        return await self._connect((ip, port), peer, lobby_password)

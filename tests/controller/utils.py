@@ -1,12 +1,13 @@
+import asyncio
 from logging import Logger
 import logging
 from typing import Any
 
 
-from wiredwolf.controller.commons import Peer
+from wiredwolf.controller.commons import DEFAULT_SERVER_PORT, Peer
 from wiredwolf.controller.connections import (
     ClientConnectionHandler,
-    TCPServerConnectionHandler,
+    AsyncTCPServerConnectionHandler
 )
 from wiredwolf.controller.lobbies import Lobby, TcpMdnsLobbyBrowser
 from wiredwolf.controller.server import GameServer
@@ -34,15 +35,15 @@ class TestFactory:
         server: GameServer = GameServer(lobby)
         clients: list[ClientConnectionHandler] = []
 
-        if isinstance(server.connection_handler, TCPServerConnectionHandler):
+        if isinstance(server.connection_handler, AsyncTCPServerConnectionHandler):
             for i in range(num_clients):
                 client_peer = Peer(f"client_{i}")
                 browser = TcpMdnsLobbyBrowser()
-                client_handler, _ = browser.connect_to_lobby_directly(
+                client_handler, _ = asyncio.run(browser.connect_to_lobby_directly(
                     client_peer,
-                    server.connection_handler.get_receiver_socket().getsockname(),
+                    ("127.0.0.1", DEFAULT_SERVER_PORT),
                     None
-                )
+                ))
 
                 def on_message(msg: Any) -> None:
                     if type(msg) is not Lobby:

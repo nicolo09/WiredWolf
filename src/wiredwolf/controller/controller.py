@@ -1,16 +1,15 @@
-from wiredwolf.controller.connections import ClientConnectionHandler, TCPServerConnectionHandler
+from wiredwolf.controller.connections import ClientConnectionHandler
 from wiredwolf.controller.lobbies import TcpMdnsLobbyBrowser
 from wiredwolf.controller.lobbies import Lobby
 from wiredwolf.controller.messages import ChatMessage
 from wiredwolf.controller.server import GameServer
-from wiredwolf.controller.commons import Peer
+from wiredwolf.controller.commons import DEFAULT_SERVER_PORT, Peer
 
 
 class GameController:
-    """Handles the game logic and player interactions. This controller is implemented by means of 
+    """Handles the game logic and player interactions. This controller is implemented by means of
     TCP connections and mDNS for lobby discovery.
     """
-
 
     def __init__(self):
         self._lobby_browser: TcpMdnsLobbyBrowser = TcpMdnsLobbyBrowser()
@@ -19,7 +18,6 @@ class GameController:
         # TODO: Default name, should be set by user
         self._my_self: Peer = Peer("Player")
         self._client_connection_handler: ClientConnectionHandler | None = None
-
 
     def create_lobby(self, name: str, password: str | None = None):
         """Creates a new lobby.
@@ -36,23 +34,21 @@ class GameController:
         """
         self._lobby = Lobby(name=name, password=password)
         self._server = GameServer(self._lobby)
-        if isinstance(self._server.connection_handler, TCPServerConnectionHandler):
-            self._server.connection_handler.get_receiver_socket()
-            self._lobby_browser.publish_lobby(
-                self._lobby.name, self._server.connection_handler.get_receiver_socket())
-            return self._lobby
-        else:
-            raise RuntimeError("Server connection handler is not TCP.")
+        self._lobby_browser.publish_lobby(self._lobby.name, DEFAULT_SERVER_PORT)
+        return self._lobby
 
-    def join_lobby(self, lobby_name: str, lobby_password: str | None):
+    async def join_lobby(self, lobby_name: str, lobby_password: str | None):
         """Joins a lobby by its name.
 
         Args:
             lobby_name (str): The name of the lobby to join.
             lobby_password (str | None): The password for the lobby or None if no password is set.
         """
-        self._client_connection_handler, self._lobby = self._lobby_browser.connect_to_lobby_by_name(
-            self._my_self, lobby_name, lobby_password)
+        self._client_connection_handler, self._lobby = await (
+            self._lobby_browser.connect_to_lobby_by_name(
+                self._my_self, lobby_name, lobby_password
+            )
+        )
 
     @property
     def lobby_browser(self) -> TcpMdnsLobbyBrowser:
@@ -78,8 +74,7 @@ class GameController:
         """
         if self._client_connection_handler is None:
             raise RuntimeError("Not connected to a lobby.")
-        self._client_connection_handler.send_obj(
-            ChatMessage(self._my_self, message))
+        self._client_connection_handler.send_obj(ChatMessage(self._my_self, message))
 
     def choose_player(self, player: Peer):
         """Votes a player in the lobby. This method may be called only during a voting phase.
@@ -91,7 +86,7 @@ class GameController:
         pass
 
     def vote_guilty(self):
-        """Votes for the selected player to be guilty. This method may be called only during a 
+        """Votes for the selected player to be guilty. This method may be called only during a
         guilty decision voting phase."""
         # TODO: Implement voting logic
         pass

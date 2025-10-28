@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 import uuid
 
+DEFAULT_SERVER_PORT = 12233
+CONNECTION_TIMEOUT = 10  # seconds
 
 class Peer:
     """Represents a peer in the network."""
