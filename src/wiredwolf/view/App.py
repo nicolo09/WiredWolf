@@ -268,8 +268,7 @@ class DayVoting(AbstractScreen):
         self._selector=SelectorGroup(selector_list) #This handles how the selectors BEHAVE as a group
         self._selector.set_enabled(False)
         change_player_voted=partial(self._set_voted_player)
-        self._vote_player=EnabledButton(change_player_voted, 'Vote to execute player', 250, 50,font=FontSize.H2)
-        self._vote_player.is_enabled=False #Necessary so users can't vote instantly
+        self._vote_player=EnabledButton(change_player_voted, 'Vote to execute player', 250, 50,font=FontSize.H2, enabled=False) #Necessary so users can't vote instantly
         self._vote_player_group=VContainer(0, [self._vote_player], self._display.get_size(), (20, 90))
         self._players=VContainer(20, selector_list, self._display.get_size(), (20, 50)) #This handles how the selectors are DISPLAYED
         self._voted_text=Text("You haven't voted", font=FontSize.H3)
@@ -324,7 +323,7 @@ class DayVoting(AbstractScreen):
             self._voted_text.text="You haven't voted"
 
 class DayExecution(AbstractScreen):
-    """The screens where users chat and choose which players to nominate for an execution"""
+    """The screen where users chat and choose if the player nominated for execution should be spared or not"""
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
         from wiredwolf.view.Components import MultipleTexts,LimitedList, MemoryTextField,Text,EnabledButton, CallbackButton
@@ -339,14 +338,12 @@ class DayExecution(AbstractScreen):
         executed_user="Mario" #TODO: fix placeholder
         executed=partial(self._spare_or_execute, True)
         spared=partial(self._spare_or_execute, False)
-        self._execute_button=EnabledButton(executed, "Vote to execute "+executed_user, 300, 50)
-        self._spare_button=EnabledButton(spared, "Vote to spare "+executed_user, 300, 50)
-        self._execute_button.is_enabled=True
-        self._spare_button.is_enabled=True
+        self._execute_button=EnabledButton(executed, "Vote to execute "+executed_user, 300, 50, enabled=True)
+        self._spare_button=EnabledButton(spared, "Vote to spare "+executed_user, 300, 50, enabled=True)
         self._button_container=VContainer(20, [self._execute_button, self._spare_button], self._display.get_size(), (20, 50))
 
     def run(self,event:pygame.event.Event | None)->None:
-        """A day waiting and voting screen"""
+        """A day execution screen"""
         self._display.fill(BACKGROUND_COLOR)
         self._multiple_texts.draw(self._display)
         self._container_text.draw(self._display)
