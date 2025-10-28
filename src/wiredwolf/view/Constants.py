@@ -6,7 +6,6 @@ class Screens(Enum):
     NEW_LOBBY='new lobby'
     SEARCH_LOBBY='search lobby'
     LOBBY_WAITING='lobby waiting'
-    DAY_CHAT='day chat'
     DAY_VOTING='day voting'
     DAY_EXECUTION='day execution'
     NIGHT_VILLAGER='night'
