@@ -280,11 +280,14 @@ class DayChat(AbstractScreen):
         selector_list=[SelectorButton("Mario", 100,20), SelectorButton("Luigi", 100,20), SelectorButton("Antonio", 100,20)] #TODO: get actual usernames of players connected to lobby
         self._selector=SelectorGroup(selector_list) #This handles how the selectors BEHAVE as a group
         self._selector.set_enabled(False)
-        test=partial(change_screen, game_state_manager, Screens.TEST)
-        self._vote_player=EnabledButton(test, 'Vote to execute player', 250, 50,font=FontSize.H2)
-        self._vote_player.is_enabled=False
+        change_player_voted=partial(self._set_voted_player)
+        self._vote_player=EnabledButton(change_player_voted, 'Vote to execute player', 250, 50,font=FontSize.H2)
+        self._vote_player.is_enabled=True
         self._vote_player_group=VContainer(0, [self._vote_player], self._display.get_size(), (20, 90))
         self._players=VContainer(20, selector_list, self._display.get_size(), (20, 50)) #This handles how the selectors are DISPLAYED
+        self._voted_text=Text("You haven't voted", font=FontSize.H3)
+        self._trigger_update=False
+        self._voted_container=HContainer(0, [self._voted_text], self._display.get_size(), (20, 80))
 
     def run(self,event:pygame.event.Event | None)->None:
         """A simple waiting screen"""
@@ -294,16 +297,11 @@ class DayChat(AbstractScreen):
         self._title.draw(self._display)
         self._players.draw(self._display)
         self._vote_player_group.draw(self._display)
-        #gets selected player (if any is selected)
-        get_voted_player=self._selector.selectedText()
-        global voted_player
-        if len(get_voted_player)>0:
-            #can only vote a player if one is selected
-            self._vote_player.is_enabled=True
-            voted_player=get_voted_player
-        else:
-            self._vote_player.is_enabled=False
-            voted_player="" #deselects player voted to be executed
+        if self._trigger_update:
+            #Text has changed text and dimensions, update the container with the new dimensions
+            self._voted_container.manually_update()
+            self._trigger_update=False
+        self._voted_container.draw(self._display)
         
         if event is not None:
             self._text_box.handle_event(event) #Textbox handles key input
@@ -321,6 +319,20 @@ class DayChat(AbstractScreen):
                 #TODO: change selectors for voting on timer/event
                 self._selector.set_enabled(True)
                 self._vote_player.is_enabled=True
+
+    def _set_voted_player(self)->None:
+        """Function called when the user chooses who to nominate for execution"""
+        get_voted_player=self._selector.selectedText() #gets the chosen player
+        global voted_player
+        self._trigger_update=True #This is necessary to update the container size on the next draw
+        if len(get_voted_player)>0:
+            #can only vote a player if one is selected
+            voted_player=get_voted_player
+            self._voted_text.text="You voted for "+voted_player
+        else:
+            voted_player="" #deselects player voted to be executed
+            self._voted_text.text="You haven't voted"
+        
 
 if __name__ == "__main__":
     my_app=App()
