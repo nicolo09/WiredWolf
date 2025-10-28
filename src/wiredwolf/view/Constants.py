@@ -30,6 +30,11 @@ def h2Font()->pygame.font.Font:
     pygame.font.init()
     return pygame.font.Font(None, 30)
 
+def h3Font()->pygame.font.Font:
+    pygame.font.init()
+    return pygame.font.Font(None, 25)
+
 class FontSize(Enum):
     H1=h1Font()
     H2=h2Font()
+    H3=h3Font()
