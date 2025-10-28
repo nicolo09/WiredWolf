@@ -31,6 +31,10 @@ class GameStateManager:
         """Sets the current game state as the parameter given"""
         self._current_state=screen
 
+    def change_screen(self, target_screen:Screens)->None:
+        """A function to change the application screen to the given one"""
+        self.current_state=target_screen
+
 class AbstractScreen(ABC):
     """A screen abstraction, handling the base work of any screen implementation"""
 
@@ -113,20 +117,14 @@ class App:
             self._on_event(event) #handles generated events 
         self._clock.tick(FPS)
 
-
-def change_screen(game_state_manager:GameStateManager, target_screen:Screens)->None:
-    """A function to change the application screen to the given one"""
-    #TODO: Why is this a standalone function instead of a function of the game state manager??
-    game_state_manager.current_state=target_screen
-
 class StartScreen(AbstractScreen):
     """The start screen, the first screen showed at startup"""
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
         from wiredwolf.view.Components import CallbackButton, Text, TextField
-        go_new_lobby=partial(change_screen, game_state_manager, Screens.NEW_LOBBY)
+        go_new_lobby=partial(self._game_state_manager.change_screen, Screens.NEW_LOBBY)
         new_lobby_button=CallbackButton(go_new_lobby, 'New Lobby', 250, 50) 
-        go_search_lobby=partial(change_screen, game_state_manager, Screens.SEARCH_LOBBY)
+        go_search_lobby=partial(self._game_state_manager.change_screen, Screens.SEARCH_LOBBY)
         search_lobby_button=CallbackButton(go_search_lobby, 'Search for lobbies', 250, 50) 
         self._field=TextField(250, 50)
         username_enter=Text("Insert username:", font=FontSize.H2)
@@ -156,9 +154,9 @@ class NewLobbyScreen(AbstractScreen):
         self._title=VContainer(10,[Text("Create a new lobby")], self._display.get_size(),(50,20))
         lobby_name=Text("Insert the new lobby name", font=FontSize.H2)
         self._field=TextField(300, 50)
-        create_lobby=partial(change_screen, game_state_manager, Screens.LOBBY_WAITING)
+        create_lobby=partial(self._game_state_manager.change_screen, Screens.LOBBY_WAITING)
         self._create_lobby_button=EnabledButton(create_lobby, 'Create the new lobby!', 300, 50,font=FontSize.H2)
-        go_home=partial(change_screen, game_state_manager, Screens.HOME)
+        go_home=partial(self._game_state_manager.change_screen, Screens.HOME)
         go_home_button=CallbackButton(go_home, 'Go back to start screen', 300, 50,font=FontSize.H2)
         self._button_container=VContainer(10, [lobby_name, self._field, self._create_lobby_button], self._display.get_size())
         self._button_back=VContainer(10, [go_home_button], self._display.get_size(), (50, 80))
@@ -189,8 +187,8 @@ class SearchLobbyScreen(AbstractScreen):
         selector_list=[SelectorButton("Lobby 1", 100,20), SelectorButton("Lobby 2", 100,20), SelectorButton("Lobby 3", 100,20)]
         self._selector=SelectorGroup(selector_list) #This handles how the selectors BEHAVE as a group
         self._lobby_group=VContainer(20, selector_list, self._display.get_size()) #This handles how the selectors are DISPLAYED
-        go_home=partial(change_screen, game_state_manager, Screens.HOME)
-        join_lobby=partial(change_screen, game_state_manager, Screens.LOBBY_WAITING)
+        go_home=partial(self._game_state_manager.change_screen, Screens.HOME)
+        join_lobby=partial(self._game_state_manager.change_screen, Screens.LOBBY_WAITING)
         self._join_button=EnabledButton(join_lobby, 'Join selected lobby', 300, 50,font=FontSize.H2)
         self._buttons=HContainer(10, [CallbackButton(go_home, 'Go back to start screen', 300, 50,font=FontSize.H2), self._join_button], self._display.get_size(), (50, 80))
     
@@ -213,7 +211,7 @@ class TestScreen(AbstractScreen):
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
         from wiredwolf.view.Components import CallbackButton
-        go_home=partial(change_screen, game_state_manager, Screens.HOME)
+        go_home=partial(self._game_state_manager.change_screen, Screens.HOME)
         my_button1=CallbackButton(go_home, 'test screen', 200, 50, font=FontSize.H1, default_color="#0033FF", activation_color="#5365AD") 
         button_list=[my_button1]
         self._button_container=VContainer(10, button_list, self._display.get_size())
@@ -253,7 +251,7 @@ class WaitingLobbyScreen(AbstractScreen):
         if event is not None:
             if event.type==pygame.KEYUP and event.key==pygame.K_RETURN:
                 #TODO: change screen when all users have joined the waiting room
-                self._game_state_manager.current_state=Screens.DAY_VOTING
+                self._game_state_manager.change_screen(Screens.DAY_VOTING)
 
 class DayVoting(AbstractScreen):
     """The screens where users chat and choose which players to nominate for an execution"""
@@ -310,7 +308,7 @@ class DayVoting(AbstractScreen):
                 self._vote_player.is_enabled=True
             if event.type==pygame.KEYUP and event.key==pygame.K_UP:
                 #TODO: change screen to deciding who to execute on timer/event
-                change_screen(self._game_state_manager, Screens.DAY_EXECUTION)
+                self._game_state_manager.change_screen(Screens.DAY_EXECUTION)
 
     def _set_voted_player(self)->None:
         """Function called when the user chooses who to nominate for execution"""
@@ -363,7 +361,7 @@ class DayExecution(AbstractScreen):
                 self._multiple_texts.on_list_change() #displays the new message(s)
             if event.type==pygame.KEYUP and event.key==pygame.K_DOWN:
                 #TODO: change selectors for voting on timer/event
-                change_screen(self._game_state_manager, Screens.TEST)     
+                self._game_state_manager.change_screen(Screens.TEST)     
 
 if __name__ == "__main__":
     my_app=App()
