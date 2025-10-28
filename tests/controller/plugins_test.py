@@ -44,3 +44,5 @@ async def test_chat_plugin(
     await clients[0].send_obj(ChatMessage(sender=clients[0].my_self, message=MESSAGE))
     await message_received.wait()
     assert message_received.is_set(), "Chat message was not received by client 1"
+
+#TODO: Test for wrong sender in ChatMessage
