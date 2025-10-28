@@ -1,8 +1,6 @@
 import threading
 from venv import logger
-
 import pytest
-
 from tests.controller.utils import TestFactory
 from wiredwolf.controller.commons import Peer
 from wiredwolf.controller.connections import ClientConnectionHandler

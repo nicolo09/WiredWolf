@@ -14,8 +14,10 @@ from wiredwolf.controller.messages import BaseMessage
 
 SELECT_TIMEOUT: float = 1.0  # Timeout for select calls in seconds
 
+
 class ConnectionClosedError(Exception):
     """Exception raised when a connection is closed."""
+
     pass
 
 
@@ -250,7 +252,7 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
                 ready_sockets, _, _ = select.select(
                     self._endpoints.values(), [], [], SELECT_TIMEOUT
                 )
-                    # Release the lock to allow modifications to endpoints before processing messages
+            # Release the lock to allow modifications to endpoints before processing messages
             if ready_sockets:
                 for sock in ready_sockets:
                     try:
@@ -258,7 +260,10 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
                         peer = next(
                             (p for p, s in self._endpoints.items() if s == sock), None
                         )
-                        if peer and self._status.get(peer) == ConnectionStatus.CONNECTED:
+                        if (
+                            peer
+                            and self._status.get(peer) == ConnectionStatus.CONNECTED
+                        ):
                             msg = self._message_handler.receive_obj(sock)
                             self._logger.info("Received message from %s: %s", peer, msg)
                             self._on_new_message(msg)
@@ -283,10 +288,10 @@ class TCPServerConnectionHandler(ServerConnectionHandler):
         """Closes the server connection handler and all associated sockets."""
         self.stop_new_connections()
         if not self._closed.is_set():
-            self._closed.set() # Set the closed event to stop the receiver thread
+            self._closed.set()  # Set the closed event to stop the receiver thread
             with self._endpoints_lock:
-                self._empty_endpoints_condition.notify_all() # Wake up the receiver thread if it's waiting
-            self._receiver_thread.join() # Wait for the receiver thread to finish (waits on select for SELECT_TIMEOUT)
+                self._empty_endpoints_condition.notify_all()  # Wake up the receiver thread if it's waiting
+            self._receiver_thread.join()  # Wait for the receiver thread to finish (waits on select for SELECT_TIMEOUT)
             with self._endpoints_lock:
                 # Shutdown all sockets
                 for sock in self._endpoints.values():
@@ -399,7 +404,7 @@ class TCPClientConnectionHandler(ClientConnectionHandler):
                 # Just a timeout, loop again
                 continue
             except ConnectionClosedError:
-                #TODO: Handle reconnection logic here
+                # TODO: Handle reconnection logic here
                 self._logger.info("Connection closed by server.")
             except Exception as e:
                 self._logger.error("Error receiving message: %s", e)
@@ -412,7 +417,7 @@ class ConnectionHandlerFactory:
     def get_default_server_handler(
         on_new_peer: Callable[[Peer], None],
         on_new_message: Callable[[BaseMessage], None],
-    ) -> TCPServerConnectionHandler:
+    ) -> ServerConnectionHandler:
         """Get the default server connection handler.
 
         Args:
