@@ -319,9 +319,9 @@ class CallbackButton(AbstractButton):
 class EnabledButton(CallbackButton):
     """A button that calls the callback on click, if the button is enabled"""
 
-    def __init__(self, callback:Callable[[],None], text: str, width:int, height:int, position:tuple[int, int]=(0,0), font:FontSize=FontSize.H1, disabled_color:str=BUTTON_DISABLED_COLOR,default_color:str=BUTTON_COLOR, activation_color:str=BUTTON_HOVER_COLOR)-> None:
+    def __init__(self, callback:Callable[[],None], text: str, width:int, height:int, enabled:bool=False, position:tuple[int, int]=(0,0), font:FontSize=FontSize.H1, disabled_color:str=BUTTON_DISABLED_COLOR,default_color:str=BUTTON_COLOR, activation_color:str=BUTTON_HOVER_COLOR)-> None:
         super().__init__(callback, text, width, height, position, font, default_color, activation_color)
-        self._is_enabled=False
+        self._is_enabled=enabled
         self._disabled_color=disabled_color
     
     @property
