@@ -1,7 +1,8 @@
 import unittest
 from wiredwolf.model.game import Game
 from wiredwolf.model.player import Status
-from tests.game_test import populate_players, get_index_by_name, create_game_info
+from wiredwolf.model.exceptions import *
+from tests.model.game_test import populate_players, get_index_by_name, create_game_info
 
 class GameActionsTest(unittest.TestCase):
     def setUp(self):
@@ -24,7 +25,7 @@ class GameActionsTest(unittest.TestCase):
         self.game.kill_player("Alice")
         self.game.advance_phase()
         self.game.advance_phase()
-        with self.assertRaises(ValueError):
+        with self.assertRaises(InvalidActionError):
             self.game.perform_night_action("Bob", "Alice")
 
     def test_werewolf_action_draw(self):
