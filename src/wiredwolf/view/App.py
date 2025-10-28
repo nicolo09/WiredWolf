@@ -47,20 +47,6 @@ class AbstractScreen(ABC):
 
 class App:
     """The main window for the Wiredwolf game"""
-    _size:tuple[int,int]
-    _icon:pygame.Surface
-    _display_screen:pygame.Surface
-    _running:bool
-    _game_state_manager:GameStateManager
-    _start_screen:AbstractScreen
-    _test_screen:AbstractScreen
-    _new_lobby_screen:AbstractScreen
-    _search_lobby_screen:AbstractScreen
-    _waiting_lobby:AbstractScreen
-    _day_chat:AbstractScreen
-    _dictionary:dict[Screens, AbstractScreen]
-    _clock:pygame.time.Clock
-    _next_event:pygame.event.Event | None
 
     def __init__(self)-> None:
         pygame.init() #initializes pygame modules
