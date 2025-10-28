@@ -1,7 +1,7 @@
 import asyncio
 from collections.abc import Callable
 from enum import Enum
-from wiredwolf.controller.connections import AsyncTCPMessageHandler
+from wiredwolf.controller.connections import AsyncTCPClientConnectionHandler, AsyncTCPMessageHandler
 from wiredwolf.controller.connections import (
     ClientConnectionHandler,
     MessageHandlerFactory,
@@ -183,8 +183,7 @@ class TcpMdnsLobbyBrowser:
                             raise lobby
                         else:
                             # The server returned a lobby, successfully joined
-                            # TODO Async client connection handler
-                            raise NotImplementedError("Finish implementation")
+                            return AsyncTCPClientConnectionHandler(my_self, reader, writer), lobby
                     else:
                         # ...but no password was provided
                         writer.close()
@@ -195,8 +194,7 @@ class TcpMdnsLobbyBrowser:
                         writer.close()
                         raise ValueError("Lobby does not require a password.")
                     # Successfully joined the lobby
-                    # TODO Async client connection handler
-                    raise NotImplementedError("Finish implementation")
+                    return AsyncTCPClientConnectionHandler(my_self, reader, writer), recv_msg
                 else:
                     writer.close()
                     raise RuntimeError("Unexpected message received.")

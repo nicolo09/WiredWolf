@@ -9,12 +9,12 @@ class ChatPlugin(ServerPlugin):
     def __init__(self):
         super().__init__([ChatMessage])
         
-    def handle_message(self, message: BaseMessage) -> bool:
-        super().handle_message(message)
+    async def handle_message(self, message: BaseMessage) -> bool:
+        await super().handle_message(message)
         if not self.server:
             raise RuntimeError("Plugin is not attached to any server.")
         if isinstance(message, ChatMessage):
-            self.server.send_to_all(message)
+            await self.server.send_to_all(message)
             return True
         else:
             raise ValueError(f"Unhandled message type: {type(message)}")

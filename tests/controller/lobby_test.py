@@ -1,4 +1,3 @@
-import asyncio
 import pytest
 from wiredwolf.controller.commons import DEFAULT_SERVER_PORT, Peer
 from wiredwolf.controller.connections import AsyncTCPServerConnectionHandler
@@ -36,7 +35,7 @@ async def test_client_connect_to_server(lobby: Lobby, server: GameServer, browse
         "password123"
     )
     assert recv_lobby == lobby
-    handler.close()
+    await handler.close()
 
 def test_peer_connect(lobby: Lobby, server: GameServer):
     # Start the lobby browser

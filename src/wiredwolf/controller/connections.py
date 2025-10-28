@@ -1,7 +1,6 @@
 import abc
 from collections.abc import Callable
 import logging
-import threading
 from enum import Enum
 from types import CoroutineType
 from typing import Any
@@ -100,10 +99,19 @@ class ClientConnectionHandler(abc.ABC):
 
     _logger = logging.getLogger(__name__)
 
-    def __init__(self):
+    def __init__(self, my_self: Peer):
         """Initialize the client connection handler."""
         self._on_message: Callable[[Any], None] | None = None
-        self._on_message_lock = threading.Lock()
+        self._my_self: Peer = my_self
+
+    @property
+    def my_self(self) -> Peer:
+        """Get the peer representing this client.
+
+        Returns:
+            Peer: The peer representing this client.
+        """
+        return self._my_self
 
     def set_on_message(self, on_message: Callable[[Any], None]) -> None:
         """Set the callback function to handle incoming messages.
@@ -111,92 +119,78 @@ class ClientConnectionHandler(abc.ABC):
         Args:
             on_message (Callable[[Any], None]): The callback function.
         """
-        with self._on_message_lock:
-            self._on_message = on_message
+        self._on_message = on_message
 
     @abc.abstractmethod
-    def send_obj(self, obj: Any) -> None:
+    async def send_obj(self, obj: Any) -> None:
         """Send an object to the server.
 
         Args:
             obj (Any): The object to send.
         """
+        pass
 
     @abc.abstractmethod
-    def start_receiving(self):
+    async def start_receiving(self):
         """Start receiving messages from the server."""
         pass
 
     @abc.abstractmethod
-    def close(self):
+    async def close(self):
         """Close the client connection handler."""
         pass
 
 
-# class TCPClientConnectionHandler(ClientConnectionHandler):
-#     """TCP implementation of a client connection handler."""
+class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
+    _logger = logging.getLogger(__name__)
 
-#     _logger = logging.getLogger(__name__)
+    def __init__(
+        self, my_self: Peer, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ):
+        super().__init__(my_self)
+        self._message_handler: AsyncTCPMessageHandler = (
+            MessageHandlerFactory.getDefault()
+        )
+        self._my_self: Peer = my_self
+        self._reader: asyncio.StreamReader = reader
+        self._writer: asyncio.StreamWriter = writer
+        self._receiving_task: asyncio.Task[None] | None = None
 
-#     def __init__(self, my_self: Peer, conn_socket: socket.socket):
-#         """Initialize the TCP client connection handler.
+    async def send_obj(self, obj: Any):
+        """Send an object to the server.
 
-#         Args:
-#             my_self (Peer): The local peer object.
-#             conn_socket (socket.socket): The socket connected to the server.
-#             on_message (Callable[[Any], None]): Callback function to handle incoming messages.
-#         """
-#         super().__init__()
-#         self._message_handler: AsyncTCPMessageHandler = MessageHandlerFactory.getDefault()
-#         self._my_self: Peer = my_self
-#         self._socket: socket.socket = conn_socket
-#         self._receiver_thread: threading.Thread | None = None
-#         self._exit_event: threading.Event = threading.Event()
+        Args:
+            obj (Any): The object to send.
+        """
+        await self._message_handler.send_obj(self._writer, obj)
 
-#     def send_obj(self, obj: Any) -> None:
-#         if self._socket:
-#             self._message_handler.send_obj(self._socket, obj)
-#         else:
-#             raise RuntimeError("Not connected to server.")
+    async def start_receiving(self):
+        """Start receiving messages from the server."""
+        self._receiving_task = asyncio.create_task(self._receive_loop())
 
-#     def start_receiving(self):
-#         """Start the thread to handle incoming messages."""
-#         self._receiver_thread = threading.Thread(
-#             target=self._handle_incoming_messages,
-#             name="TCPClientMessageReceiverThread",
-#             daemon=False,
-#         )
-#         self._receiver_thread.start()
+    async def _receive_loop(self):
+        """Internal method to continuously receive messages."""
+        while True:
+            try:
+                msg: Any = await self._message_handler.receive_obj(self._reader)
+                if self._on_message:
+                    self._on_message(msg)
+            except ConnectionClosedError:
+                self._logger.info("Connection closed by server.")
+                return
+            except Exception as e:
+                self._logger.error("Error receiving message: %s", e)
+                return
 
-#     def close(self):
-#         """Close the TCP client connection handler."""
-#         if self._socket:
-#             try:
-#                 self._exit_event.set()
-#                 self._socket.shutdown(socket.SHUT_RDWR)
-#             except Exception as e:
-#                 self._logger.warning(
-#                     "Error shutting down socket: %s \n Maybe it was already closed?", e
-#                 )
-#         if self._receiver_thread:
-#             self._receiver_thread.join()
-#         self._socket.close()
+    async def close(self):
+        """Close the client connection handler."""
+        self._writer.close()
+        await self._writer.wait_closed()
+        if self._receiving_task:
+            self._receiving_task.cancel()
+            await self._receiving_task
+        self._logger.info("Client connection closed.")
 
-#     def _handle_incoming_messages(self):
-#         while not self._exit_event.is_set():
-#             try:
-#                 msg = self._message_handler.receive_obj(self._socket)
-#                 with self._on_message_lock:
-#                     if self._on_message:
-#                         self._on_message(msg)
-#             except TimeoutError:
-#                 # Just a timeout, loop again
-#                 continue
-#             except ConnectionClosedError:
-#                 # TODO: Handle reconnection logic here
-#                 self._logger.info("Connection closed by server.")
-#             except Exception as e:
-#                 self._logger.error("Error receiving message: %s", e)
 
 MAX_CONNECTION_TIME = 10  # seconds
 
@@ -249,11 +243,11 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
     def __init__(
         self,
         on_new_peer: Callable[[Peer], CoroutineType[Any, Any, None]],
-        on_new_message: Callable[[BaseMessage], None],
+        on_new_message: Callable[[BaseMessage], CoroutineType[Any, Any, None]],
     ):
         super().__init__()
         self._on_new_peer: Callable[[Peer], CoroutineType[Any, Any, None]] = on_new_peer
-        self._on_new_message: Callable[[BaseMessage], None] = on_new_message
+        self._on_new_message: Callable[[BaseMessage], CoroutineType[Any, Any, None]] = on_new_message
         self._async_message_handler = AsyncTCPMessageHandler(
             MessageHandlerFactory.getDefaultSerializer()
         )
@@ -336,7 +330,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                         msg.sender,
                     )
                 else:
-                    self._on_new_message(msg)
+                    await self._on_new_message(msg)
             except ConnectionClosedError:
                 self._logger.info("Connection closed by peer: %s", peer)
                 self._endpoints.pop(peer)
@@ -398,7 +392,7 @@ class ConnectionHandlerFactory:
     @staticmethod
     def get_default_server_handler(
         on_new_peer: Callable[[Peer], CoroutineType[Any, Any, None]],
-        on_new_message: Callable[[BaseMessage], None],
+        on_new_message: Callable[[BaseMessage], CoroutineType[Any, Any, None]],
     ) -> ServerConnectionHandler:
         """Get the default server connection handler.
 

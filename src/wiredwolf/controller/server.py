@@ -33,7 +33,7 @@ class ServerPlugin(abc.ABC):
         return self._handled_messages
 
     @abc.abstractmethod
-    def handle_message(self, message: BaseMessage) -> bool:
+    async def handle_message(self, message: BaseMessage) -> bool:
         """Handles received messages, subclasses should implement this method but call super().handle_message().
 
         Args:
@@ -151,7 +151,7 @@ class GameServer:
         self.stop_new_connections()
         self._server_conn_handler.close()
 
-    def process_incoming_message(self, message: BaseMessage):
+    async def process_incoming_message(self, message: BaseMessage):
         """Handles a message coming from a peer.
 
         Args:
@@ -159,7 +159,7 @@ class GameServer:
         """
         for plugin in self._plugins:
             if type(message) in plugin.handled_messages:
-                should_stop: bool = plugin.handle_message(message)
+                should_stop: bool = await plugin.handle_message(message)
                 self.__logger.info(
                     "Message of type %s handled by plugin %s", type(message), plugin
                 )
