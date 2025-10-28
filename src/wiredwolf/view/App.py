@@ -334,11 +334,16 @@ class DayExecution(AbstractScreen):
         self._text_box=MemoryTextField(300, 50) #This is where the new messages are entered
         self._container_text=VContainer(0, [self._text_box], self._display.get_size(), (70,90))
         self._last_message=""
+        self._vote_to_execute=None #Saved outcome of user voting, if None->not voted, True->executed, False->Spared
         global executed_user
-        executed=partial(print, "Executed "+executed_user)
-        spared=partial(print, "Spared "+executed_user)
-        #TODO: make these enabled buttons: you can only vote once
-        self._button_container=VContainer(20, [CallbackButton(executed, "Vote to execute "+executed_user, 200, 50), CallbackButton(spared, "Vote to spare "+executed_user, 200, 50)], self._display.get_size(), (20, 50))
+        executed_user="Mario" #TODO: fix placeholder
+        executed=partial(self._spare_or_execute, True)
+        spared=partial(self._spare_or_execute, False)
+        self._execute_button=EnabledButton(executed, "Vote to execute "+executed_user, 300, 50)
+        self._spare_button=EnabledButton(spared, "Vote to spare "+executed_user, 300, 50)
+        self._execute_button.is_enabled=True
+        self._spare_button.is_enabled=True
+        self._button_container=VContainer(20, [self._execute_button, self._spare_button], self._display.get_size(), (20, 50))
 
     def run(self,event:pygame.event.Event | None)->None:
         """A day waiting and voting screen"""
@@ -362,6 +367,13 @@ class DayExecution(AbstractScreen):
             if event.type==pygame.KEYUP and event.key==pygame.K_DOWN:
                 #TODO: change selectors for voting on timer/event
                 self._game_state_manager.change_screen(Screens.TEST)     
+    
+    def _spare_or_execute(self, outcome:bool)->None:
+        """The function called when the buttons are pressed, to save the outcome of the voting"""
+        #Can only vote once, disabling buttons
+        self._execute_button.is_enabled=False
+        self._spare_button.is_enabled=False
+        self._vote_to_execute=outcome
 
 if __name__ == "__main__":
     my_app=App()
