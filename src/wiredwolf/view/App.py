@@ -269,7 +269,7 @@ class DayVoting(AbstractScreen):
         self._selector.set_enabled(False)
         change_player_voted=partial(self._set_voted_player)
         self._vote_player=EnabledButton(change_player_voted, 'Vote to execute player', 250, 50,font=FontSize.H2)
-        self._vote_player.is_enabled=True
+        self._vote_player.is_enabled=False #Necessary so users can't vote instantly
         self._vote_player_group=VContainer(0, [self._vote_player], self._display.get_size(), (20, 90))
         self._players=VContainer(20, selector_list, self._display.get_size(), (20, 50)) #This handles how the selectors are DISPLAYED
         self._voted_text=Text("You haven't voted", font=FontSize.H3)
