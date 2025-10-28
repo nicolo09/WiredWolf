@@ -66,16 +66,20 @@ class App:
         self._test_screen=TestScreen(self._display_screen, self._game_state_manager)
         self._new_lobby_screen=NewLobbyScreen(self._display_screen, self._game_state_manager)
         self._search_lobby_screen=SearchLobbyScreen(self._display_screen, self._game_state_manager)
-        self._waiting_lobby=WaitingLobbyScreen(self._display_screen, self._game_state_manager)
-        self._day_voting=DayVoting(self._display_screen, self._game_state_manager)
-        self._day_execution=DayExecution(self._display_screen, self._game_state_manager)
+        self._waiting_lobby_screen=WaitingLobbyScreen(self._display_screen, self._game_state_manager)
+        self._day_voting_screen=DayVotingScreen(self._display_screen, self._game_state_manager)
+        self._day_execution_screen=DayExecutionScreen(self._display_screen, self._game_state_manager)
+        self._night_villager_screen=NightVillagerScreen(self._display_screen, self._game_state_manager)
+        self._night_role_screen=NightRoleScreen(self._display_screen, self._game_state_manager)
         self._dictionary={Screens.HOME: self._start_screen,
                           Screens.TEST:self._test_screen, 
                           Screens.NEW_LOBBY:self._new_lobby_screen, 
                           Screens.SEARCH_LOBBY:self._search_lobby_screen, 
-                          Screens.LOBBY_WAITING:self._waiting_lobby,
-                          Screens.DAY_VOTING:self._day_voting,
-                          Screens.DAY_EXECUTION: self._day_execution}
+                          Screens.LOBBY_WAITING:self._waiting_lobby_screen,
+                          Screens.DAY_VOTING:self._day_voting_screen,
+                          Screens.DAY_EXECUTION: self._day_execution_screen,
+                          Screens.NIGHT_VILLAGER: self._night_villager_screen,
+                          Screens.NIGHT_ROLE: self._night_role_screen}
         self._clock = pygame.time.Clock()
         self._next_event=None
         
@@ -253,7 +257,7 @@ class WaitingLobbyScreen(AbstractScreen):
                 #TODO: change screen when all users have joined the waiting room
                 self._game_state_manager.change_screen(Screens.DAY_VOTING)
 
-class DayVoting(AbstractScreen):
+class DayVotingScreen(AbstractScreen):
     """The screens where users chat and choose which players to nominate for an execution"""
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
@@ -322,7 +326,7 @@ class DayVoting(AbstractScreen):
             voted_user="" #deselects player voted to be executed
             self._voted_text.text="You haven't voted"
 
-class DayExecution(AbstractScreen):
+class DayExecutionScreen(AbstractScreen):
     """The screen where users chat and choose if the player nominated for execution should be spared or not"""
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
@@ -362,8 +366,11 @@ class DayExecution(AbstractScreen):
                     self._my_limited_list.add_element(elem) #adds message to messages sent
                 self._multiple_texts.on_list_change() #displays the new message(s)
             if event.type==pygame.KEYUP and event.key==pygame.K_DOWN:
-                #TODO: change selectors for voting on timer/event
-                self._game_state_manager.change_screen(Screens.TEST)     
+                #TODO: change screen on timer/event
+                self._game_state_manager.change_screen(Screens.NIGHT_VILLAGER)   
+            if event.type==pygame.KEYUP and event.key==pygame.K_UP:
+                #TODO: change screen on timer/event
+                self._game_state_manager.change_screen(Screens.NIGHT_ROLE)  
     
     def _spare_or_execute(self, outcome:bool)->None:
         """The function called when the buttons are pressed, to save the outcome of the voting"""
@@ -371,6 +378,42 @@ class DayExecution(AbstractScreen):
         self._execute_button.is_enabled=False
         self._spare_button.is_enabled=False
         self._vote_to_execute=outcome
+
+class NightVillagerScreen(AbstractScreen):
+    """The screen where villager role users wait for the night to end"""
+    def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
+        super().__init__(display, game_state_manager)
+        from wiredwolf.view.Components import Text
+        self._title=VContainer(0, [Text("Night")], self._display.get_size(), (50, 5))
+        self._villager=VContainer(0, [Text("Wait for the night to end...")], self._display.get_size())
+
+    def run(self,event:pygame.event.Event | None)->None:
+        """A night villager screen"""
+        self._display.fill(BACKGROUND_COLOR)
+        self._title.draw(self._display)
+        self._villager.draw(self._display)
+        if event is not None:
+            if event.type==pygame.KEYUP and event.key==pygame.K_DOWN:
+                #TODO: change screen on timer/event
+                self._game_state_manager.change_screen(Screens.TEST)
+
+class NightRoleScreen(AbstractScreen):
+    """The screen where non villager role users act during the night"""
+    def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
+        super().__init__(display, game_state_manager)
+        from wiredwolf.view.Components import Text
+        self._title=VContainer(0, [Text("Night")], self._display.get_size(), (50, 5))
+        self._role=VContainer(0, [Text("Use your power, special role")], self._display.get_size())
+
+    def run(self,event:pygame.event.Event | None)->None:
+        """A night non villager role screen"""
+        self._display.fill(BACKGROUND_COLOR)
+        self._title.draw(self._display)
+        self._role.draw(self._display)
+        if event is not None:
+            if event.type==pygame.KEYUP and event.key==pygame.K_DOWN:
+                #TODO: change screen on timer/event
+                self._game_state_manager.change_screen(Screens.TEST)
 
 if __name__ == "__main__":
     my_app=App()
