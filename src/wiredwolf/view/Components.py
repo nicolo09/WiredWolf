@@ -135,7 +135,7 @@ class VContainer():
 
     def __init__(self, vert_div:int, elements:Sequence[DrawableComponent], win_size:tuple[int, int], position:tuple[int,int]=(50,50), color:str=BACKGROUND_COLOR, fixed_width:int=0)-> None:
         if len(elements)==0:
-            raise ValueError("Must contain at least a button")
+            raise ValueError("Must contain at least a component")
         if position[0]<0 or position[0]>100 or position[1]<0 or position[1]>100:
             raise ValueError("Position must be between 0 and 100")
         self._divider=vert_div
@@ -220,7 +220,7 @@ class HContainer():
 
     def __init__(self, horiz_div:int, elements:Sequence[DrawableComponent], win_size:tuple[int, int], position:tuple[int,int]=(50,50), color:str=BACKGROUND_COLOR, fixed_height:int=0)-> None:
         if len(elements)==0:
-            raise ValueError("Must contain at least a button")
+            raise ValueError("Must contain at least a component")
         if position[0]<0 or position[0]>100 or position[1]<0 or position[1]>100:
             raise ValueError("Position must be between 0 and 100")
         self._divider=horiz_div
