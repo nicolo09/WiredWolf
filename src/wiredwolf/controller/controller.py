@@ -66,7 +66,7 @@ class GameController:
         """
         return self._lobby
 
-    def send_chat_message(self, message: str):
+    async def send_chat_message(self, message: str):
         """Sends a chat message to all peers in the lobby.
 
         Args:
@@ -74,7 +74,7 @@ class GameController:
         """
         if self._client_connection_handler is None:
             raise RuntimeError("Not connected to a lobby.")
-        self._client_connection_handler.send_obj(ChatMessage(self._my_self, message))
+        await self._client_connection_handler.send_obj(ChatMessage(self._my_self, message))
 
     def choose_player(self, player: Peer):
         """Votes a player in the lobby. This method may be called only during a voting phase.
