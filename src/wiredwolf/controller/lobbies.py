@@ -28,13 +28,14 @@ class LobbyState(Enum):
 class Lobby:
     """Represents a game lobby."""
 
-    def __init__(self, name: str, password: str | None = None):
+    def __init__(self, owner: Peer, name: str, password: str | None = None):
         """Initializes a Lobby instance.
 
         Args:
             name (str): The name of the lobby.
             password (str | None, optional): The lobby password, if any.
         """
+        self._owner: Peer = owner
         self._peers: list[Peer] = []
         self._state: LobbyState = LobbyState.WAITING_FOR_PLAYERS
         self._name: str = name
@@ -74,6 +75,11 @@ class Lobby:
     def name(self) -> str:
         """Returns the name of the lobby."""
         return self._name
+
+    @property
+    def owner(self) -> Peer:
+        """Returns the owner of the lobby."""
+        return self._owner
 
     def check_password(self, password: str) -> bool:
         """Checks if the provided password matches the lobby's password."""

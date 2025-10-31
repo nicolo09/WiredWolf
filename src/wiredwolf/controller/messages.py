@@ -33,3 +33,10 @@ class ChatMessage(BaseMessage):  # TODO: Move to wiredwolf.controller.messages
             str: The chat message.
         """
         return self._message
+
+
+class StartGameMessage(BaseMessage):
+    """A message sent by a lobby owner to the server to start the game"""
+
+    def __init__(self, sender: Peer):
+        super().__init__(sender)

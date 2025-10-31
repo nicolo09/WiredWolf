@@ -32,7 +32,7 @@ class GameController:
         Returns:
             Lobby: The created lobby.
         """
-        self._lobby = Lobby(name=name, password=password)
+        self._lobby = Lobby(self._my_self, name=name, password=password)
         self._server = GameServer(self._lobby)
         self._lobby_browser.publish_lobby(self._lobby.name, DEFAULT_SERVER_PORT)
         return self._lobby

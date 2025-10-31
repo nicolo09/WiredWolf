@@ -32,7 +32,6 @@ class ServerPlugin(abc.ABC):
     def handled_messages(self) -> list[type]:
         return self._handled_messages
 
-    @abc.abstractmethod
     async def handle_message(self, message: BaseMessage) -> bool:
         """Handles received messages, subclasses should implement this method but call super().handle_message().
 
@@ -49,7 +48,15 @@ class ServerPlugin(abc.ABC):
             raise ValueError(
                 f"Message of type {type(message)} not handled by this plugin."
             )
+        if not self._server:
+            raise RuntimeError("Plugin is not attached to any server.")
+        else:
+            return await self.handle_message_sub(message, self._server)
         # To be implemented by subclasses
+
+    @abc.abstractmethod
+    async def handle_message_sub(self, message: BaseMessage, server: "GameServer") -> bool:
+        pass
 
 
 class GameServer:
@@ -76,6 +83,14 @@ class GameServer:
         Returns the connection handler for this server.
         """
         return self._server_conn_handler
+
+    @property
+    def lobby(self) -> Lobby:
+        """Gets the lobby managed by this server.
+        Returns:
+            Lobby: The lobby managed by this server.
+        """
+        return self._lobby
 
     async def _on_new_peer(self, peer: Peer):
         self.__logger.info("New peer attempting connection: %s", peer)
