@@ -437,23 +437,21 @@ class SelectorButton(AbstractButton):
 
 class SelectorGroup():
     """A group of selectors. Only 0 or 1 at most elements can be selected at once"""
-
-    def __init__(self, selectors:Sequence[SelectorButton])->None:
-        assert(len(selectors)>=1) #A selector group with 0 elements doesn't make sense
-        self._selectors=self._convert_sequence_to_dictionary(selectors)
+    def __init__(self, list:Sequence[SelectorButton]=[])->None:
+        self._last_key=0 #last key of dictionary
+        self._selectors:dict[int,SelectorButton]={}
         self._selected_element=None
-        for id in self._selectors:
-            self._selectors[id].callback=self._update
+        self._selectors_enabled=True #Since a new element could be added later, this is the state of all selectors
+        for elem in list:
+            self.add_selector_button(elem)
 
-    def _convert_sequence_to_dictionary(self, list:Sequence[SelectorButton])->dict[int,SelectorButton]:
-        """Converts the given list into a dictionary, such as {1: list[1], ....}"""
-        index=1
-        dict={index:list[index]} #Needed to initialize the list with the correct typing
-        for element in list:
-            #Adds all other elements to the list
-            dict[index]=element
-            index=index+1
-        return dict
+    def add_selector_button(self, element: SelectorButton)->None:
+        """Adds the given selector to the selector group"""
+        self._selectors[self._last_key]=element
+        self._selectors[self._last_key].callback=self._update #Sets callback
+        self._selectors[self._last_key].is_enabled=self._selectors_enabled #Sets the new selector enabled/disabled like the other elements
+        self._selectors[self._last_key].selected=False #Starts out as not selected
+        self._last_key=self._last_key+1
 
     def _update(self)->None:
         """Keeps integrity of group by de-selecting if necessary oldest selector"""
@@ -474,7 +472,7 @@ class SelectorGroup():
             else: 
                 if count_selected==2:
                     #Two elements selected, oldest element is deselected and newest remains
-                    assert(self._selected_element)
+                    assert(self._selected_element!=None)
                     self._selectors[self._selected_element].selected=False
                     self._selected_element=new_selected
     
@@ -487,6 +485,7 @@ class SelectorGroup():
         
     def set_enabled(self, value:bool)->None:
         """Sets all selectors as enabled/disabled according to the value given"""
+        self._selectors_enabled=value
         for id in self._selectors:
             self._selectors[id].is_enabled=value
 
