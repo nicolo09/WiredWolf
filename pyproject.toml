@@ -8,7 +8,12 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "zeroconf (>=0.147.0,<0.148.0)"
+    "zeroconf (>=0.147.0,<0.148.0)",
+    "pytest (>=8.4.2,<9.0.0)",
+    "pytest-cov (>=7.0.0,<8.0.0)",
+    "pytest-flakefinder (>=1.1.0,<2.0.0)",
+    "pytest-xdist (>=3.8.0,<4.0.0)",
+    "pytest-asyncio (>=1.2.0,<2.0.0)"
 ]
 
 [tool.poetry]
