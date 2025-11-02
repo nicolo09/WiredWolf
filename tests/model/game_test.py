@@ -5,6 +5,7 @@ from wiredwolf.model.game_template import AbstractGameInfo
 from wiredwolf.model.role_extensions import create_standard_game, BasicGameInfoBuilder
 from wiredwolf.model.player import Player, Role, Status
 
+
 def populate_players() -> list[Player]:
 
     # For simplicity, the name of the players is used as their ID.
@@ -20,8 +21,10 @@ def populate_players() -> list[Player]:
         Player("Grace", Role.VILLAGER),
     ]
 
+
 def create_game_info() -> AbstractGameInfo:
     return create_standard_game()
+
 
 def get_index_by_name(players: list[Player], name: str) -> int:
     """
@@ -34,8 +37,8 @@ def get_index_by_name(players: list[Player], name: str) -> int:
 
 
 class GameTest(unittest.TestCase):
+    
     def setUp(self):
-
         self.players = populate_players()
         self.game = Game(self.players, create_game_info())
 
@@ -57,12 +60,9 @@ class GameTest(unittest.TestCase):
 
     def test_game_info_not_equals(self):
         game_info_different: AbstractGameInfo = (
-            BasicGameInfoBuilder.default()
-            .with_medium()
-            .with_clairvoyant()
-            .build()
+            BasicGameInfoBuilder.default().with_medium().with_clairvoyant().build()
         )
-        
+
         self.assertNotEqual(self.game.get_game_status().game_info, game_info_different)
 
     def test_game_status_equals(self):
@@ -77,16 +77,10 @@ class GameTest(unittest.TestCase):
         test_status.players[get_index_by_name(test_players, "Alice")].status = (
             Status.DEAD
         )
-        test_status.players[get_index_by_name(test_players, "Bob")].status = (
-            Status.DEAD
-        )
+        test_status.players[get_index_by_name(test_players, "Bob")].status = Status.DEAD
 
-        escort: Player = test_status.players[
-            get_index_by_name(test_players, "Charlie")
-        ]
-        medium: Player = test_status.players[
-            get_index_by_name(test_players, "Eve")
-        ]
+        escort: Player = test_status.players[get_index_by_name(test_players, "Charlie")]
+        medium: Player = test_status.players[get_index_by_name(test_players, "Eve")]
 
         test_status.game_info.handle_night_actions(escort, medium)
 

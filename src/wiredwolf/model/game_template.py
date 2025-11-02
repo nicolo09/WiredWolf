@@ -5,7 +5,8 @@ from wiredwolf.model.player import Player, Status, Role
 from wiredwolf.model.exceptions import *
 
 # Type variable for generic decorator searching
-T = TypeVar('T', bound='AbstractGameInfo')
+T = TypeVar("T", bound="AbstractGameInfo")
+
 
 class AbstractGameInfo(ABC):
     """
@@ -47,7 +48,7 @@ class AbstractGameInfo(ABC):
         Args:
             actor (Player): The player performing the action.
             target (Player): The player being targeted.
-            
+
 
         Returns:
             NightActionResult: Result of the action, containing success status and optionally a message.
@@ -59,7 +60,7 @@ class AbstractGameInfo(ABC):
     @abstractmethod
     def _handle_night_actions(self, actor: Player, target: Player) -> NightActionResult:
         """Internal method for handling night actions. To be implemented by subclasses."""
-    
+
     @abstractmethod
     def remove_player(self, player: Player, gamephase: GamePhase) -> None:
         """
@@ -86,21 +87,23 @@ class AbstractGameInfo(ABC):
     def get_handled_roles(self) -> list[Role]:
         """Returns a list of roles handled by this game."""
 
-    def _find_decorator(self, decorator_type: Type[T], game_info: 'AbstractGameInfo') -> T | None:
+    def _find_decorator(
+        self, decorator_type: Type[T], game_info: "AbstractGameInfo"
+    ) -> T | None:
         """
         Recursively search through the decorator chain to find a decorator of the specified type.
-        
+
         Args:
             decorator_type: The class type to search for
             game_info: The game info object to search in
-            
+
         Returns:
             The decorator instance if found, None otherwise
         """
         if isinstance(game_info, decorator_type):
             return game_info
-        elif hasattr(game_info, '_wrapped'):
-            wrapped = getattr(game_info, '_wrapped')
+        elif hasattr(game_info, "_wrapped"):
+            wrapped = getattr(game_info, "_wrapped")
             if isinstance(wrapped, AbstractGameInfo):
                 return self._find_decorator(decorator_type, wrapped)
         return None
@@ -108,35 +111,31 @@ class AbstractGameInfo(ABC):
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, AbstractGameInfo):
             return False
-            
+
         return (
-            self.accusation_votes == other.accusation_votes and
-            self.ballot_votes == other.ballot_votes and
-            self.werewolves_votes == other.werewolves_votes and
-            sorted(role.value for role in self.get_handled_roles()) == 
-            sorted(role.value for role in other.get_handled_roles())
+            self.accusation_votes == other.accusation_votes
+            and self.ballot_votes == other.ballot_votes
+            and self.werewolves_votes == other.werewolves_votes
+            and sorted(role.value for role in self.get_handled_roles())
+            == sorted(role.value for role in other.get_handled_roles())
         )
 
 
 class SimpleGameInfo(AbstractGameInfo):
     """
     Basic game template supporting Villager and Werewolf roles.
-    
+
     This is the foundation template that handles the core game mechanics
     without any special roles. It can be extended using decorators to
     add support for additional roles.
     """
-    
-    _accusation_votes: dict[Player, Player]
-    _ballot_votes: dict[Player, bool]
-    _werewolves_votes: dict[Player, Player]
 
     def __init__(self) -> None:
-        self._accusation_votes = {}
-        self._ballot_votes = {}
-        self._werewolves_votes = {}
-    
-    @property    
+        self._accusation_votes: dict[Player, Player] = {}
+        self._ballot_votes: dict[Player, bool] = {}
+        self._werewolves_votes: dict[Player, Player] = {}
+
+    @property
     def accusation_votes(self) -> dict[Player, Player]:
         return self._accusation_votes
 
@@ -167,7 +166,9 @@ class SimpleGameInfo(AbstractGameInfo):
     def _handle_night_actions(self, actor: Player, target: Player) -> NightActionResult:
         if actor.role == Role.WEREWOLF:
             if not actor.is_alive():
-                raise PlayerStatusError(f"{actor.role} cannot perform action as dead player.")
+                raise PlayerStatusError(
+                    f"{actor.role} cannot perform action as dead player."
+                )
             if actor in self._werewolves_votes:
                 raise InvalidActionError(f"{actor.id} has already voted.")
             if target.role == Role.WEREWOLF:
@@ -176,12 +177,12 @@ class SimpleGameInfo(AbstractGameInfo):
                 raise InvalidActionError("Cannot vote for dead player.")
             self._werewolves_votes[actor] = target
         return NightActionResult(message="Action processed.")
-    
+
     def reset_actions(self) -> None:
         self._accusation_votes.clear()
         self._ballot_votes.clear()
         self._werewolves_votes.clear()
-        
+
     def remove_player(self, player: Player, gamephase: GamePhase) -> None:
         match gamephase:
             case GamePhase.DAY_ACCUSING:
@@ -206,8 +207,12 @@ class SimpleGameInfo(AbstractGameInfo):
         player.status = Status.DEAD
 
     def end_game_conditions(self, players: list[Player]) -> GamePhase | None:
-        werewolves_alive = any(player.is_evil() and player.is_alive() for player in players)
-        villagers_alive = any(not player.is_evil() and player.is_alive() for player in players)
+        werewolves_alive = any(
+            player.is_evil() and player.is_alive() for player in players
+        )
+        villagers_alive = any(
+            not player.is_evil() and player.is_alive() for player in players
+        )
         if not werewolves_alive:
             return GamePhase.VILLAGERS_VICTORY
         if not villagers_alive:
@@ -222,11 +227,9 @@ class GameInfoDecorator(AbstractGameInfo):
     """
     Base decorator template for extending game functionality.
     """
-    
-    _wrapped: AbstractGameInfo
-    
+
     def __init__(self, wrapped: AbstractGameInfo) -> None:
-        self._wrapped = wrapped
+        self._wrapped: AbstractGameInfo = wrapped
 
     @property
     def accusation_votes(self) -> dict[Player, Player]:
@@ -251,7 +254,7 @@ class GameInfoDecorator(AbstractGameInfo):
 
     def _handle_night_actions(self, actor: Player, target: Player) -> NightActionResult:
         return self._wrapped._handle_night_actions(actor, target)
-    
+
     def remove_player(self, player: Player, gamephase: GamePhase) -> None:
         self._wrapped.remove_player(player, gamephase)
 
