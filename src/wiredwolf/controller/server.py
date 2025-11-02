@@ -8,6 +8,11 @@ from wiredwolf.controller.connections import (
 from wiredwolf.controller.messages import BaseMessage
 from wiredwolf.controller.lobbies import Lobby
 import abc
+import random
+
+from wiredwolf.model.player import Player, Role
+from wiredwolf.model.game import Game
+from wiredwolf.model.role_extensions import BasicGameInfoBuilder
 
 
 class ServerPlugin(abc.ABC):
@@ -66,6 +71,7 @@ class GameServer:
 
     def __init__(self, lobby: Lobby):  # TODO: Add owner peer and socket on init
         self._lobby: Lobby = lobby
+        self._game: Game | None = None  # Placeholder for game instance
         self._server_conn_handler: ServerConnectionHandler = (
             ConnectionHandlerFactory.get_default_server_handler(
                 self._on_new_peer, self.process_incoming_message
@@ -148,14 +154,26 @@ class GameServer:
         plugin.server = self
 
     def start_game(self) -> None:
-        # TODO: Implement game start logic
         self.__logger.info("Starting game in lobby: %s", self._lobby)
-        raise NotImplementedError("Game start logic not implemented yet.")
-
-    def end_game(self) -> None:
-        # TODO: Implement game end logic
-        self.__logger.info("Ending game in lobby: %s", self._lobby)
-        raise NotImplementedError("Game end logic not implemented yet.")
+        # Create game instance based on lobby peers and roles
+        if len(self._lobby.peers) < 8:
+            raise ValueError("Not enough players to start the game.")
+        game_info_builder = BasicGameInfoBuilder.default().with_clairvoyant()
+        roles = [Role.WEREWOLF] # Start with this werewolf plus the one added by game_info_builder
+        if len(self._lobby.peers) >= 8:
+            game_info_builder = game_info_builder.with_clairvoyant() # Add Clairvoyant for 8+ players
+        if len(self._lobby.peers) >= 9:
+            game_info_builder = game_info_builder.with_medium() # Add Medium for 9+ players
+        if len(self._lobby.peers) >= 16:
+            game_info_builder = game_info_builder.with_escort() # Add Escort and an extra werewolf for 16+ players
+            roles.append(Role.WEREWOLF)
+        game_info = game_info_builder.build()
+        roles = roles + game_info.get_handled_roles() # Combine game roles with added roles
+        roles = ((len(roles) - len(self._lobby.peers)) * [Role.VILLAGER]) + roles  # Fill remaining slots with Villagers
+        random.shuffle(roles) # Shuffle roles to randomize assignment
+        players = [Player(peer.uuid, roles[i]) for i, peer in enumerate(self._lobby.peers)]
+        self._game = Game(players, game_info)
+        # TODO: Implement game start logic
 
     def stop_new_connections(self):
         """Stop accepting new peer connections"""
