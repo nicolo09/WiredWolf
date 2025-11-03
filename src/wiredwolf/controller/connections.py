@@ -90,7 +90,7 @@ class ServerConnectionHandler(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def close(self):
+    async def close(self):
         pass
 
 
@@ -365,15 +365,22 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
             self._logger.error("No connection found for peer: %s", sender)
             raise ValueError(f"No connection found for peer: {sender}")
 
-    def close(self):
-        for peer, (_, writer) in self._endpoints.items():
-            writer.close()
-            asyncio.run(writer.wait_closed())
-            self._logger.info("Closed connection with peer: %s", peer)
-        self._endpoints.clear()
-        self._status.clear()
-        self._receiving_tasks.clear()
-        self._logger.info("All connections closed.")
+    async def close(self):
+        """Stops receiving new connections, closes all the open peer connections to this server and reset its status
+        """
+        try:
+            self.stop_new_connections()
+        finally:
+            awaitables: list[CoroutineType[Any, Any, None]] = []
+            for peer, (_, writer) in self._endpoints.items():
+                writer.close()
+                awaitables.append(writer.wait_closed())
+                self._logger.info("Closed connection with peer: %s", peer)
+            await asyncio.gather(*awaitables)
+            self._endpoints.clear()
+            self._status.clear()
+            self._receiving_tasks.clear()
+            self._logger.info("All connections closed.")
 
 
 class MessageHandlerFactory:

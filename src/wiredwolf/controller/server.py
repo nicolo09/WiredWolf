@@ -179,10 +179,10 @@ class GameServer:
         """Stop accepting new peer connections"""
         self._server_conn_handler.stop_new_connections()
 
-    def close(self):
+    async def close(self):
         """Closes the server and all associated connections."""
         self.stop_new_connections()
-        self._server_conn_handler.close()
+        await self._server_conn_handler.close()
 
     async def process_incoming_message(self, message: BaseMessage):
         """Handles a message coming from a peer.

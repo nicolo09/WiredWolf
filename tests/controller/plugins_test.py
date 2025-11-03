@@ -3,6 +3,7 @@ from venv import logger
 import pytest
 import pytest_asyncio
 from tests.controller.utils import TestFactory
+from wiredwolf.controller.commons import Peer
 from wiredwolf.controller.connections import ClientConnectionHandler
 from wiredwolf.controller.lobbies import Lobby
 from wiredwolf.controller.messages import BaseMessage, ChatMessage
@@ -14,11 +15,12 @@ from wiredwolf.controller.server_plugins import ChatPlugin
 async def gameServerAndClients():
     gameServer: GameServer
     clients: list[ClientConnectionHandler]
+    owner = Peer("owner_peer")
     gameServer, clients = await TestFactory.create_tcp_server_with_connected_clients(
-        2, Lobby("Test Lobby")
+        2, Lobby(owner, "Test Lobby")
     )
     yield gameServer, clients
-    gameServer.close()
+    await gameServer.close()
     for client in clients:
         await client.close()
 

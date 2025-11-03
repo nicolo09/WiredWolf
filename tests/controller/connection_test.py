@@ -2,7 +2,8 @@ from asyncio import StreamReader, StreamWriter, timeout
 import asyncio
 from typing import Any
 import pytest
-from wiredwolf.controller.commons import Peer
+import pytest_asyncio
+from wiredwolf.controller.commons import DEFAULT_SERVER_PORT, Peer
 import wiredwolf.controller.connections as connections
 from wiredwolf.controller.messages import BaseMessage
 
@@ -47,18 +48,18 @@ def test_send_and_receive():
     asyncio.run(timeout_fun())
 
 
-@pytest.fixture
-def server_conn_handler():
-    def check_is_instance(obj: Any, cls: type):
+@pytest_asyncio.fixture
+async def server_conn_handler():
+    async def check_is_instance(obj: Any, cls: type):
         assert isinstance(obj, cls)
 
     serverConnHandler = connections.AsyncTCPServerConnectionHandler(
         lambda peer: check_is_instance(peer, Peer),
         lambda msg: check_is_instance(msg, BaseMessage),
     )
+    await serverConnHandler.start_listening(("127.0.0.1", DEFAULT_SERVER_PORT))
     yield serverConnHandler
-    serverConnHandler.stop_new_connections()
-    serverConnHandler.close()
+    await serverConnHandler.close()
 
 
 def test_server_creation(
