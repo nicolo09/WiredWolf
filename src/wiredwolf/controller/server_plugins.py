@@ -1,4 +1,4 @@
-from wiredwolf.controller.messages import AcknowledgeMessage, BaseMessage, ChatMessage, StartGameMessage, VoteBallotMessage, VotePlayerMessage
+from wiredwolf.controller.messages import AcknowledgeMessage, BaseMessage, ChatMessage, NightActionMessage, StartGameMessage, VoteBallotMessage, VotePlayerMessage
 from wiredwolf.controller.server import GameServer, ServerPlugin
 
 class ChatPlugin(ServerPlugin):
@@ -76,3 +76,34 @@ class VotingPlugin(ServerPlugin):
                     return True
             case _:
                 raise ValueError(f"Unhandled message type: {type(message)}")
+
+
+class NightActionsPlugin(ServerPlugin):
+    """A server plugin that handles night actions in the game server.
+    A plugin should not be added to multiple servers.
+    """
+    def __init__(self):
+        super().__init__([NightActionMessage])
+
+    async def handle_message_sub(self, message: BaseMessage, server: GameServer) -> bool:
+        if message.sender is None:
+            raise ValueError("Message sender cannot be None.")
+        if not server.game:
+            raise RuntimeError("Game has not started yet.")
+        if isinstance(message, NightActionMessage):
+            try:
+                result = server.game.perform_night_action(message.sender.uuid, message.target_player_uuid)
+                await server.connection_handler.send_obj(
+                    message.sender,
+                    AcknowledgeMessage(message.sender, result.message)
+                )
+                return True
+            except Exception as e:
+                self._logger.error("Error handling night action: %s", e)
+                await server.connection_handler.send_obj(
+                    message.sender,
+                    e
+                )
+                return True
+        return False
+        

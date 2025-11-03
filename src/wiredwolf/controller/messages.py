@@ -122,3 +122,19 @@ class AcknowledgeMessage(BaseMessage):
             str: The info message.
         """
         return self._info
+    
+
+class NightActionMessage(BaseMessage):
+    """A message sent by a peer to perform a night action"""
+
+    def __init__(self, sender: Peer, target_player_uuid: str):
+        super().__init__(sender)
+        self._target_player_uuid = target_player_uuid
+
+    @property
+    def target_player_uuid(self) -> str:
+        """Gets the UUID of the target player.
+        Returns:
+            str: The UUID of the target player.
+        """
+        return self._target_player_uuid
