@@ -4,6 +4,9 @@ import uuid
 DEFAULT_SERVER_PORT = 12233
 CONNECTION_TIMEOUT = 10  # seconds
 
+FIRST_DAY_PHASE_DURATION_SECONDS = 10
+DEFAULT_PHASE_DURATION_SECONDS = 60
+
 class Peer:
     """Represents a peer in the network."""
 

@@ -1,16 +1,27 @@
+import asyncio
 import logging
-from wiredwolf.controller.commons import DEFAULT_SERVER_PORT, PasswordRequest, Peer
+from wiredwolf.controller.commons import (
+    DEFAULT_PHASE_DURATION_SECONDS,
+    DEFAULT_SERVER_PORT,
+    FIRST_DAY_PHASE_DURATION_SECONDS,
+    PasswordRequest,
+    Peer,
+)
 from wiredwolf.controller.connections import (
     ClientConnectionHandler,
     ConnectionHandlerFactory,
-    ServerConnectionHandler
+    ServerConnectionHandler,
 )
-from wiredwolf.controller.messages import BaseMessage
+from wiredwolf.controller.messages import (
+    BaseMessage,
+    GameStartedMessage,
+    PhaseAdvanceMessage,
+)
 from wiredwolf.controller.lobbies import Lobby
 import abc
-import random
 
-from wiredwolf.model.player import Player, Role
+from wiredwolf.model.game_phases import GamePhase
+from wiredwolf.model.player import create_players
 from wiredwolf.model.game import Game
 from wiredwolf.model.role_extensions import BasicGameInfoBuilder
 
@@ -60,7 +71,9 @@ class ServerPlugin(abc.ABC):
         # To be implemented by subclasses
 
     @abc.abstractmethod
-    async def handle_message_sub(self, message: BaseMessage, server: "GameServer") -> bool:
+    async def handle_message_sub(
+        self, message: BaseMessage, server: "GameServer"
+    ) -> bool:
         pass
 
 
@@ -81,7 +94,9 @@ class GameServer:
         self._plugins: list[ServerPlugin] = []
 
     async def start_listening(self):
-        await self._server_conn_handler.start_listening(("127.0.0.1", DEFAULT_SERVER_PORT))
+        await self._server_conn_handler.start_listening(
+            ("127.0.0.1", DEFAULT_SERVER_PORT)
+        )
 
     @property
     def connection_handler(self) -> ServerConnectionHandler:
@@ -105,7 +120,9 @@ class GameServer:
                 # If the lobby is password-protected, ask for the password
                 req = PasswordRequest()
                 await self._server_conn_handler.send_obj(peer, req)
-                resp: PasswordRequest = await self._server_conn_handler.receive_obj(peer)
+                resp: PasswordRequest = await self._server_conn_handler.receive_obj(
+                    peer
+                )
                 if resp.id != req.id:
                     await self._server_conn_handler.send_obj(
                         peer, ValueError("Invalid password request.")
@@ -153,27 +170,60 @@ class GameServer:
         self._plugins.append(plugin)
         plugin.server = self
 
-    def start_game(self) -> None:
+    async def start_game(self) -> None:
         self.__logger.info("Starting game in lobby: %s", self._lobby)
         # Create game instance based on lobby peers and roles
         if len(self._lobby.peers) < 8:
             raise ValueError("Not enough players to start the game.")
         game_info_builder = BasicGameInfoBuilder.default().with_clairvoyant()
-        roles = [Role.WEREWOLF] # Start with this werewolf plus the one added by game_info_builder
-        if len(self._lobby.peers) >= 8:
-            game_info_builder = game_info_builder.with_clairvoyant() # Add Clairvoyant for 8+ players
         if len(self._lobby.peers) >= 9:
-            game_info_builder = game_info_builder.with_medium() # Add Medium for 9+ players
+            # Add Medium for 9+ players
+            game_info_builder = game_info_builder.with_medium()
         if len(self._lobby.peers) >= 16:
-            game_info_builder = game_info_builder.with_escort() # Add Escort and an extra werewolf for 16+ players
-            roles.append(Role.WEREWOLF)
+            # Add Escort and an extra werewolf for 16+ players
+            game_info_builder = game_info_builder.with_escort()
         game_info = game_info_builder.build()
-        roles = roles + game_info.get_handled_roles() # Combine game roles with added roles
-        roles = ((len(roles) - len(self._lobby.peers)) * [Role.VILLAGER]) + roles  # Fill remaining slots with Villagers
-        random.shuffle(roles) # Shuffle roles to randomize assignment
-        players = [Player(peer.uuid, roles[i]) for i, peer in enumerate(self._lobby.peers)]
+        players = create_players(
+            [peer.uuid for peer in self._lobby.peers],
+            set(
+                game_info.get_handled_roles()
+            )  # TODO: Check if get_handled_roles returns a set or a list
+        )
         self._game = Game(players, game_info)
-        # TODO: Implement game start logic
+        assert self._game.phase is GamePhase.DAY_DISCUSSION
+        self.__logger.info("Game started with players: %s", players)
+        await self.send_to_all(GameStartedMessage(self._game.get_game_status()))
+        await self.wait_and_advance_game(FIRST_DAY_PHASE_DURATION_SECONDS)
+
+    async def wait_and_advance_game(self, time_seconds: int):
+        """Waits for the specified time and then advances the game phase.
+
+        Args:
+            time_seconds (int): The time to wait in seconds.
+        """
+        if not self._game:
+            raise RuntimeError("Game has not been started yet.")
+        self.__logger.info(
+            "Waiting for %d seconds before advancing the game phase.",
+            time_seconds,
+        )
+        await asyncio.sleep(time_seconds)
+        outcome = self._game.advance_phase()
+        self.__logger.info("Game phase advanced. Outcome: %s", outcome)
+        await self.send_to_all(PhaseAdvanceMessage(outcome))
+        # If the game is not over, set up the next phase timer
+        if outcome.new_phase is GamePhase.VILLAGERS_VICTORY:
+            self.__logger.info("Game over. Villagers have won.")
+            return
+        elif outcome.new_phase is GamePhase.WEREWOLVES_VICTORY:
+            self.__logger.info("Game over. Werewolves have won.")
+            return
+        else:
+            self.__logger.info(
+                "Setting up timer for next phase: %s seconds.",
+                DEFAULT_PHASE_DURATION_SECONDS,
+            )
+            await self.wait_and_advance_game(DEFAULT_PHASE_DURATION_SECONDS)
 
     def stop_new_connections(self):
         """Stop accepting new peer connections"""
