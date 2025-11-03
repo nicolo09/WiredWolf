@@ -1,4 +1,4 @@
-from wiredwolf.controller.messages import BaseMessage, ChatMessage, StartGameMessage
+from wiredwolf.controller.messages import AcknowledgeMessage, BaseMessage, ChatMessage, StartGameMessage, VoteBallotMessage, VotePlayerMessage
 from wiredwolf.controller.server import GameServer, ServerPlugin
 
 class ChatPlugin(ServerPlugin):
@@ -27,6 +27,52 @@ class GameLifecyclePlugin(ServerPlugin):
         if isinstance(message, StartGameMessage):
             if message.sender != server.lobby.owner:
                 raise PermissionError("Only the lobby owner can start the game.")
-            server.start_game()
+            await server.start_game()
         return False
         
+
+class VotingPlugin(ServerPlugin):
+    """A server plugin that handles voting functionality in the game server.
+    A plugin should not be added to multiple servers.
+    """
+    def __init__(self):
+        super().__init__([VotePlayerMessage, VoteBallotMessage])
+
+    async def handle_message_sub(self, message: BaseMessage, server: GameServer) -> bool:
+        if message.sender is None:
+            raise ValueError("Message sender cannot be None.")
+        if not server.game:
+            raise RuntimeError("Game has not started yet.")
+        match message:
+            case VotePlayerMessage():
+                try:
+                    server.game.accuse_player(message.sender.uuid, message.voted_player_uuid)
+                    await server.connection_handler.send_obj(
+                        message.sender,
+                        AcknowledgeMessage(message.sender, "Vote registered successfully.")
+                    )
+                    return True
+                except Exception as e:
+                    self._logger.error("Error handling vote: %s", e)
+                    await server.connection_handler.send_obj(
+                        message.sender,
+                        e
+                    )
+                    return True
+            case VoteBallotMessage():
+                try:
+                    server.game.ballot_vote(message.sender.uuid, message.vote)
+                    await server.connection_handler.send_obj(
+                        message.sender,
+                        AcknowledgeMessage(message.sender, "Ballot cast successfully.")
+                    )
+                    return True
+                except Exception as e:
+                    self._logger.error("Error handling ballot vote: %s", e)
+                    await server.connection_handler.send_obj(
+                        message.sender,
+                        e
+                    )
+                    return True
+            case _:
+                raise ValueError(f"Unhandled message type: {type(message)}")

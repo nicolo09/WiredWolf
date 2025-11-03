@@ -31,6 +31,8 @@ class ServerPlugin(abc.ABC):
     A plugin should not be added to multiple servers.
     """
 
+    _logger = logging.getLogger(__name__)
+
     def __init__(self, handled_messages: list[type]) -> None:
         super().__init__()
         self._handled_messages = handled_messages
@@ -112,6 +114,14 @@ class GameServer:
             Lobby: The lobby managed by this server.
         """
         return self._lobby
+
+    @property
+    def game(self) -> Game | None:
+        """Gets the game instance managed by this server.
+        Returns:
+            Game | None: The game instance managed by this server, or None if the game has not started yet.
+        """
+        return self._game
 
     async def _on_new_peer(self, peer: Peer):
         self.__logger.info("New peer attempting connection: %s", peer)

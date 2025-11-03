@@ -58,7 +58,8 @@ class GameStartedMessage(BaseMessage):
             GameStatus: The status of the started game.
         """
         return self._status
-    
+
+
 class PhaseAdvanceMessage(BaseMessage):
     """A message sent by the server to all peers when the game phase has advanced"""
 
@@ -73,3 +74,51 @@ class PhaseAdvanceMessage(BaseMessage):
             GamePhaseOutcome: The outcome of the game phase advancement.
         """
         return self._outcome
+
+
+class VotePlayerMessage(BaseMessage):
+    """A message sent by a peer to vote for another player"""
+
+    def __init__(self, sender: Peer, voted_player_uuid: str):
+        super().__init__(sender)
+        self._voted_player_uuid = voted_player_uuid
+
+    @property
+    def voted_player_uuid(self) -> str:
+        """Gets the UUID of the player being voted for.
+        Returns:
+            str: The UUID of the player being voted for.
+        """
+        return self._voted_player_uuid
+    
+
+class VoteBallotMessage(BaseMessage):
+    """A message sent by a peer to cast their ballot vote"""
+
+    def __init__(self, sender: Peer, vote: bool):
+        super().__init__(sender)
+        self._vote = vote
+
+    @property
+    def vote(self) -> bool:
+        """Gets the vote.
+        Returns:
+            bool: The vote.
+        """
+        return self._vote
+
+
+class AcknowledgeMessage(BaseMessage):
+    """A message sent to confirm that something was successful"""
+
+    def __init__(self, sender: Peer | None, info: str):
+        super().__init__(sender)
+        self._info = info
+
+    @property
+    def info(self) -> str:
+        """Gets the info message.
+        Returns:
+            str: The info message.
+        """
+        return self._info
