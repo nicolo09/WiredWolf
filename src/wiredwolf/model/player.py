@@ -1,17 +1,27 @@
 from enum import Enum
 import random
 
+GOOD_ALIGNMENT = "Good"
+EVIL_ALIGNMENT = "Evil"
 
 class Role(Enum):
-    WEREWOLF = "Werewolf"
-    VILLAGER = "Villager"
-    ESCORT = "Escort"
-    CLAIRVOYANT = "Clairvoyant"
-    MEDIUM = "Medium"
+    
+    WEREWOLF = ("Werewolf", EVIL_ALIGNMENT)
+    VILLAGER = ("Villager", GOOD_ALIGNMENT)
+    ESCORT = ("Escort", GOOD_ALIGNMENT)
+    CLAIRVOYANT = ("Clairvoyant", GOOD_ALIGNMENT)
+    MEDIUM = ("Medium", GOOD_ALIGNMENT)
+
+    def __init__(self, role_name: str, alignment: str):
+        self.role_name = role_name
+        self.alignment = alignment
 
     def is_evil(self) -> bool:
         """Returns True if this role is considered evil (part of the werewolf team)."""
-        return self == Role.WEREWOLF
+        return self.alignment == EVIL_ALIGNMENT
+
+    def __str__(self) -> str:
+        return self.role_name
 
 
 class Status(Enum):
@@ -48,6 +58,9 @@ class Player:
 
     def is_evil(self) -> bool:
         return self._role.is_evil()
+    
+    def get_alignment(self) -> str:
+        return self._role.alignment
 
     def __str__(self) -> str:
         return f"Player(id={self._id}, role={self._role}, status={self._status})"
