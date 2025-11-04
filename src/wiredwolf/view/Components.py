@@ -207,6 +207,10 @@ class AbstractContainer(ABC):
     def update_on_next_draw(self)->None:
         """Call this function when a drawable component inside the container has changed size to trigger a re-centering on the next call of draw"""
         self._trigger_update=True
+    
+    def get_count(self)->int:
+        """Returns the number of elements inside the container"""
+        return len(self._elements)
 
 class VContainer(AbstractContainer):
     """A drawable container that displays the given components vertically"""
