@@ -134,8 +134,6 @@ class Text(DrawableComponent):
 class AbstractContainer(ABC):
     """An abstract container that displays the given components"""
     def __init__(self, div:int, elements:List[DrawableComponent], win_size:tuple[int, int], position:tuple[int,int]=(50,50), color:str=BACKGROUND_COLOR, fixed_other_dim:int=0)-> None:
-        if len(elements)==0:
-            raise ValueError("Must contain at least a component")
         if position[0]<0 or position[0]>100 or position[1]<0 or position[1]>100:
             raise ValueError("Position must be between 0 and 100")
         self._divider=div
