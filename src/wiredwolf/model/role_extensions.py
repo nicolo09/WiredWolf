@@ -97,8 +97,10 @@ class EscortDecorator(GameInfoDecorator):
         if gamephase == GamePhase.NIGHT:
             if player == self._protected_player:
                 self._protected_player = None
-            elif player.role == Role.ESCORT:
-                player.status = Status.ALIVE
+                self._escort_acted = False
+            elif player.role == Role.ESCORT and self._protected_player is not None:
+                self._protected_player.status = Status.ALIVE
+                self._protected_player = None
                 self._escort_acted = False
         super().remove_player(player, gamephase)
 
@@ -220,7 +222,7 @@ class BasicGameInfoBuilder:
             self._game_info = MediumDecorator(self._game_info)
         return self
 
-    def with_roles(self, *roles: Role) -> "BasicGameInfoBuilder":
+    def with_roles(self, roles: set[Role]) -> "BasicGameInfoBuilder":
         """
         Add multiple roles at once.
 

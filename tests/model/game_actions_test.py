@@ -23,6 +23,12 @@ class GameActionsTest(unittest.TestCase):
         self.game.advance_phase()
         self.assertEqual(self.game.players[alice_index].status, Status.DEAD)
 
+    def test_werewolf_targets_werewolf(self):
+        self.game.advance_phase()
+        self.game.advance_phase()
+        with self.assertRaises(InvalidActionError):
+            self.game.perform_night_action("Bob", "Frank")
+
     def test_werewolf_action_error(self):
         self.game.kill_player("Alice")
         self.game.advance_phase()
@@ -55,6 +61,18 @@ class GameActionsTest(unittest.TestCase):
         self.game.perform_night_action("Charlie", "Alice")
         self.game.advance_phase()
         self.assertEqual(self.game.players[alice_index].status, Status.ALIVE)
+        
+    def test_escort_removal_after_action(self):
+
+        alice_index = get_index_by_name(self.players, "Alice")
+
+        self.game.advance_phase()
+        self.game.advance_phase()
+        self.game.perform_night_action("Bob", "Alice")
+        self.game.perform_night_action("Charlie", "Alice")
+        self.game.kill_player("Charlie")
+        self.game.advance_phase()
+        self.assertEqual(self.game.players[alice_index].status, Status.DEAD)
 
     def test_clairvoyant_action(self):
         self.game.advance_phase()
