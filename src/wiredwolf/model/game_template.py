@@ -84,8 +84,8 @@ class AbstractGameInfo(ABC):
         """
 
     @abstractmethod
-    def get_handled_roles(self) -> list[Role]:
-        """Returns a list of roles handled by this game."""
+    def get_handled_roles(self) -> set[Role]:
+        """Returns a set of roles handled by this game."""
 
     def _find_decorator(
         self, decorator_type: Type[T], game_info: "AbstractGameInfo"
@@ -219,8 +219,8 @@ class SimpleGameInfo(AbstractGameInfo):
             return GamePhase.WEREWOLVES_VICTORY
         return None
 
-    def get_handled_roles(self) -> list[Role]:
-        return [Role.VILLAGER, Role.WEREWOLF]
+    def get_handled_roles(self) -> set[Role]:
+        return {Role.VILLAGER, Role.WEREWOLF}
 
 
 class GameInfoDecorator(AbstractGameInfo):
@@ -261,5 +261,5 @@ class GameInfoDecorator(AbstractGameInfo):
     def end_game_conditions(self, players: list[Player]) -> GamePhase | None:
         return self._wrapped.end_game_conditions(players)
 
-    def get_handled_roles(self) -> list[Role]:
+    def get_handled_roles(self) -> set[Role]:
         return self._wrapped.get_handled_roles()

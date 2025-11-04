@@ -3,6 +3,7 @@ from wiredwolf.model.player import Player, Status, Role
 from wiredwolf.model.exceptions import *
 from wiredwolf.model.game_template import *
 
+
 class ClairvoyantDecorator(GameInfoDecorator):
     """
     Adds Clairvoyant role support.
@@ -30,11 +31,13 @@ class ClairvoyantDecorator(GameInfoDecorator):
             if not target.is_alive():
                 raise InvalidActionError("Clairvoyant cannot target dead players.")
             self._clairvoyant_acted = True
-            return NightActionResult( f"Clairvoyant investigated {target.id}: {target.get_alignment()}.")
+            return NightActionResult(
+                f"Clairvoyant investigated {target.id}: {target.get_alignment()}."
+            )
         return super()._handle_night_actions(actor, target)
 
-    def get_handled_roles(self) -> list[Role]:
-        return super().get_handled_roles() + [Role.CLAIRVOYANT]
+    def get_handled_roles(self) -> set[Role]:
+        return super().get_handled_roles() | {Role.CLAIRVOYANT}
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, AbstractGameInfo):
@@ -94,8 +97,8 @@ class EscortDecorator(GameInfoDecorator):
                 self._escort_acted = False
         super().remove_player(player, gamephase)
 
-    def get_handled_roles(self) -> list[Role]:
-        return super().get_handled_roles() + [Role.ESCORT]
+    def get_handled_roles(self) -> set[Role]:
+        return super().get_handled_roles() | {Role.ESCORT}
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, AbstractGameInfo):
@@ -141,11 +144,13 @@ class MediumDecorator(GameInfoDecorator):
             if target.is_alive():
                 raise InvalidActionError("Medium cannot target alive players.")
             self._medium_acted = True
-            return NightActionResult(f"Medium communicated with {target.id}: {target.get_alignment()}.")
+            return NightActionResult(
+                f"Medium communicated with {target.id}: {target.get_alignment()}."
+            )
         return super()._handle_night_actions(actor, target)
 
-    def get_handled_roles(self) -> list[Role]:
-        return super().get_handled_roles() + [Role.MEDIUM]
+    def get_handled_roles(self) -> set[Role]:
+        return super().get_handled_roles() | {Role.MEDIUM}
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, AbstractGameInfo):
