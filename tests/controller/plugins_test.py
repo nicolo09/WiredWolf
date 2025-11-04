@@ -8,7 +8,6 @@ from wiredwolf.controller.connections import ClientConnectionHandler
 from wiredwolf.controller.lobbies import Lobby
 from wiredwolf.controller.messages import BaseMessage, ChatMessage
 from wiredwolf.controller.server import GameServer
-from wiredwolf.controller.server_plugins import ChatPlugin
 
 
 @pytest_asyncio.fixture
@@ -28,7 +27,7 @@ async def gameServerAndClients():
 async def test_chat_plugin(
     gameServerAndClients: tuple[GameServer, list[ClientConnectionHandler]],
 ):
-    gameServer, clients = gameServerAndClients
+    _, clients = gameServerAndClients
     MESSAGE: str = "Hello from client 0"
     message_received = asyncio.Event()
 
@@ -41,8 +40,6 @@ async def test_chat_plugin(
         message_received.set()
 
     clients[1].set_on_message(on_message)
-    chat_plugin = ChatPlugin()
-    gameServer.add_plugin(chat_plugin)
     await clients[0].send_obj(ChatMessage(sender=clients[0].my_self, message=MESSAGE))
     await message_received.wait()
     assert message_received.is_set(), "Chat message was not received by client 1"

@@ -60,3 +60,29 @@ async def test_start_game_with_too_few_or_too_many_players(
 
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("lobby_owner_server_clients", [15], indirect=True)
+async def test_start_game_success(
+    lobby_owner_server_clients: tuple[
+        Lobby, Peer, GameServer, list[ClientConnectionHandler]
+    ],
+):
+    event = asyncio.Event()
+    _, owner, _, handlers = lobby_owner_server_clients
+
+    def on_message(msg: BaseMessage) -> None:
+        if isinstance(msg, GameStartedMessage):
+            logger.info(msg)
+            event.set()
+        elif isinstance(msg, Exception):
+            raise msg
+
+    for handler in handlers:
+        handler.set_on_message(on_message)
+    await handlers[0].send_obj(StartGameMessage(owner))
+    try:
+        async with asyncio.timeout(5):
+            await event.wait()
+    except TimeoutError:
+        logger.info("Test timed out waiting for event")
+        pytest.fail("No GameStartedMessage received")
