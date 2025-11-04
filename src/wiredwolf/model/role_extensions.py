@@ -3,7 +3,6 @@ from wiredwolf.model.player import Player, Status, Role
 from wiredwolf.model.exceptions import *
 from wiredwolf.model.game_template import *
 
-
 class ClairvoyantDecorator(GameInfoDecorator):
     """
     Adds Clairvoyant role support.
@@ -31,9 +30,7 @@ class ClairvoyantDecorator(GameInfoDecorator):
             if not target.is_alive():
                 raise InvalidActionError("Clairvoyant cannot target dead players.")
             self._clairvoyant_acted = True
-            return NightActionResult(
-                target.is_evil(), f"Clairvoyant investigated {target.id}."
-            )
+            return NightActionResult( f"Clairvoyant investigated {target.id}: {'Evil' if target.is_evil() else 'Good'}.")
         return super()._handle_night_actions(actor, target)
 
     def get_handled_roles(self) -> list[Role]:
@@ -144,9 +141,7 @@ class MediumDecorator(GameInfoDecorator):
             if target.is_alive():
                 raise InvalidActionError("Medium cannot target alive players.")
             self._medium_acted = True
-            return NightActionResult(
-                target.is_evil(), f"Medium communicated with {target.id}."
-            )
+            return NightActionResult(f"Medium communicated with {target.id}: {'Evil' if target.is_evil() else 'Good'}.")
         return super()._handle_night_actions(actor, target)
 
     def get_handled_roles(self) -> list[Role]:

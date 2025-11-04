@@ -32,8 +32,7 @@ class GamePhaseOutcome:
 @dataclass
 class NightActionResult:
     """
-    Represents the result of a night action, including success status (if any, otherwise None) and a message.
+    Contains a message for the player who performed a night action to let them know the result.
     """
-
-    result: bool | None = None
-    message: str = ""
+    
+    message: str

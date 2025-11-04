@@ -59,10 +59,10 @@ class GameActionsTest(unittest.TestCase):
     def test_clairvoyant_action(self):
         self.game.advance_phase()
         self.game.advance_phase()
-        self.assertTrue(self.game.perform_night_action("Diana", "Bob"))
+        self.assertTrue("Evil" in self.game.perform_night_action("Diana", "Bob").message)
 
     def test_medium_action(self):
         self.game.kill_player("Bob")
         self.game.advance_phase()
         self.game.advance_phase()
-        self.assertTrue(self.game.perform_night_action("Eve", "Bob"))
+        self.assertTrue("Evil" in self.game.perform_night_action("Eve", "Bob").message)
