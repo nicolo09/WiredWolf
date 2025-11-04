@@ -1,7 +1,8 @@
 import textwrap
+from typing import List
 import pygame
 from abc import ABC, abstractmethod
-from wiredwolf.view.Components import VContainer, HContainer
+from wiredwolf.view.Components import VContainer, HContainer, SelectorButton
 from wiredwolf.view.Constants import BACKGROUND_COLOR, CHAT_BACKGROUND, FontSize, Screens
 from functools import partial
 
@@ -188,7 +189,7 @@ class SearchLobbyScreen(AbstractScreen):
         super().__init__(display, game_state_manager)
         from wiredwolf.view.Components import CallbackButton, Text, SelectorButton, SelectorGroup, EnabledButton
         self._title=VContainer(0, [Text("Search for an existing lobby")], self._display.get_size(), (50, 10))
-        selector_list=[SelectorButton("Lobby 1", 100,20), SelectorButton("Lobby 2", 100,20), SelectorButton("Lobby 3", 100,20)]
+        selector_list:List=[SelectorButton("Lobby 1", 100,20), SelectorButton("Lobby 2", 100,20), SelectorButton("Lobby 3", 100,20)]
         self._selector=SelectorGroup(selector_list) #This handles how the selectors BEHAVE as a group
         self._lobby_group=VContainer(20, selector_list, self._display.get_size()) #This handles how the selectors are DISPLAYED
         go_home=partial(self._game_state_manager.change_screen, Screens.HOME)
@@ -235,7 +236,6 @@ class WaitingLobbyScreen(AbstractScreen):
         self._title=Text("Waiting for other players to join "+self._local_lobby+" lobby")
         self._title_container=VContainer(0, [self._title], self._display.get_size(), (50,20))
         self._waiting=VContainer(0,[Text("1 player connected...", font=FontSize.H2)], self._display.get_size()) #TODO: how many connected users are waiting?
-        self._trigger_update=False
         
     def run(self,event:pygame.event.Event | None)->None:
         """A simple waiting screen"""
@@ -244,14 +244,10 @@ class WaitingLobbyScreen(AbstractScreen):
             #Since this screen is started before the lobby is chosen, this updates the display
             self._local_lobby=lobby_name
             self._title.text="Waiting for other players to join "+self._local_lobby+" lobby"
-            self._trigger_update=True #Once this component is drawn the size of the text box has yet to change, so a manual update after draw is needed
+            self._title_container.update_on_next_draw() #Once this component is drawn the size of the text box has yet to change, so a manual update after draw is needed
         self._display.fill(BACKGROUND_COLOR) #fills the background color for the application
         self._title_container.draw(self._display)
         self._waiting.draw(self._display)
-        if self._trigger_update:
-            #Title has changed text and dimensions, update the container with the new dimensions
-            self._title_container.manually_update()
-            self._trigger_update=False
         if event is not None:
             if event.type==pygame.KEYUP and event.key==pygame.K_RETURN:
                 #TODO: change screen when all users have joined the waiting room
@@ -268,7 +264,7 @@ class DayVotingScreen(AbstractScreen):
         self._text_box=MemoryTextField(300, 50) #This is where the new messages are entered
         self._container_text=VContainer(0, [self._text_box], self._display.get_size(), (70,90))
         self._last_message=""
-        selector_list=[SelectorButton("Mario", 100,20), SelectorButton("Luigi", 100,20), SelectorButton("Antonio", 100,20)] #TODO: get actual usernames of players connected to lobby
+        selector_list:List=[SelectorButton("Mario", 100,20), SelectorButton("Luigi", 100,20), SelectorButton("Antonio", 100,20)] #TODO: get actual usernames of players connected to lobby
         self._selector=SelectorGroup(selector_list) #This handles how the selectors BEHAVE as a group
         self._selector.set_enabled(False)
         change_player_voted=partial(self._set_voted_player)
@@ -276,7 +272,6 @@ class DayVotingScreen(AbstractScreen):
         self._vote_player_group=VContainer(0, [self._vote_player], self._display.get_size(), (20, 90))
         self._players=VContainer(20, selector_list, self._display.get_size(), (20, 50)) #This handles how the selectors are DISPLAYED
         self._voted_text=Text("You haven't voted", font=FontSize.H3)
-        self._trigger_update=False
         self._voted_container=HContainer(0, [self._voted_text], self._display.get_size(), (20, 80))
 
     def run(self,event:pygame.event.Event | None)->None:
@@ -287,10 +282,6 @@ class DayVotingScreen(AbstractScreen):
         self._title.draw(self._display)
         self._players.draw(self._display)
         self._vote_player_group.draw(self._display)
-        if self._trigger_update:
-            #Text has changed text and dimensions, update the container with the new dimensions
-            self._voted_container.manually_update()
-            self._trigger_update=False
         self._voted_container.draw(self._display)
         
         if event is not None:
@@ -317,7 +308,7 @@ class DayVotingScreen(AbstractScreen):
         """Function called when the user chooses who to nominate for execution"""
         get_voted_player=self._selector.selectedText() #gets the chosen player
         global voted_user
-        self._trigger_update=True #This is necessary to update the container size on the next draw
+        self._vote_player_group.update_on_next_draw() #This is necessary to update the container size on the next draw
         if len(get_voted_player)>0:
             #can only vote a player if one is selected
             voted_user=get_voted_player

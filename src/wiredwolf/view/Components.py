@@ -1,8 +1,9 @@
 import textwrap
-from typing import Sequence
+from typing import List
 import pygame
 from abc import ABC, abstractmethod
 from collections.abc import Callable
+import copy
 
 from wiredwolf.view.Constants import BACKGROUND_COLOR, BUTTON_COLOR, BUTTON_DISABLED_COLOR, BUTTON_HOVER_COLOR, SELECTED_COLOR, TEXT_COLOR, FontSize
 
@@ -132,16 +133,18 @@ class Text(DrawableComponent):
         
 class AbstractContainer(ABC):
     """An abstract container that displays the given components"""
-    def __init__(self, div:int, elements:Sequence[DrawableComponent], win_size:tuple[int, int], position:tuple[int,int]=(50,50), color:str=BACKGROUND_COLOR, fixed_other_dim:int=0)-> None:
+    def __init__(self, div:int, elements:List[DrawableComponent], win_size:tuple[int, int], position:tuple[int,int]=(50,50), color:str=BACKGROUND_COLOR, fixed_other_dim:int=0)-> None:
         if len(elements)==0:
             raise ValueError("Must contain at least a component")
         if position[0]<0 or position[0]>100 or position[1]<0 or position[1]>100:
             raise ValueError("Position must be between 0 and 100")
         self._divider=div
-        self._elements=elements
+        self._elements:List[DrawableComponent] =copy.copy(elements)
+        self._trigger_update=False #When a new element is added inside the list, on the next draw triggers a re-calculation for dimensions
         self._win_size=win_size
         self._color=color
         self._dimensions=(0,0)
+        self._top_left_pos=(0,0)
         self._offset=position
         self._set_dimensions() #these are the dimensions of the container, calculated with the components list and the given divider
         self._fixed_dim=fixed_other_dim
@@ -173,17 +176,19 @@ class AbstractContainer(ABC):
 
     def draw(self, screen: pygame.Surface)-> None:
         """Draws the container offset on the given surface"""
-        win_size=screen.get_size()
-        if win_size!=self._win_size:
-            self._win_size=win_size
-            #window size was changed, re-center container
-            self.manually_update()
         pygame.draw.rect(screen, self._color, self._rect)
         for element in self._elements:
             element.draw(screen)
+        #If the size of the screen changed or some drawable inside the container changed, re-calculate coordinates to draw the elements correctly
+        win_size=screen.get_size()
+        if win_size!=self._win_size or self._trigger_update==True:
+            self._win_size=win_size
+            #window size was changed, re-center container
+            self._manually_update()
+            self._trigger_update=False
     
-    def manually_update(self)->None:
-        """If any component inside the container is changed (ex a Text.text), call this function to trigger an update to the size of the container"""
+    def _manually_update(self)->None:
+        """Triggers a re-calculation of all the dimensions of the container"""
         self._set_dimensions()
         if self._fixed_dim!=0:
             self._dimensions_if_fixed_dim()
@@ -193,12 +198,20 @@ class AbstractContainer(ABC):
         self._rect.width=self._dimensions[0]
         self._rect.height=self._dimensions[1]
         self._center_elements()
-
+    
+    def add_element(self, drawable:DrawableComponent)->None:
+        """Adds a new drawable component to the container"""
+        self._elements.append(drawable)
+        self.update_on_next_draw()
+    
+    def update_on_next_draw(self)->None:
+        """Call this function when a drawable component inside the container has changed size to trigger a re-centering on the next call of draw"""
+        self._trigger_update=True
 
 class VContainer(AbstractContainer):
     """A drawable container that displays the given components vertically"""
 
-    def __init__(self, vert_div:int, elements:Sequence[DrawableComponent], win_size:tuple[int, int], position:tuple[int,int]=(50,50), color:str=BACKGROUND_COLOR, fixed_width:int=0)-> None:
+    def __init__(self, vert_div:int, elements:List[DrawableComponent], win_size:tuple[int, int], position:tuple[int,int]=(50,50), color:str=BACKGROUND_COLOR, fixed_width:int=0)-> None:
         super().__init__(vert_div, elements, win_size, position, color, fixed_width)
     
     def _center_elements(self)-> None:
@@ -237,7 +250,7 @@ class VContainer(AbstractContainer):
 class HContainer(AbstractContainer):
     """A drawable container that displays the given components horizontally"""
 
-    def __init__(self, horiz_div:int, elements:Sequence[DrawableComponent], win_size:tuple[int, int], position:tuple[int,int]=(50,50), color:str=BACKGROUND_COLOR, fixed_height:int=0)-> None:
+    def __init__(self, horiz_div:int, elements:List[DrawableComponent], win_size:tuple[int, int], position:tuple[int,int]=(50,50), color:str=BACKGROUND_COLOR, fixed_height:int=0)-> None:
         super().__init__(horiz_div, elements, win_size, position, color, fixed_height)
     
     def _center_elements(self)-> None:
@@ -410,7 +423,7 @@ class SelectorButton(AbstractButton):
 
 class SelectorGroup():
     """A group of selectors. Only 0 or 1 at most elements can be selected at once"""
-    def __init__(self, list:Sequence[SelectorButton]=[])->None:
+    def __init__(self, list:List[SelectorButton]=[])->None:
         self._last_key=0 #last key of dictionary
         self._selectors:dict[int,SelectorButton]={}
         self._selected_element=None
@@ -591,7 +604,6 @@ class MultipleTexts():
     def __init__(self, list:LimitedList, vertical_div:int, win_size:tuple[int,int], position:tuple[int,int]=(50,50), fixed_width:int=0, background_color:str=BACKGROUND_COLOR) -> None:
         self._list=list
         self._max_elements=list.max_elements
-        self._trigger_update=False
         self._texts_list=[]
         for i in range(self._max_elements):
             #fills the list of empty text elements
@@ -599,7 +611,7 @@ class MultipleTexts():
         self._container=VContainer(vertical_div, self._texts_list, win_size, position, color=background_color, fixed_width=fixed_width)
         #After having a VContainer with max_elements empty texts, the texts are changed to the elements of the list
         self._fill_texts()
-        self._trigger_update=True
+        self._container.update_on_next_draw()
 
     def _fill_texts(self)->None:
         """Reads the elements from the list and updates the texts shown"""
@@ -619,17 +631,11 @@ class MultipleTexts():
     def on_list_change(self)->None:
         """Call this function to update the texts shown"""
         self._fill_texts()
-        self._trigger_update=True
+        self._container.update_on_next_draw() #a manual update to the container, otherwise the elements are counted with their previous lenght
 
     def draw(self, screen: pygame.Surface):
         """Draws the texts vertically on the given surface"""
         self._container.draw(screen)
-        #This draws the texts (changing sizes, so next draw the background is applied)
-        if self._trigger_update==True:
-            #a manual update is necessary otherwise the container centers with the elements of the previous lenght
-            #This forces the container to read the new text size and will use the updated sizes
-            self._container.manually_update()
-            self._trigger_update=False
 
 if __name__ == "__main__":
     print("Hello world")
