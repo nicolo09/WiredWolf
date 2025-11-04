@@ -166,6 +166,8 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
 
     async def start_receiving(self):
         """Start receiving messages from the server."""
+        if self._receiving_task is not None:
+            raise RuntimeError("Already receiving messages.")
         self._receiving_task = asyncio.create_task(self._receive_loop())
 
     async def _receive_loop(self):
@@ -184,11 +186,15 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
 
     async def close(self):
         """Close the client connection handler."""
-        self._writer.close()
-        await self._writer.wait_closed()
-        if self._receiving_task:
-            self._receiving_task.cancel()
-            await self._receiving_task
+        try:
+            self._writer.close()
+            await self._writer.wait_closed()
+            if self._receiving_task:
+                self._receiving_task.cancel()
+                await self._receiving_task
+        except ConnectionResetError:
+            self._logger.info("Was trying to close connection but it was reset by server, considering it to be already closed.")
+            pass
         self._logger.info("Client connection closed.")
 
 
@@ -330,7 +336,12 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                         msg.sender,
                     )
                 else:
-                    await self._on_new_message(msg)
+                    try:
+                        await self._on_new_message(msg)
+                    except Exception as e:
+                        self._logger.error("Error handling message from %s: %s", peer, e
+                                           )
+                        await self.send_obj(peer, e)
             except ConnectionClosedError:
                 self._logger.info("Connection closed by peer: %s", peer)
                 self._endpoints.pop(peer)

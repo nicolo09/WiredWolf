@@ -10,6 +10,7 @@ from wiredwolf.controller.connections import (
 )
 from wiredwolf.controller.lobbies import Lobby, TcpMdnsLobbyBrowser
 from wiredwolf.controller.server import GameServer
+from wiredwolf.controller.server_plugins import ChatPlugin, GameLifecyclePlugin
 
 
 class TestFactory:
@@ -22,6 +23,7 @@ class TestFactory:
     ) -> tuple[GameServer, list[ClientConnectionHandler]]:
         """
         Creates a GameServer with a specified number of connected clients.
+        Number 0 is the lobby owner.
 
         Args:
             num_clients (int): The number of clients to connect to the server.
@@ -32,25 +34,35 @@ class TestFactory:
             list[ClientConnectionHandler]: List of connected client handlers.
         """
         server: GameServer = GameServer(lobby)
+        server.add_plugin(ChatPlugin())
+        server.add_plugin(GameLifecyclePlugin())
         await server.start_listening()
         clients: list[ClientConnectionHandler] = []
 
         if isinstance(server.connection_handler, AsyncTCPServerConnectionHandler):
-            for i in range(num_clients):
+            def on_message(msg: Any) -> None:
+                if type(msg) is not Lobby:
+                    TestFactory.logger.error(f"Unexpected message type received in test: {type(msg)}")
+                    raise RuntimeError("Unexpected message type")
+                else:
+                    return None
+            browser = TcpMdnsLobbyBrowser()
+            owner_handler, lobby = await browser.connect_to_lobby_directly(
+                lobby.owner,
+                ("127.0.0.1", DEFAULT_SERVER_PORT),
+                None
+            )
+            owner_handler.set_on_message(on_message)
+            await owner_handler.start_receiving()
+            clients.append(owner_handler)
+            for i in range(num_clients-1):
                 client_peer = Peer(f"client_{i}")
-                browser = TcpMdnsLobbyBrowser()
                 client_handler, _ = await browser.connect_to_lobby_directly(
                     client_peer,
                     ("127.0.0.1", DEFAULT_SERVER_PORT),
                     None
                 )
 
-                def on_message(msg: Any) -> None:
-                    if type(msg) is not Lobby:
-                        TestFactory.logger.error(f"Unexpected message type received in test: {type(msg)}")
-                        raise RuntimeError("Unexpected message type")
-                    else:
-                        return None
 
                 client_handler.set_on_message(on_message)
                 await client_handler.start_receiving()

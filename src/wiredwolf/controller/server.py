@@ -4,6 +4,10 @@ from wiredwolf.controller.commons import (
     DEFAULT_PHASE_DURATION_SECONDS,
     DEFAULT_SERVER_PORT,
     FIRST_DAY_PHASE_DURATION_SECONDS,
+    MAX_PLAYERS,
+    MIN_PLAYERS,
+    PLAYERS_TO_ADD_ESCORT,
+    PLAYERS_TO_ADD_MEDIUM,
     PasswordRequest,
     Peer,
 )
@@ -183,13 +187,15 @@ class GameServer:
     async def start_game(self) -> None:
         self.__logger.info("Starting game in lobby: %s", self._lobby)
         # Create game instance based on lobby peers and roles
-        if len(self._lobby.peers) < 8:
+        if len(self._lobby.peers) < MIN_PLAYERS:
             raise ValueError("Not enough players to start the game.")
+        if len(self._lobby.peers) > MAX_PLAYERS:
+            raise ValueError("Too many players to start the game.")
         game_info_builder = BasicGameInfoBuilder.default().with_clairvoyant()
-        if len(self._lobby.peers) >= 9:
+        if len(self._lobby.peers) >= PLAYERS_TO_ADD_MEDIUM:
             # Add Medium for 9+ players
             game_info_builder = game_info_builder.with_medium()
-        if len(self._lobby.peers) >= 16:
+        if len(self._lobby.peers) >= PLAYERS_TO_ADD_ESCORT:
             # Add Escort and an extra werewolf for 16+ players
             game_info_builder = game_info_builder.with_escort()
         game_info = game_info_builder.build()
