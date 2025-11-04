@@ -1,4 +1,5 @@
 import abc
+import uuid
 from wiredwolf.controller.commons import Peer
 from wiredwolf.model.game import GameStatus
 from wiredwolf.model.game_phases import GamePhaseOutcome
@@ -9,6 +10,7 @@ class BaseMessage(abc.ABC):  # TODO: Move to wiredwolf.controller.messages
 
     def __init__(self, sender: Peer | None):
         self._sender: Peer | None = sender
+        self._id: str = uuid.uuid4().hex
 
     @property
     def sender(self) -> Peer | None:
@@ -18,7 +20,13 @@ class BaseMessage(abc.ABC):  # TODO: Move to wiredwolf.controller.messages
         """
         return self._sender
 
-    pass
+    @property
+    def id(self) -> str:
+        """Gets the unique identifier of the message.
+        Returns:
+            str: The unique identifier of the message.
+        """
+        return self._id
 
 
 class ChatMessage(BaseMessage):  # TODO: Move to wiredwolf.controller.messages
@@ -79,7 +87,7 @@ class PhaseAdvanceMessage(BaseMessage):
 class VotePlayerMessage(BaseMessage):
     """A message sent by a peer to vote for another player"""
 
-    def __init__(self, sender: Peer, voted_player_uuid: str):
+    def __init__(self, sender: Peer | None, voted_player_uuid: str):
         super().__init__(sender)
         self._voted_player_uuid = voted_player_uuid
 
@@ -90,12 +98,12 @@ class VotePlayerMessage(BaseMessage):
             str: The UUID of the player being voted for.
         """
         return self._voted_player_uuid
-    
+
 
 class VoteBallotMessage(BaseMessage):
     """A message sent by a peer to cast their ballot vote"""
 
-    def __init__(self, sender: Peer, vote: bool):
+    def __init__(self, sender: Peer | None, vote: bool):
         super().__init__(sender)
         self._vote = vote
 
@@ -111,8 +119,9 @@ class VoteBallotMessage(BaseMessage):
 class AcknowledgeMessage(BaseMessage):
     """A message sent to confirm that something was successful"""
 
-    def __init__(self, sender: Peer | None, info: str):
+    def __init__(self, uuid: str, sender: Peer | None, info: str):
         super().__init__(sender)
+        self._id = uuid
         self._info = info
 
     @property
@@ -122,12 +131,29 @@ class AcknowledgeMessage(BaseMessage):
             str: The info message.
         """
         return self._info
-    
+
+
+class NotAcknowledgeMessage(BaseMessage):
+    """A message sent to indicate that something failed"""
+
+    def __init__(self, uuid: str, sender: Peer | None, error: Exception):
+        super().__init__(sender)
+        self._id = uuid
+        self._error = error
+
+    @property
+    def error(self) -> Exception:
+        """Gets the error.
+        Returns:
+            str: The error message.
+        """
+        return self._error
+
 
 class NightActionMessage(BaseMessage):
     """A message sent by a peer to perform a night action"""
 
-    def __init__(self, sender: Peer, target_player_uuid: str):
+    def __init__(self, sender: Peer | None, target_player_uuid: str):
         super().__init__(sender)
         self._target_player_uuid = target_player_uuid
 

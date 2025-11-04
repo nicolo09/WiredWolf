@@ -6,10 +6,11 @@ CONNECTION_TIMEOUT = 10  # seconds
 
 FIRST_DAY_PHASE_DURATION_SECONDS = 10
 DEFAULT_PHASE_DURATION_SECONDS = 60
+ACK_TIMEOUT_SECONDS = 10  # seconds
+
 
 class Peer:
     """Represents a peer in the network."""
-
 
     def __init__(self, name: str, peer_id: str | None = None):
         self._name: str = name
