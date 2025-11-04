@@ -53,7 +53,7 @@ class AbstractGameInfo(ABC):
         Returns:
             NightActionResult: Result of the action, containing success status and optionally a message.
         """
-        if actor.role not in self.get_handled_roles():
+        if actor.role not in self.get_all_handled_roles():
             raise ValueError(f"{actor.role} is unhandled.")
         return self._handle_night_actions(actor, target)
 
@@ -84,7 +84,7 @@ class AbstractGameInfo(ABC):
         """
 
     @abstractmethod
-    def get_handled_roles(self) -> set[Role]:
+    def get_all_handled_roles(self) -> set[Role]:
         """Returns a set of roles handled by this game."""
 
     def _find_decorator(
@@ -116,8 +116,8 @@ class AbstractGameInfo(ABC):
             self.accusation_votes == other.accusation_votes
             and self.ballot_votes == other.ballot_votes
             and self.werewolves_votes == other.werewolves_votes
-            and sorted(role.value for role in self.get_handled_roles())
-            == sorted(role.value for role in other.get_handled_roles())
+            and sorted(role.value for role in self.get_all_handled_roles())
+            == sorted(role.value for role in other.get_all_handled_roles())
         )
 
 
@@ -219,7 +219,7 @@ class SimpleGameInfo(AbstractGameInfo):
             return GamePhase.WEREWOLVES_VICTORY
         return None
 
-    def get_handled_roles(self) -> set[Role]:
+    def get_all_handled_roles(self) -> set[Role]:
         return {Role.VILLAGER, Role.WEREWOLF}
 
 
@@ -229,7 +229,23 @@ class GameInfoDecorator(AbstractGameInfo):
     """
 
     def __init__(self, wrapped: AbstractGameInfo) -> None:
+
+        self._check_roles_duplicates(wrapped)
         self._wrapped: AbstractGameInfo = wrapped
+
+    @staticmethod
+    @abstractmethod
+    def get_decorator_roles() -> set[Role]:
+        """
+        Returns the set of roles specifically handled by this decorator.
+
+        Returns:
+            set[Role]: The roles managed by this specific decorator.
+
+        Note:
+            This method must be implemented by all concrete decorator classes.
+        """
+        pass
 
     @property
     def accusation_votes(self) -> dict[Player, Player]:
@@ -261,5 +277,13 @@ class GameInfoDecorator(AbstractGameInfo):
     def end_game_conditions(self, players: list[Player]) -> GamePhase | None:
         return self._wrapped.end_game_conditions(players)
 
-    def get_handled_roles(self) -> set[Role]:
-        return self._wrapped.get_handled_roles()
+    def get_all_handled_roles(self) -> set[Role]:
+        return self._wrapped.get_all_handled_roles() | self.get_decorator_roles()
+
+    def _check_roles_duplicates(self, wrapped: AbstractGameInfo) -> None:
+        duplicate_roles = self.get_decorator_roles().intersection(
+            wrapped.get_all_handled_roles()
+        )
+
+        if duplicate_roles:
+            raise ValueError("Decorator roles already handled in wrapped game info.")

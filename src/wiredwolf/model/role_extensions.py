@@ -16,6 +16,10 @@ class ClairvoyantDecorator(GameInfoDecorator):
         super().__init__(wrapped)
         self._clairvoyant_acted: bool = False
 
+    @staticmethod
+    def get_decorator_roles() -> set[Role]:
+        return {Role.CLAIRVOYANT}
+
     def reset_actions(self) -> None:
         super().reset_actions()
         self._clairvoyant_acted = False
@@ -35,9 +39,6 @@ class ClairvoyantDecorator(GameInfoDecorator):
                 f"Clairvoyant investigated {target.id}: {target.get_alignment()}."
             )
         return super()._handle_night_actions(actor, target)
-
-    def get_handled_roles(self) -> set[Role]:
-        return super().get_handled_roles() | {Role.CLAIRVOYANT}
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, AbstractGameInfo):
@@ -64,6 +65,10 @@ class EscortDecorator(GameInfoDecorator):
         super().__init__(wrapped)
         self._escort_acted: bool = False
         self._protected_player: Player | None = None
+
+    @staticmethod
+    def get_decorator_roles() -> set[Role]:
+        return {Role.ESCORT}
 
     def reset_actions(self) -> None:
         super().reset_actions()
@@ -97,9 +102,6 @@ class EscortDecorator(GameInfoDecorator):
                 self._escort_acted = False
         super().remove_player(player, gamephase)
 
-    def get_handled_roles(self) -> set[Role]:
-        return super().get_handled_roles() | {Role.ESCORT}
-
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, AbstractGameInfo):
             return False
@@ -129,6 +131,10 @@ class MediumDecorator(GameInfoDecorator):
         super().__init__(wrapped)
         self._medium_acted: bool = False
 
+    @staticmethod
+    def get_decorator_roles() -> set[Role]:
+        return {Role.MEDIUM}
+
     def reset_actions(self) -> None:
         super().reset_actions()
         self._medium_acted = False
@@ -148,9 +154,6 @@ class MediumDecorator(GameInfoDecorator):
                 f"Medium communicated with {target.id}: {target.get_alignment()}."
             )
         return super()._handle_night_actions(actor, target)
-
-    def get_handled_roles(self) -> set[Role]:
-        return super().get_handled_roles() | {Role.MEDIUM}
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, AbstractGameInfo):
@@ -191,7 +194,7 @@ class BasicGameInfoBuilder:
         Returns:
             BasicGameInfoBuilder: This builder.
         """
-        if Role.CLAIRVOYANT not in self._game_info.get_handled_roles():
+        if Role.CLAIRVOYANT not in self._game_info.get_all_handled_roles():
             self._game_info = ClairvoyantDecorator(self._game_info)
         return self
 
@@ -202,7 +205,7 @@ class BasicGameInfoBuilder:
         Returns:
             BasicGameInfoBuilder: This builder.
         """
-        if Role.ESCORT not in self._game_info.get_handled_roles():
+        if Role.ESCORT not in self._game_info.get_all_handled_roles():
             self._game_info = EscortDecorator(self._game_info)
         return self
 
@@ -213,7 +216,7 @@ class BasicGameInfoBuilder:
         Returns:
             BasicGameInfoBuilder: This builder.
         """
-        if Role.MEDIUM not in self._game_info.get_handled_roles():
+        if Role.MEDIUM not in self._game_info.get_all_handled_roles():
             self._game_info = MediumDecorator(self._game_info)
         return self
 

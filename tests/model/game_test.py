@@ -2,7 +2,11 @@ import unittest
 from wiredwolf.model.game import Game, GameStatus
 from wiredwolf.model.game_phases import GamePhase
 from wiredwolf.model.game_template import AbstractGameInfo
-from wiredwolf.model.role_extensions import create_standard_game, BasicGameInfoBuilder
+from wiredwolf.model.role_extensions import (
+    create_standard_game,
+    BasicGameInfoBuilder,
+    MediumDecorator,
+)
 from wiredwolf.model.player import Player, Role, Status
 
 
@@ -36,16 +40,7 @@ def get_index_by_name(players: list[Player], name: str) -> int:
     raise ValueError(f"Player with name {name} not found.")
 
 
-class GameTest(unittest.TestCase):
-    
-    def setUp(self):
-        self.players = populate_players()
-        self.game = Game(self.players, create_game_info())
-
-    def test_initial_state(self):
-        self.assertEqual(self.game.phase, GamePhase.DAY_DISCUSSION)
-        for player in self.game.players:
-            self.assertEqual(player.status, Status.ALIVE)
+class GameInfoTest(unittest.TestCase):
 
     def test_game_info_equals(self):
         game_info_comparison: AbstractGameInfo = (
@@ -56,14 +51,34 @@ class GameTest(unittest.TestCase):
             .build()
         )
 
-        self.assertEqual(self.game.get_game_status().game_info, game_info_comparison)
+        self.assertEqual(create_game_info(), game_info_comparison)
 
     def test_game_info_not_equals(self):
         game_info_different: AbstractGameInfo = (
             BasicGameInfoBuilder.default().with_medium().with_clairvoyant().build()
         )
 
-        self.assertNotEqual(self.game.get_game_status().game_info, game_info_different)
+        self.assertNotEqual(create_game_info(), game_info_different)
+
+    def test_duplicate_roles_error(self):
+        base_game_info: AbstractGameInfo = (
+            BasicGameInfoBuilder.default().with_medium().build()
+        )
+        with self.assertRaises(ValueError):
+            _ = MediumDecorator(base_game_info)
+            self.fail("Expected ValueError for duplicate roles not raised.")
+
+
+class GameTest(unittest.TestCase):
+
+    def setUp(self):
+        self.players = populate_players()
+        self.game = Game(self.players, create_game_info())
+
+    def test_initial_state(self):
+        self.assertEqual(self.game.phase, GamePhase.DAY_DISCUSSION)
+        for player in self.game.players:
+            self.assertEqual(player.status, Status.ALIVE)
 
     def test_game_status_equals(self):
 
