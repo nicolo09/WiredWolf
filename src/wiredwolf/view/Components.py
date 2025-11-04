@@ -327,19 +327,7 @@ class EnabledButton(CallbackButton):
     def _handle_button_click(self)-> None:
         """Checks if button has been pressed and starts on click function, if the button is enabled"""
         if self._is_enabled==True:
-            mouse_pos =pygame.mouse.get_pos() #returns mouse position
-            if self._button_rect.collidepoint(mouse_pos): #is the mouse over the button?
-                self._button_color=self._button_color_hover #changes button color to hover
-                if pygame.mouse.get_pressed()[0]: #[left mouse, middle mouse, right mouse] boolean
-                    self._button_clicked=True #sets button as pressed
-                else:
-                    if self._button_clicked==True:
-                        self.on_click() #does action
-                        self._button_clicked=False #resets button
-                        #if no check is applied the button would be pressed many times per frame
-            else:
-                #mouse button is not pressed, restores original color
-                self._button_color=self._button_color_not_hover
+            super()._handle_button_click()
         else:
             self._button_color=self._disabled_color
 
