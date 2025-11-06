@@ -16,6 +16,7 @@ from wiredwolf.controller.messages import (
 from wiredwolf.controller.server import GameServer
 from wiredwolf.controller.commons import ACK_TIMEOUT_SECONDS, DEFAULT_SERVER_PORT, Peer
 from wiredwolf.model.game import GameStatus
+from wiredwolf.model.game_phases import GamePhase
 
 
 class GameController:
@@ -66,6 +67,8 @@ class GameController:
         ) = await self._lobby_browser.connect_to_lobby_by_name(
             self._my_self, lobby_name, lobby_password
         )
+        self._client_connection_handler.set_on_message(self._on_message)
+        await self._client_connection_handler.start_receiving()
         return self._lobby
     
     def _on_message(self, message: BaseMessage):
@@ -90,7 +93,9 @@ class GameController:
                 if message.outcome.someone_died():
                     self._logger.info("A player has died this phase.")
                     # TODO: Handle player death logic here
-            
+                if message.outcome.new_phase in (GamePhase.VILLAGERS_VICTORY, GamePhase.WEREWOLVES_VICTORY):
+                    self._logger.info("Game has ended with a victory.")
+                    # TODO: Notify UI or other components about game end                    
             case _:
                 self._logger.warning("Unhandled message type: %s", type(message))
 
