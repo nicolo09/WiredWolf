@@ -3,12 +3,13 @@ import logging
 import pytest
 import pytest_asyncio
 from tests.controller.utils import TestFactory
-from wiredwolf.controller.commons import Peer
+from wiredwolf.controller.commons import FIRST_DAY_PHASE_DURATION_SECONDS, Peer
 from wiredwolf.controller.connections import ClientConnectionHandler
 from wiredwolf.controller.lobbies import Lobby
 from wiredwolf.controller.messages import (
     BaseMessage,
     GameStartedMessage,
+    PhaseAdvanceMessage,
     StartGameMessage,
 )
 from wiredwolf.controller.server import GameServer
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 @pytest_asyncio.fixture
 async def lobby_owner_server_clients(request: pytest.FixtureRequest):
+
     owner = Peer("Owner")
     lobby = Lobby(owner, "Test Lobby", None)
     server, handlers = await TestFactory.create_tcp_server_with_connected_clients(
@@ -159,3 +161,32 @@ async def test_start_game_multiple_times(
             await event.wait()
     except TimeoutError:
         logger.info("No messages received on second start as expected")
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("lobby_owner_server_clients", [15], indirect=True)
+async def test_game_phase_advancement(
+    lobby_owner_server_clients: tuple[
+        Lobby, Peer, GameServer, list[ClientConnectionHandler]
+    ]
+):
+    #TODO: Change wiredwolf.controller.commons.FIRST_DAY_PHASE_DURATION_SECONDS to a lower value for testing, better to make a factory function that creates a server with custom phase duration
+    event = asyncio.Event()
+    _, owner, _, handlers = lobby_owner_server_clients
+
+    def on_message(msg: BaseMessage) -> None:
+        if isinstance(msg, PhaseAdvanceMessage):
+            logger.info("Received PhaseAdvanceMessage")
+            event.set()
+        elif isinstance(msg, Exception):
+            raise msg
+
+    for handler in handlers:
+        handler.set_on_message(on_message)
+    
+    await handlers[0].send_obj(StartGameMessage(owner))
+    try:
+        async with asyncio.timeout(FIRST_DAY_PHASE_DURATION_SECONDS + 5):
+            await event.wait()
+    except TimeoutError:
+        logger.info("Test timed out waiting for phase advancement")
+        pytest.fail("No PhaseAdvanceMessage received after game start")

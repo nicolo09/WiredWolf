@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from wiredwolf.controller.commons import (
-    DEFAULT_PHASE_DURATION_SECONDS,
+    PHASE_DURATION_SECONDS,
     DEFAULT_SERVER_PORT,
     FIRST_DAY_PHASE_DURATION_SECONDS,
     MAX_PLAYERS,
@@ -237,9 +237,9 @@ class GameServer:
         else:
             self.__logger.info(
                 "Setting up timer for next phase: %s seconds.",
-                DEFAULT_PHASE_DURATION_SECONDS,
+                PHASE_DURATION_SECONDS,
             )
-            await self.wait_and_advance_game(DEFAULT_PHASE_DURATION_SECONDS)
+            await self.wait_and_advance_game(PHASE_DURATION_SECONDS)
 
     def stop_new_connections(self):
         """Stop accepting new peer connections"""
