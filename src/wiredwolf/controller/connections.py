@@ -239,7 +239,7 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
 MAX_CONNECTION_TIME = 10  # seconds
 
 
-class AsyncTCPMessageHandler:
+class AsyncTCPMessageHandler: #TODO: Make this implement a MessageHandler interface
     PREFIX_LEN: int = 4
 
     def __init__(self, serializer: Serializer):
