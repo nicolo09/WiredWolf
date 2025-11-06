@@ -1,7 +1,10 @@
 import asyncio
 from collections.abc import Callable
 from enum import Enum
-from wiredwolf.controller.connections import AsyncTCPClientConnectionHandler, AsyncTCPMessageHandler
+from wiredwolf.controller.connections import (
+    AsyncTCPClientConnectionHandler,
+    AsyncTCPMessageHandler,
+)
 from wiredwolf.controller.connections import (
     ClientConnectionHandler,
     MessageHandlerFactory,
@@ -102,6 +105,10 @@ class Lobby:
         )
 
 
+class LobbyNotFoundError(Exception):
+    """Exception raised when a lobby is not found."""
+
+
 class TcpMdnsLobbyBrowser:
     """
     Handles the discovery and creations/publishment of game lobbies through mDNS.
@@ -189,7 +196,9 @@ class TcpMdnsLobbyBrowser:
                             raise lobby
                         else:
                             # The server returned a lobby, successfully joined
-                            return AsyncTCPClientConnectionHandler(my_self, reader, writer), lobby
+                            return AsyncTCPClientConnectionHandler(
+                                my_self, reader, writer
+                            ), lobby
                     else:
                         # ...but no password was provided
                         writer.close()
@@ -200,7 +209,9 @@ class TcpMdnsLobbyBrowser:
                         writer.close()
                         raise ValueError("Lobby does not require a password.")
                     # Successfully joined the lobby
-                    return AsyncTCPClientConnectionHandler(my_self, reader, writer), recv_msg
+                    return AsyncTCPClientConnectionHandler(
+                        my_self, reader, writer
+                    ), recv_msg
                 else:
                     writer.close()
                     raise RuntimeError("Unexpected message received.")
@@ -236,6 +247,11 @@ class TcpMdnsLobbyBrowser:
         Returns:
             tuple[ClientConnectionHandler, Lobby]: The connected client handler and the joined lobby.
         """
+        try:
+            ip, port = await self._service_manager.get_service_endpoint(lobby_name)
+        except TimeoutError:
+            raise LobbyNotFoundError(f"Could not find lobby '{lobby_name}'.")
 
-        ip, port = self._service_manager.get_service_endpoint(lobby_name)
         return await self._connect((ip, port), peer, lobby_password)
+
+    #TODO: This should also handle reconnection to previously joined lobbies in case of crash/network issues

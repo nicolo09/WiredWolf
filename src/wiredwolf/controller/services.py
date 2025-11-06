@@ -4,8 +4,6 @@ import logging
 import socket
 from zeroconf import ServiceBrowser, ServiceInfo, ServiceListener, Zeroconf
 
-from wiredwolf.controller import TIMEOUT
-
 
 class CallbackServiceListener(ServiceListener):
     def __init__(
@@ -71,14 +69,27 @@ class ServiceManager:
     def get_service_browser(self, listener: ServiceListener) -> ServiceBrowser:
         return ServiceBrowser(self._zeroconf, self._service_type, listener)
 
-    def get_service_endpoint(self, service_name: str) -> tuple[str, int]:
-        service_info = self._zeroconf.get_service_info(
-            self._service_type, service_name, timeout=TIMEOUT
+    async def get_service_endpoint(self, service_name: str) -> tuple[str, int]:
+        """Returns the endpoint associated with the provided service name by means of service discovery.
+
+        Args:
+            service_name (str): The name of the service to discover.
+
+        Raises:
+            RuntimeError: If the service cannot be found or is not properly configured.
+
+        Returns:
+            tuple[str, int]: A tuple containing the IP address and port of the service.
+        """
+        service_info = await self._zeroconf.async_get_service_info(
+            self._service_type, service_name
         )
         if service_info and service_info.addresses[0] and service_info.port:
-            return str(ipaddress.ip_address(service_info.addresses[0])), service_info.port
+            return str(
+                ipaddress.ip_address(service_info.addresses[0])
+            ), service_info.port
         else:
-            self.__logger.warning(f"Service {service_name} not found or informations incomplete.")
-            raise RuntimeError(
-                f"Service {service_name} not found."
-            )  # TODO: Change RuntimeError with something more appropriate
+            self.__logger.warning(
+                f"Service {service_name} not found or informations incomplete."
+            )
+            raise TimeoutError(f"Service {service_name} not found.")
