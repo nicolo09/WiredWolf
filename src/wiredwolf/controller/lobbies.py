@@ -1,6 +1,7 @@
 import asyncio
 from collections.abc import Callable
-from enum import Enum
+from dataclasses import dataclass
+import dataclasses
 from wiredwolf.controller.connections import (
     AsyncTCPClientConnectionHandler,
     AsyncTCPMessageHandler,
@@ -18,91 +19,20 @@ from wiredwolf.controller.services import CallbackServiceListener, ServiceManage
 SERVICE_TYPE: str = "_wiredwolflobby._tcp.local."
 
 
-class LobbyState(Enum):
-    """Represents the various states a lobby can be in."""
-
-    WAITING_FOR_PLAYERS = "waiting_for_players"
-    STARTING = "starting"
-    PLAYING = "playing"
-    CHANGING_MASTER = "changing_master"
-    WAITING_PLAYER_RECONNECT = "waiting_player_reconnect"
-
-
+@dataclass
 class Lobby:
-    """Represents a game lobby."""
+    owner: Peer
+    name: str
+    password: str | None = None
+    peers: list[Peer] = dataclasses.field(default_factory=list[Peer])
 
-    def __init__(self, owner: Peer, name: str, password: str | None = None):
-        """Initializes a Lobby instance.
-
-        Args:
-            name (str): The name of the lobby.
-            password (str | None, optional): The lobby password, if any.
-        """
-        self._owner: Peer = owner
-        self._peers: list[Peer] = []
-        self._state: LobbyState = LobbyState.WAITING_FOR_PLAYERS
-        self._name: str = name
-        self._password: str | None = password
-
-    def add_peer(self, peer: Peer):
-        """Adds a peer to the lobby.
-
-        Args:
-            peer (Peer): The peer to add.
-        """
-        self._peers.append(peer)
-
-    def remove_peer(self, peer: Peer):
-        """Removes a peer from the lobby.
-
-        Args:
-            peer (Peer): The peer to remove.
-        """
-        self._peers.remove(peer)
+    def check_password(self, passwd: str) -> bool:
+        """Checks if the provided password matches the lobby's password."""
+        return self.password == passwd
 
     def is_password_protected(self) -> bool:
         """Returns whether the lobby is password-protected."""
-        return self._password is not None
-
-    @property
-    def peers(self) -> list[Peer]:
-        """Returns the list of peers in the lobby."""
-        return self._peers
-
-    @property
-    def state(self) -> LobbyState:
-        """Returns the current state of the lobby."""
-        return self._state
-
-    @property
-    def name(self) -> str:
-        """Returns the name of the lobby."""
-        return self._name
-
-    @property
-    def owner(self) -> Peer:
-        """Returns the owner of the lobby."""
-        return self._owner
-
-    def check_password(self, password: str) -> bool:
-        """Checks if the provided password matches the lobby's password."""
-        return (
-            self._password == password
-        )  # TODO: Hash? Maybe not necessary, since it's not saved persistently
-
-    @state.setter
-    def state(self, state: LobbyState):
-        self._state = state
-
-    def __eq__(self, value: object) -> bool:
-        if not isinstance(value, Lobby):
-            return NotImplemented
-        return (
-            self._name == value._name
-            and self._password == value._password
-            and self._peers == value._peers
-            and self._state == value._state
-        )
+        return self.password is not None
 
 
 class LobbyNotFoundError(Exception):
@@ -254,4 +184,4 @@ class TcpMdnsLobbyBrowser:
 
         return await self._connect((ip, port), peer, lobby_password)
 
-    #TODO: This should also handle reconnection to previously joined lobbies in case of crash/network issues
+    # TODO: This should also handle reconnection to previously joined lobbies in case of crash/network issues

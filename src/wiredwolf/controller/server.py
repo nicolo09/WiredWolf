@@ -158,7 +158,7 @@ class GameServer:
 
     async def _add_peer_and_notify_updates(self, peer: Peer):
         # Update lobby
-        self._lobby.add_peer(peer)
+        self._lobby.peers.append(peer)
         # Notify other peers of the updated lobby sending the updated lobby object
         for p in self._lobby.peers:
             await self._server_conn_handler.send_obj(p, self._lobby)

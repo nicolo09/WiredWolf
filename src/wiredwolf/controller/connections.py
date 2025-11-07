@@ -5,7 +5,8 @@ from enum import Enum
 from types import CoroutineType
 from typing import Any
 import pickle
-from wiredwolf.controller.commons import RECEIVING_TASK_CLOSE_TIMEOUT, Peer
+from venv import logger
+from wiredwolf.controller.commons import MAX_CONNECTION_TIME, RECEIVING_TASK_CLOSE_TIMEOUT, Peer
 from wiredwolf.controller.messages import BaseMessage
 import asyncio
 
@@ -172,7 +173,7 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
             self._receive_loop()
         ).add_done_callback(self._handle_receive_loop_closed)
 
-    async def _handle_receive_loop_closed(self, task: asyncio.Task[None]) -> None:
+    def _handle_receive_loop_closed(self, task: asyncio.Task[None]) -> None:
         """Handle the completion of the receive loop task.
 
         Args:
@@ -236,9 +237,6 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
         self._logger.info("Client connection closed.")
 
 
-MAX_CONNECTION_TIME = 10  # seconds
-
-
 class AsyncTCPMessageHandler: #TODO: Make this implement a MessageHandler interface
     PREFIX_LEN: int = 4
 
@@ -295,10 +293,14 @@ class AsyncTCPMessageHandler: #TODO: Make this implement a MessageHandler interf
         Raises:
             ConnectionClosedError: If the connection is closed by the other side.
         """
-        data_len = await endpoint.read(self.PREFIX_LEN)
-        if not data_len:
+        length_prefix: bytes = b""
+        try:
+            length_prefix = await endpoint.read(self.PREFIX_LEN)
+        except Exception:
+            logger.error("Error while reading from endpoint", exc_info=True)
+        if not length_prefix:
             raise ConnectionClosedError("Connection closed by the other side.")
-        data_len = int(data_len.decode("utf-8").strip())
+        data_len = int(length_prefix.decode("utf-8").strip())
         return await endpoint.read(data_len)
 
     async def receive_msg(self, endpoint: asyncio.StreamReader) -> str:

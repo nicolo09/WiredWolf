@@ -14,31 +14,16 @@ MAX_PLAYERS = 32
 PLAYERS_TO_ADD_MEDIUM = 9
 PLAYERS_TO_ADD_ESCORT = 16
 
+
+@dataclass(frozen=True)
 class Peer:
     """Represents a peer in the network."""
 
-    def __init__(self, name: str, peer_id: str | None = None):
-        self._name: str = name
-        self._uuid: str = peer_id or str(uuid.uuid4())
-
-    def __eq__(self, value: object) -> bool:
-        if not isinstance(value, Peer):
-            return NotImplemented
-        return self._name == value._name and self._uuid == value._uuid
-
-    def __hash__(self) -> int:
-        return hash((self._name, self._uuid))
-
-    @property
-    def uuid(self):
-        return self._uuid
-
-    @property
-    def name(self):
-        return self._name
+    name: str
+    uuid: str = str(uuid.uuid4())
 
 
-@dataclass
+@dataclass(frozen=False)
 class PasswordRequest:
     """Represents a password request message."""
 
