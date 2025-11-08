@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import final, TypeVar, Type
+from typing import Any, final, TypeVar, Type
 from wiredwolf.model.game_phases import GamePhase, NightActionResult
 from wiredwolf.model.player import Player, Status, Role
 from wiredwolf.model.exceptions import *
@@ -51,7 +51,7 @@ class AbstractGameInfo(ABC):
 
 
         Returns:
-            NightActionResult: Result of the action, containing success status and optionally a message.
+            NightActionResult: Result of the action contained in its message.
         """
         if actor.role not in self.get_all_handled_roles():
             raise ValueError(f"{actor.role} is unhandled.")
@@ -94,8 +94,8 @@ class AbstractGameInfo(ABC):
         Recursively search through the decorator chain to find a decorator of the specified type.
 
         Args:
-            decorator_type: The class type to search for
-            game_info: The game info object to search in
+            decorator_type (Type[T]): The class type to search for
+            game_info (AbstractGameInfo): The game info object to search in
 
         Returns:
             The decorator instance if found, None otherwise
@@ -103,7 +103,7 @@ class AbstractGameInfo(ABC):
         if isinstance(game_info, decorator_type):
             return game_info
         elif hasattr(game_info, "_wrapped"):
-            wrapped = getattr(game_info, "_wrapped")
+            wrapped: Any = getattr(game_info, "_wrapped")
             if isinstance(wrapped, AbstractGameInfo):
                 return self._find_decorator(decorator_type, wrapped)
         return None
@@ -281,7 +281,7 @@ class GameInfoDecorator(AbstractGameInfo):
         return self._wrapped.get_all_handled_roles() | self.get_decorator_roles()
 
     def _check_roles_duplicates(self, wrapped: AbstractGameInfo) -> None:
-        duplicate_roles = self.get_decorator_roles().intersection(
+        duplicate_roles: set[Role] = self.get_decorator_roles().intersection(
             wrapped.get_all_handled_roles()
         )
 
