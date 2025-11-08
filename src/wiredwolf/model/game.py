@@ -35,12 +35,11 @@ class Game:
         Args:
             players (list[Player]): List of Player objects participating in the game.
             game_info (AbstractGameInfo): The information to handle game rules, votes, and actions.
+            phase (GamePhase): The starting phase of the game. Defaults to DAY_DISCUSSION.
         """
         self._players: list[Player] = players
         self._phase: GamePhase = phase
         self._game_info: AbstractGameInfo = game_info
-
-        self._current_accusation: Player | None = None
 
     @classmethod
     def from_game_status(cls, game_status: GameStatus) -> "Game":
@@ -93,29 +92,30 @@ class Game:
                 self._phase = GamePhase.DAY_ACCUSING
 
             case GamePhase.DAY_ACCUSING:
-                # Get the player with the most votes (or None if tie/no votes)
-                accused_player = self.__get_most_voted_player(
-                    self._game_info.accusation_votes
-                )
 
-                if accused_player is not None:
+                if self.__get_most_voted_player(
+                    self._game_info.accusation_votes
+                ) is not None:
                     self._phase = GamePhase.DAY_BALLOT
-                    self._current_accusation = accused_player
                 else:
                     # No votes or tie in accusations, skip to night
                     self._phase = GamePhase.NIGHT
 
             case GamePhase.DAY_BALLOT:
-                if self._current_accusation is not None:
+
+                accused_player: Player | None = self.__get_most_voted_player(
+                    self._game_info.accusation_votes
+                )
+
+                if accused_player is not None:
                     # If the ballot votes are more than half of the voting players, the accused player is killed
                     voting_count = len(self._game_info.ballot_votes)
                     confirm_ballot_votes = sum(
                         1 for vote in self._game_info.ballot_votes.values() if vote
                     )
                     if voting_count > 0 and confirm_ballot_votes > voting_count / 2:
-                        self._current_accusation.status = Status.DEAD
-                        deaths.append(self._current_accusation)
-                    self._current_accusation = None
+                        accused_player.status = Status.DEAD
+                        deaths.append(accused_player)
                 self._phase = GamePhase.NIGHT
 
             case GamePhase.NIGHT:
@@ -248,9 +248,8 @@ class Game:
             self._game_info.remove_player(player, self._phase)
             if (
                 self._phase == GamePhase.DAY_BALLOT
-                and player == self._current_accusation
+                and player == self.__get_most_voted_player(self._game_info.accusation_votes)
             ):
-                self._current_accusation = None
                 self._phase = GamePhase.NIGHT
 
             game_over: GamePhase | None = self._game_info.end_game_conditions(
