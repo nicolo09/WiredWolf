@@ -72,6 +72,10 @@ class App:
         self._day_execution_screen=DayExecutionScreen(self._display_screen, self._game_state_manager)
         self._night_villager_screen=NightVillagerScreen(self._display_screen, self._game_state_manager)
         self._night_role_screen=NightRoleScreen(self._display_screen, self._game_state_manager)
+        self._villager_win_screen=VillagerWinScreen(self._display_screen, self._game_state_manager)
+        self._villager_loss_screen=VillagerLossScreen(self._display_screen, self._game_state_manager)
+        self._wolf_win_screen=WolfWinScreen(self._display_screen, self._game_state_manager)
+        self._wolf_loss_screen=WolfLossScreen(self._display_screen, self._game_state_manager)
         self._dictionary={Screens.HOME: self._start_screen,
                           Screens.TEST:self._test_screen, 
                           Screens.NEW_LOBBY:self._new_lobby_screen, 
@@ -80,7 +84,11 @@ class App:
                           Screens.DAY_VOTING:self._day_voting_screen,
                           Screens.DAY_EXECUTION: self._day_execution_screen,
                           Screens.NIGHT_VILLAGER: self._night_villager_screen,
-                          Screens.NIGHT_ROLE: self._night_role_screen}
+                          Screens.NIGHT_ROLE: self._night_role_screen,
+                          Screens.VILLAGER_WIN: self._villager_win_screen,
+                          Screens.VILLAGER_LOSS: self._villager_loss_screen,
+                          Screens.WOLF_WIN: self._wolf_win_screen,
+                          Screens.WOLF_LOSS: self._wolf_loss_screen}
         self._clock = pygame.time.Clock()
         self._next_event=None
         
@@ -405,6 +413,54 @@ class NightRoleScreen(AbstractScreen):
             if event.type==pygame.KEYUP and event.key==pygame.K_DOWN:
                 #TODO: change screen on timer/event
                 self._game_state_manager.change_screen(Screens.TEST)
+
+class VillagerWinScreen(AbstractScreen):
+    """The winning screen for villager users"""
+    def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
+        super().__init__(display, game_state_manager)
+        from wiredwolf.view.Components import Text
+        self._title=VContainer(0, [Text("Villagers have won!")], self._display.get_size())
+
+    def run(self,event:pygame.event.Event | None)->None:
+        """A winning screen for villager users"""
+        self._display.fill(BACKGROUND_COLOR)
+        self._title.draw(self._display)
+
+class VillagerLossScreen(AbstractScreen):
+    """The losing screen for villager users"""
+    def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
+        super().__init__(display, game_state_manager)
+        from wiredwolf.view.Components import Text
+        self._title=VContainer(0, [Text("Villagers have lost")], self._display.get_size())
+
+    def run(self,event:pygame.event.Event | None)->None:
+        """A losing screen for villager users"""
+        self._display.fill(BACKGROUND_COLOR)
+        self._title.draw(self._display)
+
+class WolfWinScreen(AbstractScreen):
+    """The winning screen for werewolf users"""
+    def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
+        super().__init__(display, game_state_manager)
+        from wiredwolf.view.Components import Text
+        self._title=VContainer(0, [Text("Werewolves have won!")], self._display.get_size())
+
+    def run(self,event:pygame.event.Event | None)->None:
+        """A winning screen for werewolf users"""
+        self._display.fill(BACKGROUND_COLOR)
+        self._title.draw(self._display)
+
+class WolfLossScreen(AbstractScreen):
+    """The losing screen for werewolf users"""
+    def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
+        super().__init__(display, game_state_manager)
+        from wiredwolf.view.Components import Text
+        self._title=VContainer(0, [Text("Werewolves have lost")], self._display.get_size())
+
+    def run(self,event:pygame.event.Event | None)->None:
+        """A losing screen for werewolf users"""
+        self._display.fill(BACKGROUND_COLOR)
+        self._title.draw(self._display)
 
 if __name__ == "__main__":
     my_app=App()

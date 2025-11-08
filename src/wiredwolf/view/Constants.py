@@ -11,6 +11,10 @@ class Screens(Enum):
     NIGHT_VILLAGER='night'
     NIGHT_ROLE='night role'
     TEST='test'
+    VILLAGER_WIN='villager win'
+    VILLAGER_LOSS='villager loss'
+    WOLF_WIN='wolf win'
+    WOLF_LOSS='wolf loss'
 
 #App colors
 BACKGROUND_COLOR="#C5C5BF"
