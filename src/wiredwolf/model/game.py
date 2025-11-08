@@ -3,47 +3,14 @@ from wiredwolf.model.player import Player, Status
 from wiredwolf.model.exceptions import *
 from wiredwolf.model.game_template import AbstractGameInfo
 
-
+@dataclass(frozen=True)
 class GameStatus:
     """
     Represents the status of the game, containing the current phase, players and game information.
     """
-
-    def __init__(
-        self,
-        players: list[Player],
-        game_info: AbstractGameInfo,
-        phase: GamePhase = GamePhase.DAY_DISCUSSION,
-    ):
-        self._players: list[Player] = players
-        self._game_info: AbstractGameInfo = game_info
-        self.phase: GamePhase = phase
-
-    @property
-    def players(self) -> list[Player]:
-        """
-        Returns:
-            list[Player]: The players in the game.
-        """
-        return self._players
-
-    @property
-    def game_info(self) -> AbstractGameInfo:
-        """
-        Returns:
-            AbstractGameInfo: The game information handling rules, votes, and actions.
-        """
-        return self._game_info
-
-    def __eq__(self, value: object) -> bool:
-        if not isinstance(value, GameStatus):
-            return False
-        return (
-            self.players == value.players
-            and self.game_info == value.game_info
-            and self.phase == value.phase
-        )
-
+    players: list[Player]
+    game_info: AbstractGameInfo 
+    phase: GamePhase
 
 # TODO: revise documentation (remove at the end)
 class Game:
