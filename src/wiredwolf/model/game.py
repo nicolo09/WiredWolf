@@ -1,7 +1,8 @@
 from wiredwolf.model.game_phases import *
-from wiredwolf.model.player import Player, Status
+from wiredwolf.model.player import *
 from wiredwolf.model.exceptions import *
-from wiredwolf.model.game_template import AbstractGameInfo
+from wiredwolf.model.game_template import AbstractGameInfo, GameActionData
+from wiredwolf.model.role_extensions import BasicGameInfoBuilder
 
 @dataclass(frozen=True)
 class GameStatus:
@@ -9,7 +10,8 @@ class GameStatus:
     Represents the status of the game, containing the current phase, players and game information.
     """
     players: list[Player]
-    game_info: AbstractGameInfo 
+    roles: set[Role]
+    game_data: GameActionData
     phase: GamePhase
 
 # TODO: revise documentation (remove at the end)
@@ -52,7 +54,7 @@ class Game:
         Returns:
             Game: A new Game instance initialized with the provided game status.
         """
-        return cls(game_status.players, game_status.game_info, game_status.phase)
+        return cls(game_status.players, BasicGameInfoBuilder.with_game_data(game_status.game_data).with_roles(game_status.roles).build(), game_status.phase)
 
     @property
     def phase(self) -> GamePhase:
@@ -71,7 +73,7 @@ class Game:
         Returns:
             GameStatus: The current game status.
         """
-        return GameStatus(self._players.copy(), self._game_info, self._phase)
+        return GameStatus(self._players.copy(), self._game_info.get_all_handled_roles(), self._game_info.get_game_data(), self._phase)
 
     def advance_phase(self) -> GamePhaseOutcome:
         """
