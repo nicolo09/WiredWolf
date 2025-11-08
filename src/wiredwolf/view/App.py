@@ -212,7 +212,7 @@ class SearchLobbyScreen(AbstractScreen):
         self._lobby_group.draw(self._display)
         self._buttons.draw(self._display)
         global lobby_name
-        tmp=self._selector.selectedText()
+        tmp=self._selector.selected_text()
         if len(tmp)>0:
             self._join_button._is_enabled=True
             if lobby_name!=tmp:
@@ -226,7 +226,7 @@ class TestScreen(AbstractScreen):
         from wiredwolf.view.Components import CallbackButton
         go_home=partial(self._game_state_manager.change_screen, Screens.HOME)
         my_button1=CallbackButton(go_home, 'test screen', 200, 50, font=FontSize.H1, default_color="#0033FF", activation_color="#5365AD") 
-        button_list=[my_button1]
+        button_list:List=[my_button1]
         self._button_container=VContainer(10, button_list, self._display.get_size())
     
     def run(self,event:pygame.event.Event | None)->None:
@@ -314,7 +314,7 @@ class DayVotingScreen(AbstractScreen):
 
     def _set_voted_player(self)->None:
         """Function called when the user chooses who to nominate for execution"""
-        get_voted_player=self._selector.selectedText() #gets the chosen player
+        get_voted_player=self._selector.selected_text() #gets the chosen player
         global voted_user
         self._vote_player_group.update_on_next_draw() #This is necessary to update the container size on the next draw
         if len(get_voted_player)>0:
@@ -421,7 +421,7 @@ class VillagerWinScreen(AbstractScreen):
         from wiredwolf.view.Components import Text
         self._title=VContainer(0, [Text("Villagers have won!")], self._display.get_size())
 
-    def run(self,event:pygame.event.Event | None)->None:
+    def run(self, event:pygame.event.Event | None)->None:
         """A winning screen for villager users"""
         self._display.fill(BACKGROUND_COLOR)
         self._title.draw(self._display)
@@ -433,7 +433,7 @@ class VillagerLossScreen(AbstractScreen):
         from wiredwolf.view.Components import Text
         self._title=VContainer(0, [Text("Villagers have lost")], self._display.get_size())
 
-    def run(self,event:pygame.event.Event | None)->None:
+    def run(self, event:pygame.event.Event | None)->None:
         """A losing screen for villager users"""
         self._display.fill(BACKGROUND_COLOR)
         self._title.draw(self._display)
@@ -445,7 +445,7 @@ class WolfWinScreen(AbstractScreen):
         from wiredwolf.view.Components import Text
         self._title=VContainer(0, [Text("Werewolves have won!")], self._display.get_size())
 
-    def run(self,event:pygame.event.Event | None)->None:
+    def run(self, event:pygame.event.Event | None)->None:
         """A winning screen for werewolf users"""
         self._display.fill(BACKGROUND_COLOR)
         self._title.draw(self._display)
@@ -457,7 +457,7 @@ class WolfLossScreen(AbstractScreen):
         from wiredwolf.view.Components import Text
         self._title=VContainer(0, [Text("Werewolves have lost")], self._display.get_size())
 
-    def run(self,event:pygame.event.Event | None)->None:
+    def run(self, event:pygame.event.Event | None)->None:
         """A losing screen for werewolf users"""
         self._display.fill(BACKGROUND_COLOR)
         self._title.draw(self._display)

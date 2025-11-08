@@ -452,7 +452,7 @@ class SelectorGroup():
                     self._selectors[self._selected_element].selected=False
                     self._selected_element=new_selected
     
-    def selectedText(self)->str:
+    def selected_text(self)->str:
         """Returns the text of the selected element, or no text if no element is selected"""
         if self._selected_element is None:
             return ""
