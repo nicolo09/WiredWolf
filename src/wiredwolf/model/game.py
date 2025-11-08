@@ -157,7 +157,7 @@ class Game:
         """
         if self._phase != GamePhase.NIGHT:
             raise GamePhaseError(
-                "Night actions can only be performed during the NIGHT phase."
+                f"Night actions can only be performed during the NIGHT phase. Now is {self._phase}."
             )
 
         actor: Player | None = self.__get_player_from_id(actor_id)
@@ -184,7 +184,7 @@ class Game:
         """
         if self._phase != GamePhase.DAY_ACCUSING:
             raise GamePhaseError(
-                "Accusations can only be made during the DAY_ACCUSING phase."
+                f"Accusations can only be made during the DAY_ACCUSING phase. Now is {self._phase}."
             )
 
         voter: Player | None = self.__get_player_from_id(voter_id)
@@ -213,7 +213,7 @@ class Game:
         """
         if self._phase != GamePhase.DAY_BALLOT:
             raise GamePhaseError(
-                "Ballots can only be confirmed during the DAY_BALLOT phase."
+                f"Ballots can only be confirmed during the DAY_BALLOT phase. Now is {self._phase}."
             )
 
         voter: Player | None = self.__get_player_from_id(voter_id)
