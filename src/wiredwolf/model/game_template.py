@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Any, final, TypeVar, Type
 from wiredwolf.model.game_phases import GamePhase, NightActionResult
 from wiredwolf.model.player import Player, Status, Role
@@ -7,6 +8,19 @@ from wiredwolf.model.exceptions import *
 # Type variable for generic decorator searching
 T = TypeVar("T", bound="AbstractGameInfo")
 
+
+@dataclass
+class GameActionData:
+    """
+    Data class to hold the game action data, such as votes and role specific actions.
+    """
+
+    data: dict[str, Any]
+
+    def compose(self, other: "GameActionData") -> "GameActionData":
+        combined_data = self.data.copy()
+        combined_data.update(other.data)
+        return GameActionData(combined_data)
 
 class AbstractGameInfo(ABC):
     """
@@ -27,6 +41,10 @@ class AbstractGameInfo(ABC):
     @abstractmethod
     def werewolves_votes(self) -> dict[Player, Player]:
         """Returns the current werewolves votes."""
+
+    @abstractmethod
+    def get_game_data(self) -> GameActionData:
+        """Returns a dictionary containing the game data."""
 
     @abstractmethod
     def reset_actions(self) -> None:
@@ -130,10 +148,19 @@ class SimpleGameInfo(AbstractGameInfo):
     add support for additional roles.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        game_data: GameActionData | None = None,
+    ) -> None:
+        
         self._accusation_votes: dict[Player, Player] = {}
         self._ballot_votes: dict[Player, bool] = {}
         self._werewolves_votes: dict[Player, Player] = {}
+
+        if game_data is not None:
+            self._accusation_votes = game_data.data.get("accusation_votes", {})
+            self._ballot_votes = game_data.data.get("ballot_votes", {})
+            self._werewolves_votes = game_data.data.get("werewolves_votes", {})
 
     @property
     def accusation_votes(self) -> dict[Player, Player]:
@@ -146,6 +173,15 @@ class SimpleGameInfo(AbstractGameInfo):
     @property
     def werewolves_votes(self) -> dict[Player, Player]:
         return self._werewolves_votes
+    
+    def get_game_data(self) -> GameActionData:
+        return GameActionData(
+            {
+                "accusation_votes": self._accusation_votes,
+                "ballot_votes": self._ballot_votes,
+                "werewolves_votes": self._werewolves_votes,
+            }
+        )
 
     def handle_accusation_vote(self, accuser: Player, accused: Player) -> None:
         if not accuser.is_alive():
@@ -245,7 +281,10 @@ class GameInfoDecorator(AbstractGameInfo):
         Note:
             This method must be implemented by all concrete decorator classes.
         """
-        pass
+    
+    @abstractmethod
+    def get_decorator_data(self) -> GameActionData:
+        """ Returns a GameActionData specific to this decorator. """
 
     @property
     def accusation_votes(self) -> dict[Player, Player]:
@@ -258,6 +297,9 @@ class GameInfoDecorator(AbstractGameInfo):
     @property
     def werewolves_votes(self) -> dict[Player, Player]:
         return self._wrapped.werewolves_votes
+    
+    def get_game_data(self) -> GameActionData:
+        return self.get_decorator_data().compose(self._wrapped.get_game_data())
 
     def reset_actions(self) -> None:
         self._wrapped.reset_actions()

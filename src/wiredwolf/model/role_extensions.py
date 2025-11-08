@@ -12,13 +12,25 @@ class ClairvoyantDecorator(GameInfoDecorator):
     if they are evil (part of the werewolf team).
     """
 
-    def __init__(self, wrapped: AbstractGameInfo) -> None:
+    def __init__(
+        self, wrapped: AbstractGameInfo, game_data: GameActionData | None = None
+    ) -> None:
         super().__init__(wrapped)
-        self._clairvoyant_acted: bool = False
+        if game_data is not None and "clairvoyant_acted" in game_data.data:
+            self._clairvoyant_acted: bool = game_data.data["clairvoyant_acted"]
+        else:
+            self._clairvoyant_acted: bool = False
 
     @staticmethod
     def get_decorator_roles() -> set[Role]:
         return {Role.CLAIRVOYANT}
+
+    def get_decorator_data(self) -> GameActionData:
+        return GameActionData(
+            {
+                "clairvoyant_acted": self._clairvoyant_acted,
+            }
+        )
 
     def reset_actions(self) -> None:
         super().reset_actions()
@@ -60,15 +72,31 @@ class EscortDecorator(GameInfoDecorator):
 
     The Escort can protect one player per night from werewolf attacks.
     """
-
-    def __init__(self, wrapped: AbstractGameInfo) -> None:
+#FIXME: When recreating from GameActionData, the player must be the same instance as in the players list
+# even though it should be already set as protected in the player status
+    def __init__(
+        self,
+        wrapped: AbstractGameInfo,
+        game_data: GameActionData | None = None
+    ) -> None:
         super().__init__(wrapped)
-        self._escort_acted: bool = False
-        self._protected_player: Player | None = None
+        if game_data is not None and "protected_player" in game_data.data:
+            self._escort_acted: bool = True
+            self._protected_player: Player | None = game_data.data["protected_player"]
+        else:
+            self._escort_acted: bool = False
+            self._protected_player: Player | None = None
 
     @staticmethod
     def get_decorator_roles() -> set[Role]:
         return {Role.ESCORT}
+
+    def get_decorator_data(self) -> GameActionData:
+        return GameActionData(
+            {
+                "protected_player": self._protected_player,
+            }
+        )
 
     def reset_actions(self) -> None:
         super().reset_actions()
@@ -129,13 +157,23 @@ class MediumDecorator(GameInfoDecorator):
     were evil (part of the werewolf team).
     """
 
-    def __init__(self, wrapped: AbstractGameInfo) -> None:
+    def __init__(self, wrapped: AbstractGameInfo, game_data: GameActionData | None = None) -> None:
         super().__init__(wrapped)
-        self._medium_acted: bool = False
+        if game_data is not None and "medium_acted" in game_data.data:
+            self._medium_acted: bool = game_data.data["medium_acted"]
+        else:
+            self._medium_acted: bool = False
 
     @staticmethod
     def get_decorator_roles() -> set[Role]:
         return {Role.MEDIUM}
+
+    def get_decorator_data(self) -> GameActionData:
+        return GameActionData(
+            {
+                "medium_acted": self._medium_acted,
+            }
+        )
 
     def reset_actions(self) -> None:
         super().reset_actions()
@@ -176,9 +214,10 @@ class BasicGameInfoBuilder:
     Builder for creating game configurations with specific role support.
     """
 
-    def __init__(self, game_info: AbstractGameInfo):
+    def __init__(self, game_info: AbstractGameInfo, game_data: GameActionData | None = None) -> None:
         self._game_info: AbstractGameInfo = game_info
-
+        self._game_data: GameActionData | None = game_data
+    
     @classmethod
     def default(cls) -> "BasicGameInfoBuilder":
         """
@@ -189,6 +228,19 @@ class BasicGameInfoBuilder:
         """
         return cls(SimpleGameInfo())
 
+    @classmethod
+    def with_game_data(cls, game_data: GameActionData) -> "BasicGameInfoBuilder":
+        """
+        Create a builder with the specified game data.
+
+        Args:
+            game_data (GameActionData): The game data to use.
+
+        Returns:
+            BasicGameInfoBuilder: A new builder with the specified game data.
+        """
+        return cls(SimpleGameInfo(game_data), game_data)
+
     def with_clairvoyant(self) -> "BasicGameInfoBuilder":
         """
         Add Clairvoyant role support.
@@ -197,7 +249,7 @@ class BasicGameInfoBuilder:
             BasicGameInfoBuilder: This builder.
         """
         if Role.CLAIRVOYANT not in self._game_info.get_all_handled_roles():
-            self._game_info = ClairvoyantDecorator(self._game_info)
+            self._game_info = ClairvoyantDecorator(self._game_info, self._game_data)
         return self
 
     def with_escort(self) -> "BasicGameInfoBuilder":
@@ -208,7 +260,7 @@ class BasicGameInfoBuilder:
             BasicGameInfoBuilder: This builder.
         """
         if Role.ESCORT not in self._game_info.get_all_handled_roles():
-            self._game_info = EscortDecorator(self._game_info)
+            self._game_info = EscortDecorator(self._game_info, self._game_data)
         return self
 
     def with_medium(self) -> "BasicGameInfoBuilder":
@@ -219,7 +271,7 @@ class BasicGameInfoBuilder:
             BasicGameInfoBuilder: This builder.
         """
         if Role.MEDIUM not in self._game_info.get_all_handled_roles():
-            self._game_info = MediumDecorator(self._game_info)
+            self._game_info = MediumDecorator(self._game_info, self._game_data)
         return self
 
     def with_roles(self, roles: set[Role]) -> "BasicGameInfoBuilder":
@@ -254,7 +306,7 @@ class BasicGameInfoBuilder:
 
 def create_standard_game() -> AbstractGameInfo:
     """
-    Create a standard game with all available roles.
+    Create a new standard game with all available roles.
 
     Returns:
         AbstractGameInfo: A game supporting all roles.
