@@ -129,3 +129,28 @@ class GameTest(unittest.TestCase):
         self.game.advance_phase()
         self.game.kill_player("Eve")
         self.assertEqual(self.game.phase, GamePhase.WEREWOLVES_VICTORY)
+        
+    def test_game_status_consistency(self):
+        self.game.kill_player("Bob")
+        self.game.advance_phase()
+
+        first_status: GameStatus = self.game.get_game_status()
+        first_game_copy: Game = Game.from_game_status(first_status)
+
+        first_game_copy.accuse_player("Alice", "Frank")
+        first_game_copy.advance_phase()
+        first_game_copy.ballot_vote("Alice", True)
+
+        second_status = first_game_copy.get_game_status()
+        second_game_copy: Game = Game.from_game_status(second_status)
+
+        second_game_copy.ballot_vote("Charlie", True)
+        second_game_copy.ballot_vote("Diana", True)
+        second_game_copy.advance_phase()
+        
+        self.assertEqual(second_game_copy.phase, GamePhase.VILLAGERS_VICTORY)
+        
+        self.assertNotEqual(first_status, second_status)
+        self.assertNotEqual(second_status, second_game_copy.get_game_status())
+        
+        
