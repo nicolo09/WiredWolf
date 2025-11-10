@@ -78,7 +78,7 @@ class Player:
         return False
 
     def __hash__(self) -> int:
-        return hash((self._id, self._role, self._status))
+        return hash((self._id, self._role))
 
 
 def create_players(ids: list[str], roles: set[Role]) -> list[Player]:
