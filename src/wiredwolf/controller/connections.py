@@ -5,8 +5,7 @@ from enum import Enum
 from types import CoroutineType
 from typing import Any
 import pickle
-from venv import logger
-from wiredwolf.controller.commons import MAX_CONNECTION_TIME, RECEIVING_TASK_CLOSE_TIMEOUT, Peer
+from wiredwolf.controller.commons import CONNECTION_TIMEOUT, RECEIVING_TASK_CLOSE_TIMEOUT, Peer
 from wiredwolf.controller.messages import BaseMessage
 import asyncio
 
@@ -173,7 +172,7 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
             self._receive_loop()
         ).add_done_callback(self._handle_receive_loop_closed)
 
-    def _handle_receive_loop_closed(self, task: asyncio.Task[None]) -> None:
+    async def _handle_receive_loop_closed(self, task: asyncio.Task[None]) -> None:
         """Handle the completion of the receive loop task.
 
         Args:
@@ -237,7 +236,7 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
         self._logger.info("Client connection closed.")
 
 
-class AsyncTCPMessageHandler: #TODO: Make this implement a MessageHandler interface
+class AsyncTCPMessageHandler:  # TODO: Make this implement a MessageHandler interface
     PREFIX_LEN: int = 4
 
     def __init__(self, serializer: Serializer):
@@ -293,14 +292,10 @@ class AsyncTCPMessageHandler: #TODO: Make this implement a MessageHandler interf
         Raises:
             ConnectionClosedError: If the connection is closed by the other side.
         """
-        length_prefix: bytes = b""
-        try:
-            length_prefix = await endpoint.read(self.PREFIX_LEN)
-        except Exception:
-            logger.error("Error while reading from endpoint", exc_info=True)
-        if not length_prefix:
+        data_len = await endpoint.read(self.PREFIX_LEN)
+        if not data_len:
             raise ConnectionClosedError("Connection closed by the other side.")
-        data_len = int(length_prefix.decode("utf-8").strip())
+        data_len = int(data_len.decode("utf-8").strip())
         return await endpoint.read(data_len)
 
     async def receive_msg(self, endpoint: asyncio.StreamReader) -> str:
@@ -372,7 +367,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
     ):
         client_address = writer.get_extra_info("peername")
         self._logger.info("Accepted connection from %s", client_address)
-        async with asyncio.timeout(MAX_CONNECTION_TIME):
+        async with asyncio.timeout(CONNECTION_TIMEOUT):
             try:
                 # First thing peer sends is their identification (serialized peer object)
                 peer: Peer = await self._async_message_handler.receive_obj(reader)

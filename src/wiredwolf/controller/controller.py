@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from wiredwolf.controller.connections import ClientConnectionHandler
-from wiredwolf.controller.lobbies import TcpMdnsLobbyBrowser
+from wiredwolf.controller.lobbies import LobbyBrowser
 from wiredwolf.controller.lobbies import Lobby
 from wiredwolf.controller.messages import (
     AcknowledgeMessage,
@@ -26,8 +26,8 @@ class GameController:
 
     _logger = logging.getLogger(__name__)
 
-    def __init__(self):
-        self._lobby_browser: TcpMdnsLobbyBrowser = TcpMdnsLobbyBrowser()
+    def __init__(self, browser: LobbyBrowser):
+        self._lobby_browser: LobbyBrowser = browser
         self._lobby: Lobby | None = None
         self._server: GameServer | None = None
         # TODO: Default name, should be set by user
@@ -70,7 +70,7 @@ class GameController:
         self._client_connection_handler.set_on_message(self._on_message)
         await self._client_connection_handler.start_receiving()
         return self._lobby
-    
+
     def _on_message(self, message: BaseMessage):
         match message:
             case AcknowledgeMessage():
@@ -80,27 +80,31 @@ class GameController:
             case NotAcknowledgeMessage():
                 # Notify the waiting coroutine that an error has occurred
                 self._waiting_for_ack[message.id] = (
-                    self._waiting_for_ack[message.id][0], message.error
+                    self._waiting_for_ack[message.id][0],
+                    message.error,
                 )
                 if message.id in self._waiting_for_ack:
                     self._waiting_for_ack[message.id][0].set()
             case GameStartedMessage():
                 self._logger.info("Game has started.")
                 self._game_status = message.status
-                #TODO: Notify UI or other components about game start
+                # TODO: Notify UI or other components about game start
             case PhaseAdvanceMessage():
                 self._logger.info("Game phase has advanced.")
                 if message.outcome.someone_died():
                     self._logger.info("A player has died this phase.")
                     # TODO: Handle player death logic here
-                if message.outcome.new_phase in (GamePhase.VILLAGERS_VICTORY, GamePhase.WEREWOLVES_VICTORY):
+                if message.outcome.new_phase in (
+                    GamePhase.VILLAGERS_VICTORY,
+                    GamePhase.WEREWOLVES_VICTORY,
+                ):
                     self._logger.info("Game has ended with a victory.")
-                    # TODO: Notify UI or other components about game end                    
+                    # TODO: Notify UI or other components about game end
             case _:
                 self._logger.warning("Unhandled message type: %s", type(message))
 
     @property
-    def lobby_browser(self) -> TcpMdnsLobbyBrowser:
+    def lobby_browser(self) -> LobbyBrowser:
         """Gets the lobby browser.
         Returns:
             TcpMdnsLobbyBrowser: The lobby browser.

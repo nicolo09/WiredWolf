@@ -20,7 +20,7 @@ async def server(lobby: Lobby):
     await server.close()
 
 @pytest.fixture()
-def browser():
+def tcp_mdns_lobby_browser():
     browser = TcpMdnsLobbyBrowser()
     yield browser
     try:
@@ -30,9 +30,9 @@ def browser():
         pass
 
 @pytest.mark.asyncio
-async def test_client_connect_to_server(lobby: Lobby, server: GameServer, browser: TcpMdnsLobbyBrowser):
+async def test_client_connect_to_server(lobby: Lobby, server: GameServer, tcp_mdns_lobby_browser: TcpMdnsLobbyBrowser):
     myself = Peer("Test Peer")
-    handler, recv_lobby = await browser.connect_to_lobby_directly(
+    handler, recv_lobby = await tcp_mdns_lobby_browser.connect_to_lobby_directly(
         myself,
         (
             "localhost",
@@ -43,12 +43,11 @@ async def test_client_connect_to_server(lobby: Lobby, server: GameServer, browse
     assert recv_lobby == lobby
     await handler.close()
 
-def test_peer_connect(lobby: Lobby, server: GameServer):
+def test_peer_connect(lobby: Lobby, server: GameServer, tcp_mdns_lobby_browser: TcpMdnsLobbyBrowser):
     # Start the lobby browser
-    browser = TcpMdnsLobbyBrowser()
     lobbies: list[Lobby] = []
-    browser.start_lobby_browser(on_lobby_found=lobbies.append, on_lobby_lost=lobbies.remove, on_lobby_updated=lambda x: None,)  # type: ignore
-    browser.publish_lobby(
+    tcp_mdns_lobby_browser.start_lobby_browser(on_lobby_found=lobbies.append, on_lobby_lost=lobbies.remove, on_lobby_updated=lambda x: None,)  # type: ignore
+    tcp_mdns_lobby_browser.publish_lobby(
         lobby.name, DEFAULT_SERVER_PORT
     )
     # Wait for the lobby to be discovered

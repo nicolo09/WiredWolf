@@ -1,3 +1,4 @@
+import abc
 import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -26,6 +27,10 @@ class Lobby:
     password: str | None = None
     peers: list[Peer] = dataclasses.field(default_factory=list[Peer])
 
+    def __post_init__(self):
+        """Initializes the lobby by adding the owner to the peers list."""
+        self.peers.append(self.owner)
+
     def check_password(self, passwd: str) -> bool:
         """Checks if the provided password matches the lobby's password."""
         return self.password == passwd
@@ -39,7 +44,61 @@ class LobbyNotFoundError(Exception):
     """Exception raised when a lobby is not found."""
 
 
-class TcpMdnsLobbyBrowser:
+class LobbyBrowser(abc.ABC):
+    """
+    Abstract base class for lobby browsers.
+    """
+
+    @abc.abstractmethod
+    def start_lobby_browser(
+        self,
+        on_lobby_found: Callable[[str], None],
+        on_lobby_lost: Callable[[str], None],
+        on_lobby_updated: Callable[[str], None],
+    ) -> None:
+        """Starts the lobby browser to discover available lobbies.
+        When appropriate the lobby browser should be stopped by calling stop_lobby_browser().
+
+        args:
+            on_lobby_found (Callable[[str], None]): Callback invoked when a new lobby is found.
+            on_lobby_lost (Callable[[str], None]): Callback invoked when a lobby is lost.
+            on_lobby_updated (Callable[[str], None]): Callback invoked when a lobby is updated.
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def stop_lobby_browser(self) -> None:
+        """Stops the lobby browser from discovering lobbies."""
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def publish_lobby(self, lobby_name: str, receiver_port: int) -> None:
+        """Publishes a lobby to be discovered by other players."""
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def stop_publishing_lobby(self) -> None:
+        """Stops publishing the lobby."""
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def connect_to_lobby_by_name(
+        self, peer: Peer, lobby_name: str, lobby_password: str | None
+    ) -> tuple[ClientConnectionHandler, Lobby]:
+        """
+        Connects to a lobby with the given name and password.
+
+        Args:
+            lobby_name (str): The name of the lobby to connect to.
+            lobby_password (str | None): The password for the lobby, or None if not required.
+
+        Returns:
+            tuple[ClientConnectionHandler, Lobby]: The connected client handler and the joined lobby.
+        """
+        raise NotImplementedError
+
+
+class TcpMdnsLobbyBrowser(LobbyBrowser):
     """
     Handles the discovery and creations/publishment of game lobbies through mDNS.
     """

@@ -8,7 +8,7 @@ from wiredwolf.controller.connections import (
     ClientConnectionHandler,
     AsyncTCPServerConnectionHandler
 )
-from wiredwolf.controller.lobbies import Lobby, TcpMdnsLobbyBrowser
+from wiredwolf.controller.lobbies import Lobby, LobbyBrowser, TcpMdnsLobbyBrowser
 from wiredwolf.controller.server import GameServer
 from wiredwolf.controller.server_plugins import ChatPlugin, GameLifecyclePlugin
 
@@ -46,7 +46,7 @@ class TestFactory:
                     raise RuntimeError("Unexpected message type")
                 else:
                     return None
-            browser = TcpMdnsLobbyBrowser()
+            browser: LobbyBrowser = TcpMdnsLobbyBrowser()
             owner_handler, lobby = await browser.connect_to_lobby_directly(
                 lobby.owner,
                 ("127.0.0.1", DEFAULT_SERVER_PORT),
@@ -62,10 +62,7 @@ class TestFactory:
                     ("127.0.0.1", DEFAULT_SERVER_PORT),
                     None
                 )
-
-
                 client_handler.set_on_message(on_message)
                 await client_handler.start_receiving()
                 clients.append(client_handler)
-
         return server, clients

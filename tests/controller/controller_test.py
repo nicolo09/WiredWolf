@@ -5,7 +5,7 @@ import unittest
 from zeroconf import ServiceInfo
 
 from wiredwolf.controller.commons import DEFAULT_SERVER_PORT
-from wiredwolf.controller.lobbies import TcpMdnsLobbyBrowser
+from wiredwolf.controller.lobbies import LobbyBrowser, TcpMdnsLobbyBrowser
 from wiredwolf.controller.services import ServiceManager
 
 
@@ -68,7 +68,7 @@ class ServiceManagerTest(unittest.TestCase):
 
 class LobbyBrowserTest(unittest.TestCase):
     def setUp(self):
-        self.lobby_browser = TcpMdnsLobbyBrowser()
+        self.lobby_browser: LobbyBrowser = TcpMdnsLobbyBrowser()
 
     def test_lobby_publish_and_discovery(self):  # TODO: Flaky test, sometimes fails
         discovered_lobbies: list[str] = []
