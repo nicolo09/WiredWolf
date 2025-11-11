@@ -4,34 +4,37 @@ from wiredwolf.model.game_phases import GamePhase, GamePhaseOutcome
 from wiredwolf.model.player import Player, Status
 from tests.model.game_test import populate_players, get_index_by_name, create_game_info
 
+
 class GamePhaseTest(unittest.TestCase):
-    
-    players: list[Player]
-    game: Game
-    outcome: GamePhaseOutcome
-    
+
     def setUp(self):
-        self.players = populate_players()
-        self.game = Game(self.players, create_game_info())
+        self.players: list[Player] = populate_players()
+        self.game: Game = Game(self.players, create_game_info())
 
     def test_skip_ballot_vote_draw(self):
-        self.outcome = self.game.advance_phase()
-        self.assertEqual(self.outcome.new_phase, GamePhase.DAY_ACCUSING)
-        self.outcome = self.game.advance_phase()
-        self.assertEqual(self.outcome.new_phase, GamePhase.NIGHT)
+
+        outcome: GamePhaseOutcome
+
+        outcome = self.game.advance_phase()
+        self.assertEqual(outcome.new_phase, GamePhase.DAY_ACCUSING)
+        outcome = self.game.advance_phase()
+        self.assertEqual(outcome.new_phase, GamePhase.NIGHT)
 
     def test_advance_all_phases(self):
-        self.outcome = self.game.advance_phase()
-        self.assertEqual(self.outcome.new_phase, GamePhase.DAY_ACCUSING)
+
+        outcome: GamePhaseOutcome
+
+        outcome = self.game.advance_phase()
+        self.assertEqual(outcome.new_phase, GamePhase.DAY_ACCUSING)
         self.game.accuse_player("Alice", "Bob")
-        self.outcome = self.game.advance_phase()
-        self.assertEqual(self.outcome.new_phase, GamePhase.DAY_BALLOT)
-        self.outcome = self.game.advance_phase()
-        self.assertFalse(self.outcome.someone_died())
-        self.assertEqual(self.outcome.new_phase, GamePhase.NIGHT)
-        self.outcome = self.game.advance_phase()
-        self.assertFalse(self.outcome.someone_died())
-        self.assertEqual(self.outcome.new_phase, GamePhase.DAY_DISCUSSION)
+        outcome = self.game.advance_phase()
+        self.assertEqual(outcome.new_phase, GamePhase.DAY_BALLOT)
+        outcome = self.game.advance_phase()
+        self.assertFalse(outcome.someone_died())
+        self.assertEqual(outcome.new_phase, GamePhase.NIGHT)
+        outcome = self.game.advance_phase()
+        self.assertFalse(outcome.someone_died())
+        self.assertEqual(outcome.new_phase, GamePhase.DAY_DISCUSSION)
         for player in self.game.players:
             self.assertEqual(player.status, Status.ALIVE)
 

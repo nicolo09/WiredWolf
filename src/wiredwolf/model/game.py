@@ -1,30 +1,32 @@
 from wiredwolf.model.game_phases import *
 from wiredwolf.model.player import Player, Status
-from wiredwolf.model.exceptions import *    
+from wiredwolf.model.exceptions import *
 from wiredwolf.model.game_template import AbstractGameInfo
+
 
 class GameStatus:
     """
     Represents the status of the game, containing the current phase, players and game information.
     """
-    
-    _players: list[Player]
-    _game_info: AbstractGameInfo
-    phase: GamePhase
 
-    def __init__(self, players: list[Player], game_info: AbstractGameInfo, phase: GamePhase = GamePhase.DAY_DISCUSSION):
-        self._players = players
-        self._game_info = game_info
-        self.phase = phase
-        
+    def __init__(
+        self,
+        players: list[Player],
+        game_info: AbstractGameInfo,
+        phase: GamePhase = GamePhase.DAY_DISCUSSION,
+    ):
+        self._players: list[Player] = players
+        self._game_info: AbstractGameInfo = game_info
+        self.phase: GamePhase = phase
+
     @property
     def players(self) -> list[Player]:
-        """        
+        """
         Returns:
             list[Player]: The players in the game.
         """
         return self._players
-    
+
     @property
     def game_info(self) -> AbstractGameInfo:
         """
@@ -32,13 +34,15 @@ class GameStatus:
             AbstractGameInfo: The game information handling rules, votes, and actions.
         """
         return self._game_info
-    
+
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, GameStatus):
             return False
-        return (self.players == value.players and
-                self.game_info == value.game_info and
-                self.phase == value.phase)
+        return (
+            self.players == value.players
+            and self.game_info == value.game_info
+            and self.phase == value.phase
+        )
 
 
 # TODO: revise documentation (remove at the end)
@@ -51,13 +55,13 @@ class Game:
     methods to advance the game phase, handle player actions, accusations, voting,
     and player elimination.
     """
-    
-    _players: list[Player]
-    _phase: GamePhase
-    _game_info: AbstractGameInfo
-    _current_accusation: Player | None
-    
-    def __init__(self, players: list[Player], game_info: AbstractGameInfo, phase: GamePhase = GamePhase.DAY_DISCUSSION):
+
+    def __init__(
+        self,
+        players: list[Player],
+        game_info: AbstractGameInfo,
+        phase: GamePhase = GamePhase.DAY_DISCUSSION,
+    ):
         """
         Initialize a new game instance.
 
@@ -65,11 +69,11 @@ class Game:
             players (list[Player]): List of Player objects participating in the game.
             game_info (AbstractGameInfo): The information to handle game rules, votes, and actions.
         """
-        self._players = players
-        self._phase = phase
-        self._game_info = game_info
+        self._players: list[Player] = players
+        self._phase: GamePhase = phase
+        self._game_info: AbstractGameInfo = game_info
 
-        self._current_accusation = None
+        self._current_accusation: Player | None = None
 
     @classmethod
     def from_game_status(cls, game_status: GameStatus) -> "Game":
@@ -106,12 +110,12 @@ class Game:
     def advance_phase(self) -> GamePhaseOutcome:
         """
         Advance to the next game phase based on current state.
-        
+
         - DAY_DISCUSSION -> DAY_ACCUSING
         - DAY_ACCUSING -> DAY_BALLOT (if single player has most votes) or NIGHT (if tie/no votes)
         - DAY_BALLOT -> NIGHT (after processing execution vote)
         - NIGHT -> DAY_DISCUSSION (after processing werewolf attacks and resetting for new day)
-        
+
         Returns:
             GamePhaseOutcome: contains the new game phase and any deaths that occurred during the transition.
         """
@@ -123,8 +127,10 @@ class Game:
 
             case GamePhase.DAY_ACCUSING:
                 # Get the player with the most votes (or None if tie/no votes)
-                accused_player = self.__get_most_voted_player(self._game_info.accusation_votes)
-                
+                accused_player = self.__get_most_voted_player(
+                    self._game_info.accusation_votes
+                )
+
                 if accused_player is not None:
                     self._phase = GamePhase.DAY_BALLOT
                     self._current_accusation = accused_player
@@ -148,11 +154,11 @@ class Game:
             case GamePhase.NIGHT:
                 # Get the most voted victim by werewolves (or None if tie/no votes)
                 victim = self.__get_most_voted_player(self._game_info.werewolves_votes)
-                
+
                 if victim is not None and victim.status != Status.PROTECTED:
                     victim.status = Status.DEAD
                     deaths.append(victim)
-                    
+
                 self._game_info.reset_actions()
                 self._phase = GamePhase.DAY_DISCUSSION
             case _:
@@ -162,7 +168,7 @@ class Game:
         game_over: GamePhase | None = self._game_info.end_game_conditions(self._players)
         if game_over:
             self._phase = game_over
-            
+
         return GamePhaseOutcome(self._phase, deaths)
 
     def perform_night_action(self, actor_id: str, target_id: str) -> NightActionResult:
@@ -181,7 +187,9 @@ class Game:
             MissingPlayerError: If actor or target does not exist.
         """
         if self._phase != GamePhase.NIGHT:
-            raise GamePhaseError("Night actions can only be performed during the NIGHT phase.")
+            raise GamePhaseError(
+                "Night actions can only be performed during the NIGHT phase."
+            )
 
         actor: Player | None = self.__get_player_from_id(actor_id)
         if actor is None:
@@ -206,18 +214,20 @@ class Game:
             MissingPlayerError: If voter/target does not exist.
         """
         if self._phase != GamePhase.DAY_ACCUSING:
-            raise GamePhaseError("Accusations can only be made during the DAY_ACCUSING phase.")
-        
+            raise GamePhaseError(
+                "Accusations can only be made during the DAY_ACCUSING phase."
+            )
+
         voter: Player | None = self.__get_player_from_id(voter_id)
-        
+
         if voter is None:
             raise MissingPlayerError(f"Voter with ID {voter_id} does not exist.")
 
         target: Player | None = self.__get_player_from_id(target_id)
-        
+
         if target is None:
             raise MissingPlayerError(f"Target with ID {target_id} does not exist.")
-        
+
         self._game_info.handle_accusation_vote(voter, target)
 
     def ballot_vote(self, voter_id: str, vote: bool) -> None:
@@ -233,13 +243,17 @@ class Game:
             MissingPlayerError: If voter does not exist or is not alive.
         """
         if self._phase != GamePhase.DAY_BALLOT:
-            raise GamePhaseError("Ballots can only be confirmed during the DAY_BALLOT phase.")
-        
+            raise GamePhaseError(
+                "Ballots can only be confirmed during the DAY_BALLOT phase."
+            )
+
         voter: Player | None = self.__get_player_from_id(voter_id)
-        
+
         if voter is None:
-            raise MissingPlayerError(f"Player with ID {voter_id} does not exist or is not alive.")
-        
+            raise MissingPlayerError(
+                f"Player with ID {voter_id} does not exist or is not alive."
+            )
+
         self._game_info.handle_ballot_vote(voter, vote)
 
     def kill_player(self, player_id: str) -> GamePhase:
@@ -250,31 +264,36 @@ class Game:
         Should only be used by the game controller to remove a player from the game.
         Args:
             player_id: ID of the player to kill.
-            
+
         Returns:
             The new game phase after the player has been killed.
-            
+
         Raises:
             MissingPlayerError: If player does not exist.
         """
         player: Player | None = self.__get_player_from_id(player_id)
-        
+
         if not player:
             raise MissingPlayerError(f"Player with ID {player_id} does not exist.")
 
         if player.is_alive():
-            
+
             self._game_info.remove_player(player, self._phase)
-            if self._phase == GamePhase.DAY_BALLOT and player == self._current_accusation:
+            if (
+                self._phase == GamePhase.DAY_BALLOT
+                and player == self._current_accusation
+            ):
                 self._current_accusation = None
                 self._phase = GamePhase.NIGHT
 
-            game_over: GamePhase | None = self._game_info.end_game_conditions(self._players)
+            game_over: GamePhase | None = self._game_info.end_game_conditions(
+                self._players
+            )
             if game_over:
                 self._phase = game_over
-                
-        return self._phase    
-            
+
+        return self._phase
+
     def __get_player_from_id(self, player_id: str) -> Player | None:
         """
         Get a player by their ID.
@@ -285,30 +304,35 @@ class Game:
         Returns:
             The Player object if found, None otherwise.
         """
-        return next((player for player in self._players if player.id == player_id), None)
-    
+        return next(
+            (player for player in self._players if player.id == player_id), None
+        )
+
     def __get_most_voted_player(self, votes: dict[Player, Player]) -> Player | None:
         """
         Get the player with the most votes from a voting dictionary.
-        
+
         Args:
             votes: Dictionary mapping voters to their chosen targets.
-            
+
         Returns:
             The player with the most votes, or None if there's a tie or no votes were cast.
         """
         if not votes:
             return None
-            
+
         # Count votes for each target
         from collections import Counter
+
         vote_counts = Counter(votes.values())
-        
+
         # Find the maximum vote count
         max_votes = max(vote_counts.values())
-        
+
         # Get all players with the maximum vote count
-        most_voted_players = [player for player, count in vote_counts.items() if count == max_votes]
-        
+        most_voted_players = [
+            player for player, count in vote_counts.items() if count == max_votes
+        ]
+
         # Return the player only if there's exactly one winner
         return most_voted_players[0] if len(most_voted_players) == 1 else None

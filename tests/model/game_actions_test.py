@@ -1,10 +1,12 @@
 import unittest
 from wiredwolf.model.game import Game
-from wiredwolf.model.player import Status
+from wiredwolf.model.player import Status, EVIL_ALIGNMENT
 from wiredwolf.model.exceptions import *
 from tests.model.game_test import populate_players, get_index_by_name, create_game_info
 
+
 class GameActionsTest(unittest.TestCase):
+    
     def setUp(self):
         self.players = populate_players()
         self.game = Game(self.players, create_game_info())
@@ -20,6 +22,12 @@ class GameActionsTest(unittest.TestCase):
         self.game.perform_night_action("Bob", "Alice")
         self.game.advance_phase()
         self.assertEqual(self.game.players[alice_index].status, Status.DEAD)
+
+    def test_werewolf_targets_werewolf(self):
+        self.game.advance_phase()
+        self.game.advance_phase()
+        with self.assertRaises(InvalidActionError):
+            self.game.perform_night_action("Bob", "Frank")
 
     def test_werewolf_action_error(self):
         self.game.kill_player("Alice")
@@ -53,14 +61,26 @@ class GameActionsTest(unittest.TestCase):
         self.game.perform_night_action("Charlie", "Alice")
         self.game.advance_phase()
         self.assertEqual(self.game.players[alice_index].status, Status.ALIVE)
+        
+    def test_escort_removal_after_action(self):
+
+        alice_index = get_index_by_name(self.players, "Alice")
+
+        self.game.advance_phase()
+        self.game.advance_phase()
+        self.game.perform_night_action("Bob", "Alice")
+        self.game.perform_night_action("Charlie", "Alice")
+        self.game.kill_player("Charlie")
+        self.game.advance_phase()
+        self.assertEqual(self.game.players[alice_index].status, Status.DEAD)
 
     def test_clairvoyant_action(self):
         self.game.advance_phase()
         self.game.advance_phase()
-        self.assertTrue(self.game.perform_night_action("Diana", "Bob"))
+        self.assertTrue(EVIL_ALIGNMENT in self.game.perform_night_action("Diana", "Bob").message)
 
     def test_medium_action(self):
         self.game.kill_player("Bob")
         self.game.advance_phase()
         self.game.advance_phase()
-        self.assertTrue(self.game.perform_night_action("Eve", "Bob"))
+        self.assertTrue(EVIL_ALIGNMENT in self.game.perform_night_action("Eve", "Bob").message)

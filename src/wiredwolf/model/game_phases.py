@@ -21,12 +21,9 @@ class GamePhaseOutcome:
         deaths (list[Player]): List of players who died because of the phase transition.
     """
 
-    new_phase: GamePhase
-    deaths: list[Player]
-
     def __init__(self, new_phase: GamePhase, deaths: list[Player] = []):
-        self.new_phase = new_phase
-        self.deaths = deaths
+        self.new_phase: GamePhase = new_phase
+        self.deaths: list[Player] = deaths
 
     def someone_died(self) -> bool:
         return len(self.deaths) > 0
@@ -35,8 +32,7 @@ class GamePhaseOutcome:
 @dataclass
 class NightActionResult:
     """
-    Represents the result of a night action, including success status (if any, otherwise None) and a message.
+    Contains a message for the player who performed a night action to let them know the result.
     """
-
-    result: bool | None = None
-    message: str = ""
+    
+    message: str

@@ -5,7 +5,9 @@ from wiredwolf.model.player import Status
 from wiredwolf.model.exceptions import *
 from tests.model.game_test import populate_players, get_index_by_name, create_game_info
 
+
 class GameVotingTest(unittest.TestCase):
+    
     def setUp(self):
         self.players = populate_players()
         self.game = Game(self.players, create_game_info())
