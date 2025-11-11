@@ -72,12 +72,11 @@ class EscortDecorator(GameInfoDecorator):
 
     The Escort can protect one player per night from werewolf attacks.
     """
-#FIXME: When recreating from GameActionData, the player must be the same instance as in the players list
-# even though it should be already set as protected in the player status
+
+    # FIXME: When recreating from GameActionData, the player must be the same instance as in the players list
+    # even though it should be already set as protected in the player status
     def __init__(
-        self,
-        wrapped: AbstractGameInfo,
-        game_data: GameActionData | None = None
+        self, wrapped: AbstractGameInfo, game_data: GameActionData | None = None
     ) -> None:
         super().__init__(wrapped)
         if game_data is not None and "protected_player" in game_data.data:
@@ -157,7 +156,9 @@ class MediumDecorator(GameInfoDecorator):
     were evil (part of the werewolf team).
     """
 
-    def __init__(self, wrapped: AbstractGameInfo, game_data: GameActionData | None = None) -> None:
+    def __init__(
+        self, wrapped: AbstractGameInfo, game_data: GameActionData | None = None
+    ) -> None:
         super().__init__(wrapped)
         if game_data is not None and "medium_acted" in game_data.data:
             self._medium_acted: bool = game_data.data["medium_acted"]
@@ -214,10 +215,12 @@ class BasicGameInfoBuilder:
     Builder for creating game configurations with specific role support.
     """
 
-    def __init__(self, game_info: AbstractGameInfo, game_data: GameActionData | None = None) -> None:
+    def __init__(
+        self, game_info: AbstractGameInfo, game_data: GameActionData | None = None
+    ) -> None:
         self._game_info: AbstractGameInfo = game_info
         self._game_data: GameActionData | None = game_data
-    
+
     @classmethod
     def default(cls) -> "BasicGameInfoBuilder":
         """
@@ -231,7 +234,7 @@ class BasicGameInfoBuilder:
     @classmethod
     def with_game_data(cls, game_data: GameActionData) -> "BasicGameInfoBuilder":
         """
-        Create a builder with the specified game data.
+        Create a builder with a given game data which will be used to initialize the game.
 
         Args:
             game_data (GameActionData): The game data to use.

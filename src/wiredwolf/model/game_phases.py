@@ -34,5 +34,5 @@ class NightActionResult:
     """
     Contains a message for the player who performed a night action to let them know the result.
     """
-    
+
     message: str

@@ -4,8 +4,10 @@ import random
 GOOD_ALIGNMENT = "Good"
 EVIL_ALIGNMENT = "Evil"
 
+
 class Role(Enum):
-    
+    """Enumeration of possible player roles in the game."""
+
     WEREWOLF = ("Werewolf", EVIL_ALIGNMENT)
     VILLAGER = ("Villager", GOOD_ALIGNMENT)
     ESCORT = ("Escort", GOOD_ALIGNMENT)
@@ -25,14 +27,23 @@ class Role(Enum):
 
 
 class Status(Enum):
+    """Enumeration of possible player statuses in the game."""
+
     ALIVE = "Alive"
     PROTECTED = "Protected"
     DEAD = "Dead"
 
 
 class Player:
+    """Represents a player in the game with an ID, role, and status."""
 
     def __init__(self, id: str, role: Role):
+        """Initializes a new player with the given ID and role.
+           All players start with the status set to ALIVE.
+        Args:
+            id (str): The unique identifier for the player.
+            role (Role): The role assigned to the player.
+        """
         self._id: str = id
         self._status: Status = Status.ALIVE
         self._role: Role = role
@@ -54,12 +65,15 @@ class Player:
         self._status = new_status
 
     def is_alive(self) -> bool:
+        """Returns True if the player status is not set to dead."""
         return self._status != Status.DEAD
 
     def is_evil(self) -> bool:
+        """Returns True if the player's role is considered evil (part of the werewolf team)."""
         return self._role.is_evil()
-    
+
     def get_alignment(self) -> str:
+        """Returns the alignment of the player's role."""
         return self._role.alignment
 
     def __str__(self) -> str:

@@ -4,15 +4,18 @@ from wiredwolf.model.exceptions import *
 from wiredwolf.model.game_template import AbstractGameInfo, GameActionData
 from wiredwolf.model.role_extensions import BasicGameInfoBuilder
 
+
 @dataclass(frozen=True)
 class GameStatus:
     """
     Represents the status of the game, containing the current phase, players and game information.
     """
+
     players: list[Player]
     roles: set[Role]
     game_data: GameActionData
     phase: GamePhase
+
 
 # TODO: revise documentation (remove at the end)
 class Game:
@@ -54,7 +57,13 @@ class Game:
         Returns:
             Game: A new Game instance initialized with the provided game status.
         """
-        return cls(game_status.players, BasicGameInfoBuilder.with_game_data(game_status.game_data).with_roles(game_status.roles).build(), game_status.phase)
+        return cls(
+            game_status.players,
+            BasicGameInfoBuilder.with_game_data(game_status.game_data)
+            .with_roles(game_status.roles)
+            .build(),
+            game_status.phase,
+        )
 
     @property
     def phase(self) -> GamePhase:
@@ -73,7 +82,12 @@ class Game:
         Returns:
             GameStatus: The current game status.
         """
-        return GameStatus(self._players.copy(), self._game_info.get_all_handled_roles(), self._game_info.get_game_data(), self._phase)
+        return GameStatus(
+            self._players.copy(),
+            self._game_info.get_all_handled_roles(),
+            self._game_info.get_game_data(),
+            self._phase,
+        )
 
     def advance_phase(self) -> GamePhaseOutcome:
         """
@@ -95,9 +109,10 @@ class Game:
 
             case GamePhase.DAY_ACCUSING:
 
-                if self.__get_most_voted_player(
-                    self._game_info.accusation_votes
-                ) is not None:
+                if (
+                    self.__get_most_voted_player(self._game_info.accusation_votes)
+                    is not None
+                ):
                     self._phase = GamePhase.DAY_BALLOT
                 else:
                     # No votes or tie in accusations, skip to night
@@ -235,7 +250,7 @@ class Game:
             player_id: ID of the player to kill.
 
         Returns:
-            The new game phase after the player has been killed.
+            GamePhase: The new game phase after the player has been killed.
 
         Raises:
             MissingPlayerError: If player does not exist.
@@ -250,7 +265,8 @@ class Game:
             self._game_info.remove_player(player, self._phase)
             if (
                 self._phase == GamePhase.DAY_BALLOT
-                and player == self.__get_most_voted_player(self._game_info.accusation_votes)
+                and player
+                == self.__get_most_voted_player(self._game_info.accusation_votes)
             ):
                 self._phase = GamePhase.NIGHT
 
@@ -267,10 +283,10 @@ class Game:
         Get a player by their ID.
 
         Args:
-            player_id: The ID of the player to retrieve.
+            player_id (str): The ID of the player to retrieve.
 
         Returns:
-            The Player object if found, None otherwise.
+            (Player | None): The Player object if found, None otherwise.
         """
         return next(
             (player for player in self._players if player.id == player_id), None
@@ -281,10 +297,10 @@ class Game:
         Get the player with the most votes from a voting dictionary.
 
         Args:
-            votes: Dictionary mapping voters to their chosen targets.
+            votes (dict[Player, Player]): Dictionary mapping voters to their chosen targets.
 
         Returns:
-            The player with the most votes, or None if there's a tie or no votes were cast.
+            (Player | None): The player with the most votes, or None if there's a tie or no votes were cast.
         """
         if not votes:
             return None

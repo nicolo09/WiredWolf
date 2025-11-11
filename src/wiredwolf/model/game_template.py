@@ -22,6 +22,7 @@ class GameActionData:
         combined_data.update(other.data)
         return GameActionData(combined_data)
 
+
 class AbstractGameInfo(ABC):
     """
     Abstract base class for managing game state, votes, and night actions.
@@ -98,7 +99,7 @@ class AbstractGameInfo(ABC):
             players (list[Player]): List of all players.
 
         Returns:
-            The winning phase, or None if the game continues.
+            (GamePhase | None): The winning phase, or None if the game continues.
         """
 
     @abstractmethod
@@ -152,7 +153,10 @@ class SimpleGameInfo(AbstractGameInfo):
         self,
         game_data: GameActionData | None = None,
     ) -> None:
-        
+        """Initializes the SimpleGameInfo
+        Args:
+            game_data (GameActionData | None): Pre-existing game data to initialize from.
+        """
         self._accusation_votes: dict[Player, Player] = {}
         self._ballot_votes: dict[Player, bool] = {}
         self._werewolves_votes: dict[Player, Player] = {}
@@ -173,7 +177,7 @@ class SimpleGameInfo(AbstractGameInfo):
     @property
     def werewolves_votes(self) -> dict[Player, Player]:
         return self._werewolves_votes
-    
+
     def get_game_data(self) -> GameActionData:
         return GameActionData(
             {
@@ -265,7 +269,10 @@ class GameInfoDecorator(AbstractGameInfo):
     """
 
     def __init__(self, wrapped: AbstractGameInfo) -> None:
-
+        """Initializes the GameInfoDecorator with a wrapped AbstractGameInfo instance.
+        Args:
+            wrapped (AbstractGameInfo): The game info instance to be decorated.
+        """
         self._check_roles_duplicates(wrapped)
         self._wrapped: AbstractGameInfo = wrapped
 
@@ -281,10 +288,10 @@ class GameInfoDecorator(AbstractGameInfo):
         Note:
             This method must be implemented by all concrete decorator classes.
         """
-    
+
     @abstractmethod
     def get_decorator_data(self) -> GameActionData:
-        """ Returns a GameActionData specific to this decorator. """
+        """Returns a GameActionData specific to this decorator."""
 
     @property
     def accusation_votes(self) -> dict[Player, Player]:
@@ -297,7 +304,7 @@ class GameInfoDecorator(AbstractGameInfo):
     @property
     def werewolves_votes(self) -> dict[Player, Player]:
         return self._wrapped.werewolves_votes
-    
+
     def get_game_data(self) -> GameActionData:
         return self.get_decorator_data().compose(self._wrapped.get_game_data())
 
@@ -323,6 +330,14 @@ class GameInfoDecorator(AbstractGameInfo):
         return self._wrapped.get_all_handled_roles() | self.get_decorator_roles()
 
     def _check_roles_duplicates(self, wrapped: AbstractGameInfo) -> None:
+        """Checks for duplicate roles between this decorator and the wrapped game info.
+
+        Args:
+            wrapped (AbstractGameInfo): The game info instance to check against.
+
+        Raises:
+            ValueError: If there are duplicate roles handled by both this decorator and the wrapped game info.
+        """
         duplicate_roles: set[Role] = self.get_decorator_roles().intersection(
             wrapped.get_all_handled_roles()
         )
