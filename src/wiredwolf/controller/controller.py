@@ -13,7 +13,7 @@ from wiredwolf.controller.messages import (
     VoteBallotMessage,
     VotePlayerMessage,
 )
-from wiredwolf.controller.server import GameServer
+from wiredwolf.controller.server import GameServer, GameServerFactory
 from wiredwolf.controller.commons import ACK_TIMEOUT_SECONDS, DEFAULT_SERVER_PORT, Peer
 from wiredwolf.model.game import GameStatus
 from wiredwolf.model.game_phases import GamePhase
@@ -35,8 +35,8 @@ class GameController:
         self._waiting_for_ack: dict[str, tuple[asyncio.Event, Exception | None]] = {}
         self._game_status: GameStatus | None = None
 
-    def create_lobby(self, name: str, password: str | None = None) -> Lobby:
-        """Creates a new lobby.
+    async def create_lobby(self, name: str, password: str | None = None) -> Lobby:
+        """Creates a new lobby and local server.
 
         Args:
             name (str): The name of the lobby.
@@ -49,7 +49,10 @@ class GameController:
             Lobby: The created lobby.
         """
         self._lobby = Lobby(self._my_self, name=name, password=password)
-        self._server = GameServer(self._lobby)
+        self._server, self._client_connection_handler = await GameServerFactory.get_game_server(self._lobby)
+        self._client_connection_handler.set_on_message(self._on_message)
+        await self._client_connection_handler.start_receiving()
+        await self._server.start_listening()
         self._lobby_browser.publish_lobby(self._lobby.name, DEFAULT_SERVER_PORT)
         return self._lobby
 
