@@ -1,5 +1,7 @@
 import asyncio
 import logging
+from asyncio import Task
+from socket import socketpair
 from wiredwolf.controller.commons import (
     PHASE_DURATION_SECONDS,
     DEFAULT_SERVER_PORT,
@@ -24,7 +26,7 @@ from wiredwolf.controller.messages import (
 from wiredwolf.controller.lobbies import Lobby
 import abc
 
-from wiredwolf.model.game_phases import GamePhase
+from wiredwolf.model.game_phases import GamePhase, GamePhaseOutcome
 from wiredwolf.model.player import create_players
 from wiredwolf.model.game import Game
 from wiredwolf.model.role_extensions import BasicGameInfoBuilder
@@ -88,16 +90,21 @@ class GameServer:
 
     __logger = logging.getLogger(__name__)
 
-    def __init__(self, lobby: Lobby):  # TODO: Add owner peer and socket on init
+    def __init__(
+        self,
+        lobby: Lobby,
+        owner_connection: tuple[Peer, asyncio.StreamReader, asyncio.StreamWriter],
+    ):
         self._lobby: Lobby = lobby
         self._game: Game | None = None  # Placeholder for game instance
         self._server_conn_handler: ServerConnectionHandler = (
-            ConnectionHandlerFactory.get_default_server_handler(
-                self._on_new_peer, self.process_incoming_message
+            ConnectionHandlerFactory.get_server_connection_handler(
+                self._on_new_peer, self.process_incoming_message, owner_connection
             )
         )
         self._players: dict[Peer, ClientConnectionHandler] = {}
         self._plugins: list[ServerPlugin] = []
+        self._game_actual_phase_task: Task[GamePhaseOutcome] | None = None
 
     async def start_listening(self):
         await self._server_conn_handler.start_listening(
@@ -203,15 +210,40 @@ class GameServer:
             [peer.uuid for peer in self._lobby.peers],
             set(
                 game_info.get_handled_roles()
-            )  # TODO: Check if get_handled_roles returns a set or a list
+            ),  # TODO: Check if get_handled_roles returns a set or a list
         )
         self._game = Game(players, game_info)
         assert self._game.phase is GamePhase.DAY_DISCUSSION
         self.__logger.info("Game started with players: %s", players)
         await self.send_to_all(GameStartedMessage(self._game.get_game_status()))
-        await self.wait_and_advance_game(FIRST_DAY_PHASE_DURATION_SECONDS)
+        self._game_actual_phase_task = asyncio.create_task(
+            self.wait_and_advance_game(FIRST_DAY_PHASE_DURATION_SECONDS)
+        )
+        self._game_actual_phase_task.add_done_callback(
+            lambda outcome: self.on_game_phase_advanced(outcome)
+        )
 
-    async def wait_and_advance_game(self, time_seconds: int):
+    def on_game_phase_advanced(self, outcome: Task[GamePhaseOutcome]):
+        # If the game is not over, set up the next phase timer
+        if outcome.result().new_phase is GamePhase.VILLAGERS_VICTORY:
+            self.__logger.info("Game over. Villagers have won.")
+            return
+        elif outcome.result().new_phase is GamePhase.WEREWOLVES_VICTORY:
+            self.__logger.info("Game over. Werewolves have won.")
+            return
+        else:
+            self.__logger.info(
+                "Setting up timer for next phase: %s seconds.",
+                PHASE_DURATION_SECONDS,
+            )
+            self._game_actual_phase_task = asyncio.create_task(
+                self.wait_and_advance_game(PHASE_DURATION_SECONDS)
+            )
+        self._game_actual_phase_task.add_done_callback(
+            lambda outcome: self.on_game_phase_advanced(outcome)
+        )
+
+    async def wait_and_advance_game(self, time_seconds: int) -> GamePhaseOutcome:
         """Waits for the specified time and then advances the game phase.
 
         Args:
@@ -227,19 +259,7 @@ class GameServer:
         outcome = self._game.advance_phase()
         self.__logger.info("Game phase advanced. Outcome: %s", outcome)
         await self.send_to_all(PhaseAdvanceMessage(outcome))
-        # If the game is not over, set up the next phase timer
-        if outcome.new_phase is GamePhase.VILLAGERS_VICTORY:
-            self.__logger.info("Game over. Villagers have won.")
-            return
-        elif outcome.new_phase is GamePhase.WEREWOLVES_VICTORY:
-            self.__logger.info("Game over. Werewolves have won.")
-            return
-        else:
-            self.__logger.info(
-                "Setting up timer for next phase: %s seconds.",
-                PHASE_DURATION_SECONDS,
-            )
-            await self.wait_and_advance_game(PHASE_DURATION_SECONDS)
+        return outcome
 
     def stop_new_connections(self):
         """Stop accepting new peer connections"""
@@ -265,3 +285,27 @@ class GameServer:
                 if should_stop:
                     return
         # self.__logger.warning("No plugin found to handle message of type %s", type(message))
+
+
+class GameServerFactory:
+    @staticmethod
+    async def get_game_server(
+        lobby: Lobby,
+    ) -> tuple[GameServer, ClientConnectionHandler]:
+        """Creates and returns a new GameServer instance and the owner ClientConnectionHandler.
+
+        Args:
+            lobby (Lobby): The lobby to be managed by the server.
+        Returns:
+            tuple[GameServer, ClientConnectionHandler]: The created GameServer and the owner's ClientConnectionHandler.
+        """
+        client_socket, server_socket = socketpair()
+        client_reader, client_writer = await asyncio.open_connection(sock=client_socket)
+        server_reader, server_writer = await asyncio.open_connection(sock=server_socket)
+        server = GameServer(
+            lobby, owner_connection=(lobby.owner, server_reader, server_writer)
+        )
+        client_conn_handler = ConnectionHandlerFactory.get_client_connection_handler(
+            lobby.owner, client_reader, client_writer
+        )
+        return server, client_conn_handler

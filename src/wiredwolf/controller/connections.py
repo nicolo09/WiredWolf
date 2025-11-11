@@ -5,7 +5,11 @@ from enum import Enum
 from types import CoroutineType
 from typing import Any
 import pickle
-from wiredwolf.controller.commons import CONNECTION_TIMEOUT, RECEIVING_TASK_CLOSE_TIMEOUT, Peer
+from wiredwolf.controller.commons import (
+    CONNECTION_TIMEOUT,
+    RECEIVING_TASK_CLOSE_TIMEOUT,
+    Peer,
+)
 from wiredwolf.controller.messages import BaseMessage
 import asyncio
 
@@ -330,6 +334,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
         self,
         on_new_peer: Callable[[Peer], CoroutineType[Any, Any, None]],
         on_new_message: Callable[[BaseMessage], CoroutineType[Any, Any, None]],
+        owner_connection: tuple[Peer, asyncio.StreamReader, asyncio.StreamWriter] | None = None
     ):
         super().__init__()
         self._on_new_peer: Callable[[Peer], CoroutineType[Any, Any, None]] = on_new_peer
@@ -345,6 +350,13 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
         self._status: dict[Peer, ConnectionStatus] = {}
         self._receiving_tasks: dict[Peer, asyncio.Task[None]] = {}
         self._server: asyncio.Server | None = None
+        if owner_connection is not None:
+            peer, reader, writer = owner_connection
+            self._endpoints[peer] = (reader, writer)
+            self._status[peer] = ConnectionStatus.CONNECTED
+            self._receiving_tasks[peer] = asyncio.create_task(
+                self._handle_peer_message(peer)
+            )
 
     async def start_listening(self, bind_address: tuple[str, int]) -> None:
         if self._server:
@@ -490,17 +502,35 @@ class ConnectionHandlerFactory:
     """Factory class for creating connection handlers."""
 
     @staticmethod
-    def get_default_server_handler(
+    def get_server_connection_handler(
         on_new_peer: Callable[[Peer], CoroutineType[Any, Any, None]],
         on_new_message: Callable[[BaseMessage], CoroutineType[Any, Any, None]],
+        owner_connection: tuple[Peer, asyncio.StreamReader, asyncio.StreamWriter] | None = None,
     ) -> ServerConnectionHandler:
-        """Get the default server connection handler.
+        """Creates and returns a new ServerConnectionHandler.
 
         Args:
-            on_new_peer (Callable[[Peer], None]): Callback function to call on new peer connections.
+            on_new_peer (Callable[[Peer], CoroutineType[Any, Any, None]]): The callback for new peer connections.
+            on_new_message (Callable[[BaseMessage], CoroutineType[Any, Any, None]]): The callback for new messages.
 
         Returns:
-            ServerConnectionHandler: The default server connection handler.
+            ServerConnectionHandler: The created server connection handler.
         """
-        # TODO: Make this generic implementing ServerConnectionHandler interface
-        return AsyncTCPServerConnectionHandler(on_new_peer, on_new_message)
+        return AsyncTCPServerConnectionHandler(on_new_peer, on_new_message, owner_connection)
+
+    @staticmethod
+    def get_client_connection_handler(
+        my_self: Peer,
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
+    ) -> ClientConnectionHandler:
+        """Creates and returns a new ClientConnectionHandler.
+
+        Args:
+            my_self (Peer): The peer representing this client.
+            reader (asyncio.StreamReader): The reader for the connection.
+            writer (asyncio.StreamWriter): The writer for the connection.
+        Returns:
+            ClientConnectionHandler: The created client connection handler.
+        """
+        return AsyncTCPClientConnectionHandler(my_self, reader, writer)

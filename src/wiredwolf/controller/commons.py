@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import uuid
 
 DEFAULT_SERVER_PORT = 12233
-CONNECTION_TIMEOUT = 10  # seconds
+CONNECTION_TIMEOUT = 100  # seconds
 
 FIRST_DAY_PHASE_DURATION_SECONDS = 10
 PHASE_DURATION_SECONDS = 60

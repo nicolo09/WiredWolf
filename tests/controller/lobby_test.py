@@ -1,9 +1,8 @@
 import pytest
 import pytest_asyncio
 from wiredwolf.controller.commons import DEFAULT_SERVER_PORT, Peer
-from wiredwolf.controller.connections import AsyncTCPServerConnectionHandler
 from wiredwolf.controller.lobbies import Lobby, TcpMdnsLobbyBrowser
-from wiredwolf.controller.server import GameServer
+from wiredwolf.controller.server import GameServer, GameServerFactory
 
 @pytest.fixture()
 def lobby():
@@ -13,8 +12,7 @@ def lobby():
 
 @pytest_asyncio.fixture()
 async def server(lobby: Lobby):
-    server = GameServer(lobby)
-    assert isinstance(server.connection_handler, AsyncTCPServerConnectionHandler)
+    server, _ = await GameServerFactory.get_game_server(lobby)
     await server.start_listening()
     yield server
     await server.close()

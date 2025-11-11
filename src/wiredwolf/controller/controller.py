@@ -26,12 +26,11 @@ class GameController:
 
     _logger = logging.getLogger(__name__)
 
-    def __init__(self, browser: LobbyBrowser):
+    def __init__(self, browser: LobbyBrowser, my_self: Peer):
         self._lobby_browser: LobbyBrowser = browser
         self._lobby: Lobby | None = None
         self._server: GameServer | None = None
-        # TODO: Default name, should be set by user
-        self._my_self: Peer = Peer("Player")
+        self._my_self: Peer = my_self
         self._client_connection_handler: ClientConnectionHandler | None = None
         self._waiting_for_ack: dict[str, tuple[asyncio.Event, Exception | None]] = {}
         self._game_status: GameStatus | None = None
@@ -182,3 +181,16 @@ class GameController:
         await self._send_message_and_wait_for_ack(
             VoteBallotMessage(self._my_self, False)
         )
+
+class ControllerFactory:
+    @staticmethod
+    def get_controller(browser: LobbyBrowser, my_self: Peer) -> GameController:
+        """Creates and returns a new GameController instance.
+
+        Args:
+            browser (LobbyBrowser): The lobby browser to use.
+            my_self (Peer): The peer representing the local player.
+        Returns:
+            GameController: The created game controller.
+        """
+        return GameController(browser, my_self)

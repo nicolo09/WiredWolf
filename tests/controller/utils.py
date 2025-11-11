@@ -2,14 +2,13 @@ from logging import Logger
 import logging
 from typing import Any
 
-
 from wiredwolf.controller.commons import DEFAULT_SERVER_PORT, Peer
 from wiredwolf.controller.connections import (
     ClientConnectionHandler,
     AsyncTCPServerConnectionHandler
 )
 from wiredwolf.controller.lobbies import Lobby, LobbyBrowser, TcpMdnsLobbyBrowser
-from wiredwolf.controller.server import GameServer
+from wiredwolf.controller.server import GameServer, GameServerFactory
 from wiredwolf.controller.server_plugins import ChatPlugin, GameLifecyclePlugin
 
 
@@ -30,14 +29,13 @@ class TestFactory:
             lobby (Lobby): The lobby to be managed by the server.
 
         Returns:
-            GameServer: The created game server.
-            list[ClientConnectionHandler]: List of connected client handlers.
+            tuple[GameServer, list[ClientConnectionHandler]]: The created GameServer and a list of connected clients, of which the first is the owner.
         """
-        server: GameServer = GameServer(lobby)
+        server, owner_handler = await GameServerFactory.get_game_server(lobby)
         server.add_plugin(ChatPlugin())
         server.add_plugin(GameLifecyclePlugin())
         await server.start_listening()
-        clients: list[ClientConnectionHandler] = []
+        clients: list[ClientConnectionHandler] = [owner_handler]
 
         if isinstance(server.connection_handler, AsyncTCPServerConnectionHandler):
             def on_message(msg: Any) -> None:
@@ -46,15 +44,9 @@ class TestFactory:
                     raise RuntimeError("Unexpected message type")
                 else:
                     return None
-            browser: LobbyBrowser = TcpMdnsLobbyBrowser()
-            owner_handler, lobby = await browser.connect_to_lobby_directly(
-                lobby.owner,
-                ("127.0.0.1", DEFAULT_SERVER_PORT),
-                None
-            )
             owner_handler.set_on_message(on_message)
             await owner_handler.start_receiving()
-            clients.append(owner_handler)
+            browser: LobbyBrowser = TcpMdnsLobbyBrowser()
             for i in range(num_clients-1):
                 client_peer = Peer(f"client_{i}")
                 client_handler, _ = await browser.connect_to_lobby_directly(

@@ -1,18 +1,19 @@
+import asyncio
 import pytest
 import pytest_asyncio
 from wiredwolf.controller.commons import DEFAULT_SERVER_PORT, Peer
 from wiredwolf.controller.lobbies import Lobby, TcpMdnsLobbyBrowser
-from wiredwolf.controller.server import GameServer
+from wiredwolf.controller.server import GameServer, GameServerFactory
 
 
 PASSWORD: str = "password123"
 
 
 @pytest_asyncio.fixture
-async def server_and_owner():
+async def server():
     owner = Peer("Owner Peer")
     lobby = Lobby(owner, "Test Lobby", PASSWORD)
-    server = GameServer(lobby)
+    server, _ = await GameServerFactory.get_game_server(lobby)
     await server.start_listening()
     yield server
     await server.close()
@@ -26,11 +27,15 @@ async def browser():
 
 @pytest.mark.asyncio
 async def test_join_server(server: GameServer, browser: TcpMdnsLobbyBrowser) -> None:
-    handler, lobby = await browser.connect_to_lobby_directly(
-        Peer("test_user"), ("127.0.0.1", DEFAULT_SERVER_PORT), PASSWORD
-    )
-    assert lobby == server.lobby
-    await handler.close()
+    try:
+        async with asyncio.timeout(5):
+            handler, lobby = await browser.connect_to_lobby_directly(
+                Peer("test_user"), ("127.0.0.1", DEFAULT_SERVER_PORT), PASSWORD
+            )
+            assert lobby == server.lobby
+            await handler.close()
+    except asyncio.TimeoutError:
+        pytest.fail("Connection to server timed out")
 
 
 @pytest.mark.asyncio

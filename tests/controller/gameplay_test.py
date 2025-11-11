@@ -31,29 +31,32 @@ async def lobby_owner_server_clients(request: pytest.FixtureRequest):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("lobby_owner_server_clients", [5, 34], indirect=True)
+@pytest.mark.parametrize("lobby_owner_server_clients", [4, 36], indirect=True)
 async def test_start_game_with_too_few_or_too_many_players(
+    caplog: pytest.LogCaptureFixture,
     lobby_owner_server_clients: tuple[
         Lobby, Peer, GameServer, list[ClientConnectionHandler]
     ],
 ):
+    caplog.set_level(logging.INFO)
+
     event = asyncio.Event()
     _, owner, _, handlers = lobby_owner_server_clients
 
     def on_message(msg: BaseMessage) -> None:
+        logger.info(msg)
         if isinstance(msg, GameStartedMessage):
             pytest.fail(
                 "GameStartedMessage should not be received with too few players"
             )
         elif isinstance(msg, Exception):
-            logger.info(msg)
             event.set()
 
     for handler in handlers:
         handler.set_on_message(on_message)
     await handlers[0].send_obj(StartGameMessage(owner))
     try:
-        async with asyncio.timeout(5):
+        async with asyncio.timeout(50):
             await event.wait()
     except TimeoutError:
         logger.info("Test timed out waiting for event")

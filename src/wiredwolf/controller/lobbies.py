@@ -83,7 +83,7 @@ class LobbyBrowser(abc.ABC):
 
     @abc.abstractmethod
     async def connect_to_lobby_by_name(
-        self, peer: Peer, lobby_name: str, lobby_password: str | None
+        self, my_self: Peer, lobby_name: str, lobby_password: str | None
     ) -> tuple[ClientConnectionHandler, Lobby]:
         """
         Connects to a lobby with the given name and password.
@@ -208,7 +208,7 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
             raise TimeoutError("Connection to lobby timed out.")
 
     async def connect_to_lobby_directly(
-        self, peer: Peer, address: tuple[str, int], lobby_password: str | None
+        self, my_self: Peer, address: tuple[str, int], lobby_password: str | None
     ) -> tuple[ClientConnectionHandler, Lobby]:
         """
         Connects directly to a lobby at the given address with the provided password.
@@ -221,10 +221,10 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
             tuple[ClientConnectionHandler, Lobby]: The connected client handler and the joined lobby.
         """
 
-        return await self._connect(address, peer, lobby_password)
+        return await self._connect(address, my_self, lobby_password)
 
     async def connect_to_lobby_by_name(
-        self, peer: Peer, lobby_name: str, lobby_password: str | None
+        self, my_self: Peer, lobby_name: str, lobby_password: str | None
     ) -> tuple[ClientConnectionHandler, Lobby]:
         """
         Connects to a lobby with the given name and password.
@@ -241,6 +241,16 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
         except TimeoutError:
             raise LobbyNotFoundError(f"Could not find lobby '{lobby_name}'.")
 
-        return await self._connect((ip, port), peer, lobby_password)
+        return await self._connect((ip, port), my_self, lobby_password)
 
     # TODO: This should also handle reconnection to previously joined lobbies in case of crash/network issues
+
+class LobbyBrowserFactory:
+    @staticmethod
+    def get_lobby_browser() -> LobbyBrowser:
+        """Creates and returns a new LobbyBrowser instance.
+
+        Returns:
+            LobbyBrowser: The created lobby browser.
+        """
+        return TcpMdnsLobbyBrowser()
