@@ -5,7 +5,7 @@ from wiredwolf.model.game import GameStatus
 from wiredwolf.model.game_phases import GamePhaseOutcome
 
 
-class BaseMessage(abc.ABC):  # TODO: Move to wiredwolf.controller.messages
+class BaseMessage(abc.ABC):
     """Abstract base class for messages exchanged between peers."""
 
     def __init__(self, sender: Peer | None):
@@ -29,7 +29,7 @@ class BaseMessage(abc.ABC):  # TODO: Move to wiredwolf.controller.messages
         return self._id
 
 
-class ChatMessage(BaseMessage):  # TODO: Move to wiredwolf.controller.messages
+class ChatMessage(BaseMessage):
     """Represents a chat message sent by a peer."""
 
     def __init__(self, sender: Peer, message: str):
