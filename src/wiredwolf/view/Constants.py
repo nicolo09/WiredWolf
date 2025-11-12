@@ -16,6 +16,11 @@ class Screens(Enum):
     WOLF_WIN='wolf win'
     WOLF_LOSS='wolf loss'
 
+class EventType(Enum): #Used to easily identify the type of event sent
+    CHANGE_SCREEN='change-screen'
+    DISCOVERED_LOBBY='discovered-lobby'
+    NONE=""
+
 #App colors
 BACKGROUND_COLOR="#C5C5BF"
 TEXT_COLOR="#1A1A1A"
