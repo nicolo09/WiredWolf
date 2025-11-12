@@ -48,6 +48,11 @@ class DiscoveredLobbyType(AbstractEventType):
     def __init__(self, discovered_lobby: str)->None:
         self._event=EventType.DISCOVERED_LOBBY
         self._discovered_lobby=discovered_lobby
+
+    @property
+    def discovered_lobby(self)->str:
+        """Returns the name of the discovered lobby the event contains"""
+        return self._discovered_lobby
     
     def as_dictionary(self) -> dict:
         """Returns all the fields of the event as a dictionary, used when creating the event in pygame.event.Event()"""
@@ -93,6 +98,10 @@ class CustomEventSender():
     def send_event_go_day_voting(self)->None:
         """Sends a custom event to change screen to day_voting"""
         pygame.event.post(pygame.event.Event(self._custom_event, ChangeScreenType(Screens.DAY_VOTING).as_dictionary()))
+    
+    def send_event_discovered_new_lobby(self, lobby_name: str)->None:
+        """Sends a custom event to change screen to day_voting"""
+        pygame.event.post(pygame.event.Event(self._custom_event, DiscoveredLobbyType(lobby_name).as_dictionary()))
 
     @property
     def custom_event(self)->int:
@@ -101,7 +110,8 @@ class CustomEventSender():
 
     def test(self)->None:
         """TODO: remove function, used for testing purpose"""
-        self.send_event_go_day_voting()
+        #self.send_event_go_day_voting()
+        self.send_event_discovered_new_lobby("Lobby A")
 
 if __name__ == "__main__": 
     print("Hello world")

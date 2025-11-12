@@ -2,8 +2,8 @@ import textwrap
 from typing import List
 import pygame
 from abc import ABC, abstractmethod
-from wiredwolf.view.CustomEvents import ChangeScreenType, CustomEventSender, createCustomEventFromDict
-from wiredwolf.view.Components import VContainer, HContainer
+from wiredwolf.view.CustomEvents import ChangeScreenType, CustomEventSender, DiscoveredLobbyType, createCustomEventFromDict
+from wiredwolf.view.Components import SelectorButton, VContainer, HContainer
 from wiredwolf.view.Constants import BACKGROUND_COLOR, CHAT_BACKGROUND, FontSize, Screens
 from functools import partial
 
@@ -158,6 +158,7 @@ class StartScreen(AbstractScreen):
                 username=self._field.text #save username in global variable
             else:
                 username="username" #default username
+                #TODO: communicate username to controller
 
 class NewLobbyScreen(AbstractScreen):
     """A simple new lobby screen"""
@@ -187,6 +188,7 @@ class NewLobbyScreen(AbstractScreen):
             if len(tmp)>0 and str.isspace(tmp)==False: #the lobby name field is filled by chars, not empty or only whitespaces
                 lobby_name=self._field.text #save new lobby name in global variable
                 self._create_lobby_button.is_enabled=True
+                #TODO: communicate lobby name to controller
             else:
                 self._create_lobby_button.is_enabled=False
                 lobby_name=""
@@ -195,11 +197,10 @@ class SearchLobbyScreen(AbstractScreen):
     """A simple search lobby screen"""
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
-        from wiredwolf.view.Components import CallbackButton, Text, SelectorButton, SelectorGroup, EnabledButton
+        from wiredwolf.view.Components import CallbackButton, Text, SelectorGroup, EnabledButton
         self._title=VContainer(0, [Text("Search for an existing lobby")], self._display.get_size(), (50, 10))
-        selector_list:List=[SelectorButton("Lobby 1", 100,20), SelectorButton("Lobby 2", 100,20), SelectorButton("Lobby 3", 100,20)]
-        self._selector=SelectorGroup(selector_list) #This handles how the selectors BEHAVE as a group
-        self._lobby_group=VContainer(20, selector_list, self._display.get_size()) #This handles how the selectors are DISPLAYED
+        self._selector=SelectorGroup([]) #This handles how the selectors BEHAVE as a group
+        self._lobby_group=VContainer(20, [], self._display.get_size()) #This handles how the selectors are DISPLAYED
         go_home=partial(self._game_state_manager.change_screen, Screens.HOME)
         join_lobby=partial(self._game_state_manager.change_screen, Screens.LOBBY_WAITING)
         self._join_button=EnabledButton(join_lobby, 'Join selected lobby', 300, 50,font=FontSize.H2)
