@@ -10,7 +10,6 @@ class Screens(Enum):
     DAY_EXECUTION='day execution'
     NIGHT_VILLAGER='night'
     NIGHT_ROLE='night role'
-    TEST='test'
     VILLAGER_WIN='villager win'
     VILLAGER_LOSS='villager loss'
     WOLF_WIN='wolf win'

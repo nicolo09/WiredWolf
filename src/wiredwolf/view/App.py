@@ -66,7 +66,6 @@ class App:
         self._running = True
         self._game_state_manager=GameStateManager(Screens.HOME)
         self._start_screen=StartScreen(self._display_screen, self._game_state_manager)
-        self._test_screen=TestScreen(self._display_screen, self._game_state_manager)
         self._new_lobby_screen=NewLobbyScreen(self._display_screen, self._game_state_manager)
         self._search_lobby_screen=SearchLobbyScreen(self._display_screen, self._game_state_manager)
         self._waiting_lobby_screen=WaitingLobbyScreen(self._display_screen, self._game_state_manager)
@@ -79,7 +78,6 @@ class App:
         self._wolf_win_screen=WolfWinScreen(self._display_screen, self._game_state_manager)
         self._wolf_loss_screen=WolfLossScreen(self._display_screen, self._game_state_manager)
         self._dictionary={Screens.HOME: self._start_screen,
-                          Screens.TEST:self._test_screen, 
                           Screens.NEW_LOBBY:self._new_lobby_screen, 
                           Screens.SEARCH_LOBBY:self._search_lobby_screen, 
                           Screens.LOBBY_WAITING:self._waiting_lobby_screen,
@@ -219,22 +217,20 @@ class SearchLobbyScreen(AbstractScreen):
             self._join_button._is_enabled=True
             if lobby_name!=tmp:
                 lobby_name=tmp
+                #TODO: communicate which lobby the player joined to the controller
         else:
             self._join_button._is_enabled=False
-class TestScreen(AbstractScreen):
-    """A simple test screen"""
-    def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
-        super().__init__(display, game_state_manager)
-        from wiredwolf.view.Components import CallbackButton
-        go_home=partial(self._game_state_manager.change_screen, Screens.HOME)
-        my_button1=CallbackButton(go_home, 'test screen', 200, 50, font=FontSize.H1, default_color="#0033FF", activation_color="#5365AD") 
-        button_list:List=[my_button1]
-        self._button_container=VContainer(10, button_list, self._display.get_size())
-    
-    def run(self,event:pygame.event.Event | None)->None:
-        """The test screen, to check for scene changes"""
-        self._display.fill("#25A839")
-        self._button_container.draw(self._display)
+        if event is not None:
+            global CUSTOM_EVENT
+            #Recived a custom event
+            if event.type==CUSTOM_EVENT:
+                #parse the custom event into an object
+                e=createCustomEventFromDict(event.dict)
+                if isinstance(e, DiscoveredLobbyType):
+                    #This screen only interacts with Discovered Lobby Events
+                    button=SelectorButton(e.discovered_lobby, 100, 20)
+                    self._selector.add_selector_button(button)
+                    self._lobby_group.add_element(button)
 
 class WaitingLobbyScreen(AbstractScreen):
     """The waiting room after joining a lobby"""
@@ -401,7 +397,8 @@ class NightVillagerScreen(AbstractScreen):
         if event is not None:
             if event.type==pygame.KEYUP and event.key==pygame.K_DOWN:
                 #TODO: change screen on timer/event
-                self._game_state_manager.change_screen(Screens.TEST)
+                #TODO: custom event
+                self._game_state_manager.change_screen(Screens.HOME)
 
 class NightRoleScreen(AbstractScreen):
     """The screen where non villager role users act during the night"""
@@ -419,7 +416,8 @@ class NightRoleScreen(AbstractScreen):
         if event is not None:
             if event.type==pygame.KEYUP and event.key==pygame.K_DOWN:
                 #TODO: change screen on timer/event
-                self._game_state_manager.change_screen(Screens.TEST)
+                #TODO: custom event
+                self._game_state_manager.change_screen(Screens.HOME)
 
 class VillagerWinScreen(AbstractScreen):
     """The winning screen for villager users"""
