@@ -368,24 +368,26 @@ class DayExecutionScreen(AbstractScreen):
         self._container_text.draw(self._display)
         self._title.draw(self._display)
         self._button_container.draw(self._display)
+        global CUSTOM_EVENT
         if event is not None:
-            self._text_box.handle_event(event) #Textbox handles key input
-            tmp=self._text_box.last_input #get last message sent (if it's not already handled)
-            if len(tmp)>0 and str.isspace(tmp)==False:
-                #if the message is not the last message sent and it's not empty, then send the new message
-                self._text_box.reset_last_input() #clear internal memory
-                global username
-                message=textwrap.wrap(username+":"+tmp, width=WRAP_LINE_WIDTH) #username: message
-                #too long messages will be split on multiple lines
-                for elem in message:
-                    self._my_limited_list.add_element(elem) #adds message to messages sent
-                self._multiple_texts.on_list_change() #displays the new message(s)
-            if event.type==pygame.KEYUP and event.key==pygame.K_DOWN:
-                #TODO: change screen on timer/event
-                self._game_state_manager.change_screen(Screens.NIGHT_VILLAGER)   
-            if event.type==pygame.KEYUP and event.key==pygame.K_UP:
-                #TODO: change screen on timer/event
-                self._game_state_manager.change_screen(Screens.NIGHT_ROLE)  
+            if event.type!=CUSTOM_EVENT:
+                self._text_box.handle_event(event) #Textbox handles key input
+                tmp=self._text_box.last_input #get last message sent (if it's not already handled)
+                if len(tmp)>0 and str.isspace(tmp)==False:
+                    #if the message is not the last message sent and it's not empty, then send the new message
+                    self._text_box.reset_last_input() #clear internal memory
+                    global username
+                    message=textwrap.wrap(username+":"+tmp, width=WRAP_LINE_WIDTH) #username: message
+                    #too long messages will be split on multiple lines
+                    for elem in message:
+                        self._my_limited_list.add_element(elem) #adds message to messages sent
+                    self._multiple_texts.on_list_change() #displays the new message(s)
+            if event.type==CUSTOM_EVENT:
+                #parse the custom event into an object
+                e=create_custom_event_from_dict(event.dict)
+                if isinstance(e, ChangeScreenType):
+                    #End of day, changing screen to Night villager or night role, according to user role
+                    self._game_state_manager.change_screen(e.next_screen)
     
     def _spare_or_execute(self, outcome:bool)->None:
         """The function called when the buttons are pressed, to save the outcome of the voting"""
