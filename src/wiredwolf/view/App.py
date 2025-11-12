@@ -2,7 +2,8 @@ import textwrap
 from typing import List
 import pygame
 from abc import ABC, abstractmethod
-from wiredwolf.view.Components import VContainer, HContainer, SelectorButton
+from wiredwolf.view.CustomEvents import ChangeScreenType, CustomEventSender, createCustomEventFromDict
+from wiredwolf.view.Components import VContainer, HContainer
 from wiredwolf.view.Constants import BACKGROUND_COLOR, CHAT_BACKGROUND, FontSize, Screens
 from functools import partial
 
@@ -14,6 +15,7 @@ executed_user=""
 WRAP_LINE_WIDTH=25
 MAX_MESSAGES_DISPLAYED=10
 CONTAINER_FACTOR=14 #this value is chosen by testing with different font sizes which value * wrap line withd fits all texts
+CUSTOM_EVENT=0
 
 class GameStateManager:
     """The game state manager internally stores which scene is displayed"""
@@ -257,9 +259,14 @@ class WaitingLobbyScreen(AbstractScreen):
         self._title_container.draw(self._display)
         self._waiting.draw(self._display)
         if event is not None:
-            if event.type==pygame.KEYUP and event.key==pygame.K_RETURN:
-                #TODO: change screen when all users have joined the waiting room
-                self._game_state_manager.change_screen(Screens.DAY_VOTING)
+            global CUSTOM_EVENT
+            #Recived a custom event
+            if event.type==CUSTOM_EVENT:
+                #parse the custom event into an object
+                e=createCustomEventFromDict(event.dict)
+                if isinstance(e, ChangeScreenType):
+                    #This screen only interacts with ChangeScreen Events
+                    self._game_state_manager.change_screen(e.next_screen)
 
 class DayVotingScreen(AbstractScreen):
     """The screens where users chat and choose which players to nominate for an execution"""
@@ -464,5 +471,8 @@ class WolfLossScreen(AbstractScreen):
 
 if __name__ == "__main__":
     my_app=App()
+    custom=CustomEventSender()
+    CUSTOM_EVENT=custom.custom_event #Save value of custom events
     while my_app.app_running:
+        custom.test()
         my_app.update_display()
