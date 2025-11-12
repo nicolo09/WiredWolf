@@ -58,6 +58,25 @@ class DiscoveredLobbyType(AbstractEventType):
         """Returns all the fields of the event as a dictionary, used when creating the event in pygame.event.Event()"""
         return {AbstractEventType.s_event:self._event, DiscoveredLobbyType.s_discovered_lobby:self._discovered_lobby}
     
+class UsersType(AbstractEventType):
+    """An event regarding a user, with a given username"""
+    #static field name to standardize the dictionary key
+    s_username="username"
+
+    def __init__(self, username: str)->None:
+        self._event=EventType.USERNAME
+        self._username=username
+
+    @property
+    def username(self)->str:
+        """Returns the username contained in the event"""
+        return self._username
+    
+    def as_dictionary(self) -> dict:
+        """Returns all the fields of the event as a dictionary, used when creating the event in pygame.event.Event()"""
+        return {AbstractEventType.s_event:self._event, UsersType.s_username:self._username}
+    
+
 def create_change_screen_type(dict: dict)->ChangeScreenType:
     """Creates a changing screen type from a correct dictionary"""
     event=dict.get(ChangeScreenType.s_event)
@@ -74,6 +93,14 @@ def create_discovered_lobby_type(dict: dict)->DiscoveredLobbyType:
     assert(discovered_lobby!=None)
     return DiscoveredLobbyType(discovered_lobby)
 
+def create_users_type(dict: dict)->UsersType:
+    """Creates a users type from a correct dictionary"""
+    event=dict.get(UsersType.s_event)
+    assert(event!=EventType.NONE and event!=None)
+    username=dict.get(UsersType.s_username)
+    assert(username!=None)
+    return UsersType(username)
+
 def createCustomEventFromDict(dict:dict)->AbstractEventType:
     """Creates an event type from a dictionary by parsing the event field. If the event field doesn't match a Value error is thrown"""
     event=dict.get(AbstractEventType.s_event)
@@ -84,7 +111,10 @@ def createCustomEventFromDict(dict:dict)->AbstractEventType:
             if event==EventType.DISCOVERED_LOBBY:
                 return create_discovered_lobby_type(dict)
             else:
-                raise ValueError("Dictionary event must be one of the EventType enums")         
+                if event==EventType.USERNAME:
+                    return create_users_type(dict)
+                else:
+                    raise ValueError("Dictionary event must be one of the EventType enums")         
     else:
         raise ValueError("Dictionary must contain event key")
     
@@ -95,13 +125,17 @@ class CustomEventSender():
         pygame.init()
         self._custom_event=pygame.event.custom_type() #Set once by custom event sender initialization
     
-    def send_event_go_day_voting(self)->None:
-        """Sends a custom event to change screen to day_voting"""
-        pygame.event.post(pygame.event.Event(self._custom_event, ChangeScreenType(Screens.DAY_VOTING).as_dictionary()))
+    def send_event_to_screen(self, screen:Screens)->None:
+        """Sends a custom event to change screen to the given screen"""
+        pygame.event.post(pygame.event.Event(self._custom_event, ChangeScreenType(screen).as_dictionary()))
     
     def send_event_discovered_new_lobby(self, lobby_name: str)->None:
-        """Sends a custom event to change screen to day_voting"""
+        """Sends a custom event to add a new lobby"""
         pygame.event.post(pygame.event.Event(self._custom_event, DiscoveredLobbyType(lobby_name).as_dictionary()))
+
+    def send_event_new_user(self, username:str)->None:
+        """Sends a custom event to add a new user"""
+        pygame.event.post(pygame.event.Event(self._custom_event, UsersType(username).as_dictionary()))
 
     @property
     def custom_event(self)->int:
@@ -111,7 +145,8 @@ class CustomEventSender():
     def test(self)->None:
         """TODO: remove function, used for testing purpose"""
         #self.send_event_go_day_voting()
-        self.send_event_discovered_new_lobby("Lobby A")
+        #self.send_event_discovered_new_lobby("Lobby A")
+        self.send_event_new_user("Mario")
 
 if __name__ == "__main__": 
     print("Hello world")

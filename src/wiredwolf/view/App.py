@@ -2,7 +2,7 @@ import textwrap
 from typing import List
 import pygame
 from abc import ABC, abstractmethod
-from wiredwolf.view.CustomEvents import ChangeScreenType, CustomEventSender, DiscoveredLobbyType, createCustomEventFromDict
+from wiredwolf.view.CustomEvents import ChangeScreenType, CustomEventSender, DiscoveredLobbyType, TimeOutType, UsersType, createCustomEventFromDict
 from wiredwolf.view.Components import SelectorButton, VContainer, HContainer
 from wiredwolf.view.Constants import BACKGROUND_COLOR, CHAT_BACKGROUND, FontSize, Screens
 from functools import partial
@@ -263,6 +263,7 @@ class WaitingLobbyScreen(AbstractScreen):
                 e=createCustomEventFromDict(event.dict)
                 if isinstance(e, ChangeScreenType):
                     #This screen only interacts with ChangeScreen Events
+                    #Should go to Day Voting Screen
                     self._game_state_manager.change_screen(e.next_screen)
 
 class DayVotingScreen(AbstractScreen):
@@ -276,13 +277,12 @@ class DayVotingScreen(AbstractScreen):
         self._text_box=MemoryTextField(300, 50) #This is where the new messages are entered
         self._container_text=VContainer(0, [self._text_box], self._display.get_size(), (70,90))
         self._last_message=""
-        selector_list:List=[SelectorButton("Mario", 100,20), SelectorButton("Luigi", 100,20), SelectorButton("Antonio", 100,20)] #TODO: get actual usernames of players connected to lobby
-        self._selector=SelectorGroup(selector_list) #This handles how the selectors BEHAVE as a group
+        self._selector=SelectorGroup([]) #This handles how the selectors BEHAVE as a group
         self._selector.set_enabled(False)
         change_player_voted=partial(self._set_voted_player)
         self._vote_player=EnabledButton(change_player_voted, 'Vote to execute player', 250, 50,font=FontSize.H2, enabled=False) #Necessary so users can't vote instantly
         self._vote_player_group=VContainer(0, [self._vote_player], self._display.get_size(), (20, 90))
-        self._players=VContainer(20, selector_list, self._display.get_size(), (20, 50)) #This handles how the selectors are DISPLAYED
+        self._players=VContainer(20, [], self._display.get_size(), (20, 50)) #This handles how the selectors are DISPLAYED
         self._voted_text=Text("You haven't voted", font=FontSize.H3)
         self._voted_container=HContainer(0, [self._voted_text], self._display.get_size(), (20, 80))
 
@@ -296,25 +296,37 @@ class DayVotingScreen(AbstractScreen):
         self._vote_player_group.draw(self._display)
         self._voted_container.draw(self._display)
         
+        global CUSTOM_EVENT
         if event is not None:
-            self._text_box.handle_event(event) #Textbox handles key input
-            tmp=self._text_box.last_input #get last message sent (if it's not already handled)
-            if len(tmp)>0 and str.isspace(tmp)==False:
-                #if the message is not the last message sent and it's not empty, then send the new message
-                self._text_box.reset_last_input() #clear internal memory
-                global username
-                message=textwrap.wrap(username+":"+tmp, width=WRAP_LINE_WIDTH) #username: message
-                #too long messages will be split on multiple lines
-                for elem in message:
-                    self._my_limited_list.add_element(elem) #adds message to messages sent
-                self._multiple_texts.on_list_change() #displays the new message(s)
-            if event.type==pygame.KEYUP and event.key==pygame.K_DOWN:
-                #TODO: change selectors for voting on timer/event
-                self._selector.set_enabled(True)
-                self._vote_player.is_enabled=True
-            if event.type==pygame.KEYUP and event.key==pygame.K_UP:
-                #TODO: change screen to deciding who to execute on timer/event
-                self._game_state_manager.change_screen(Screens.DAY_EXECUTION)
+            if event.type!=CUSTOM_EVENT:
+                #pygame event, text box handles it
+                self._text_box.handle_event(event) #Textbox handles key input
+                tmp=self._text_box.last_input #get last message sent (if it's not already handled)
+                if len(tmp)>0 and str.isspace(tmp)==False:
+                    #if the message is not the last message sent and it's not empty, then send the new message
+                    self._text_box.reset_last_input() #clear internal memory
+                    global username
+                    message=textwrap.wrap(username+":"+tmp, width=WRAP_LINE_WIDTH) #username: message
+                    #too long messages will be split on multiple lines
+                    for elem in message:
+                        self._my_limited_list.add_element(elem) #adds message to messages sent
+                    self._multiple_texts.on_list_change() #displays the new message(s)
+            if event.type==CUSTOM_EVENT:
+                #parse the custom event into an object
+                e=createCustomEventFromDict(event.dict)
+                if isinstance(e, UsersType):
+                    #Add new username
+                    button=SelectorButton(e.username, 100, 20)
+                    self._selector.add_selector_button(button)
+                    self._players.add_element(button)
+                if isinstance(e, TimeOutType):
+                    #Starts voting
+                    self._selector.set_enabled(True)
+                    self._vote_player.is_enabled=True
+                if isinstance(e, ChangeScreenType):
+                    #End of voting, changing screen to DayExecutionScreen
+                    self._game_state_manager.change_screen(e.next_screen)
+            
 
     def _set_voted_player(self)->None:
         """Function called when the user chooses who to nominate for execution"""
