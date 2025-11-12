@@ -2,7 +2,7 @@ import textwrap
 from typing import List
 import pygame
 from abc import ABC, abstractmethod
-from wiredwolf.view.CustomEvents import ChangeScreenType, CustomEventSender, DiscoveredLobbyType, TimeOutType, UsersType, createCustomEventFromDict
+from wiredwolf.view.CustomEvents import ChangeScreenType, CustomEventSender, DiscoveredLobbyType, TimeOutType, UsersType, create_custom_event_from_dict
 from wiredwolf.view.Components import SelectorButton, VContainer, HContainer
 from wiredwolf.view.Constants import BACKGROUND_COLOR, CHAT_BACKGROUND, FontSize, Screens
 from functools import partial
@@ -226,7 +226,7 @@ class SearchLobbyScreen(AbstractScreen):
             #Recived a custom event
             if event.type==CUSTOM_EVENT:
                 #parse the custom event into an object
-                e=createCustomEventFromDict(event.dict)
+                e=create_custom_event_from_dict(event.dict)
                 if isinstance(e, DiscoveredLobbyType):
                     #This screen only interacts with Discovered Lobby Events
                     button=SelectorButton(e.discovered_lobby, 100, 20)
@@ -260,7 +260,7 @@ class WaitingLobbyScreen(AbstractScreen):
             #Recived a custom event
             if event.type==CUSTOM_EVENT:
                 #parse the custom event into an object
-                e=createCustomEventFromDict(event.dict)
+                e=create_custom_event_from_dict(event.dict)
                 if isinstance(e, ChangeScreenType):
                     #This screen only interacts with ChangeScreen Events
                     #Should go to Day Voting Screen
@@ -313,7 +313,7 @@ class DayVotingScreen(AbstractScreen):
                     self._multiple_texts.on_list_change() #displays the new message(s)
             if event.type==CUSTOM_EVENT:
                 #parse the custom event into an object
-                e=createCustomEventFromDict(event.dict)
+                e=create_custom_event_from_dict(event.dict)
                 if isinstance(e, UsersType):
                     #Add new username
                     button=SelectorButton(e.username, 100, 20)
@@ -354,7 +354,7 @@ class DayExecutionScreen(AbstractScreen):
         self._last_message=""
         self._vote_to_execute=None #Saved outcome of user voting, if None->not voted, True->executed, False->Spared
         global executed_user
-        executed_user="Mario" #TODO: fix placeholder
+        executed_user="Mario" #TODO: get username from controller
         executed=partial(self._spare_or_execute, True)
         spared=partial(self._spare_or_execute, False)
         self._execute_button=EnabledButton(executed, "Vote to execute "+executed_user, 300, 50, enabled=True)

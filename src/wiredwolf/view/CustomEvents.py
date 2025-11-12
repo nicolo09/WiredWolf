@@ -76,6 +76,16 @@ class UsersType(AbstractEventType):
         """Returns all the fields of the event as a dictionary, used when creating the event in pygame.event.Event()"""
         return {AbstractEventType.s_event:self._event, UsersType.s_username:self._username}
     
+class TimeOutType(AbstractEventType):
+    """An event triggered after some time has passed"""
+
+    def __init__(self)->None:
+        self._event=EventType.TIMEOUT
+    
+    def as_dictionary(self) -> dict:
+        """Returns all the fields of the event as a dictionary, used when creating the event in pygame.event.Event()"""
+        return {AbstractEventType.s_event:self._event}
+
 
 def create_change_screen_type(dict: dict)->ChangeScreenType:
     """Creates a changing screen type from a correct dictionary"""
@@ -101,7 +111,13 @@ def create_users_type(dict: dict)->UsersType:
     assert(username!=None)
     return UsersType(username)
 
-def createCustomEventFromDict(dict:dict)->AbstractEventType:
+def create_timeout_type(dict:dict)->TimeOutType:
+    """Creates a timeout type from a correct dictionary"""
+    event=dict.get(TimeOutType.s_event)
+    assert(event!=EventType.NONE and event!=None)
+    return TimeOutType()
+
+def create_custom_event_from_dict(dict:dict)->AbstractEventType:
     """Creates an event type from a dictionary by parsing the event field. If the event field doesn't match a Value error is thrown"""
     event=dict.get(AbstractEventType.s_event)
     if event!=None:
@@ -114,7 +130,10 @@ def createCustomEventFromDict(dict:dict)->AbstractEventType:
                 if event==EventType.USERNAME:
                     return create_users_type(dict)
                 else:
-                    raise ValueError("Dictionary event must be one of the EventType enums")         
+                    if event==EventType.TIMEOUT:
+                        return create_timeout_type(dict)
+                    else:
+                        raise ValueError("Dictionary event must be one of the EventType enums")         
     else:
         raise ValueError("Dictionary must contain event key")
     
@@ -137,6 +156,10 @@ class CustomEventSender():
         """Sends a custom event to add a new user"""
         pygame.event.post(pygame.event.Event(self._custom_event, UsersType(username).as_dictionary()))
 
+    def send_event_timeout(self)->None:
+        """Sends a custom event to say that some time has passed"""
+        pygame.event.post(pygame.event.Event(self._custom_event, TimeOutType().as_dictionary()))
+
     @property
     def custom_event(self)->int:
         """Returns the id of custom events"""
@@ -146,7 +169,8 @@ class CustomEventSender():
         """TODO: remove function, used for testing purpose"""
         #self.send_event_go_day_voting()
         #self.send_event_discovered_new_lobby("Lobby A")
-        self.send_event_new_user("Mario")
+        #self.send_event_new_user("Mario")
+        #self.send_event_timeout()
 
 if __name__ == "__main__": 
     print("Hello world")
