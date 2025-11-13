@@ -409,11 +409,12 @@ class NightVillagerScreen(AbstractScreen):
         self._display.fill(BACKGROUND_COLOR)
         self._title.draw(self._display)
         self._villager.draw(self._display)
-        if event is not None:
-            if event.type==pygame.KEYUP and event.key==pygame.K_DOWN:
-                #TODO: change screen on timer/event
-                #TODO: custom event
-                self._game_state_manager.change_screen(Screens.HOME)
+        if event is not None and event.type==CUSTOM_EVENT:
+                #parse the custom event into an object
+                e=create_custom_event_from_dict(event.dict)
+                if isinstance(e, ChangeScreenType):
+                    #End of night, changing screen to day voting
+                    self._game_state_manager.change_screen(e.next_screen)
 
 class NightRoleScreen(AbstractScreen):
     """The screen where non villager role users act during the night"""
@@ -422,17 +423,20 @@ class NightRoleScreen(AbstractScreen):
         from wiredwolf.view.Components import Text
         self._title=VContainer(0, [Text("Night")], self._display.get_size(), (50, 5))
         self._role=VContainer(0, [Text("Use your power, special role")], self._display.get_size())
+        #TODO: get role from controller to customize text
+        #TODO: get user you can act on based on role (ex: werewolfs can only kill villagers ecc)
 
     def run(self,event:pygame.event.Event | None)->None:
         """A night non villager role screen"""
         self._display.fill(BACKGROUND_COLOR)
         self._title.draw(self._display)
         self._role.draw(self._display)
-        if event is not None:
-            if event.type==pygame.KEYUP and event.key==pygame.K_DOWN:
-                #TODO: change screen on timer/event
-                #TODO: custom event
-                self._game_state_manager.change_screen(Screens.HOME)
+        if event is not None and event.type==CUSTOM_EVENT:
+                #parse the custom event into an object
+                e=create_custom_event_from_dict(event.dict)
+                if isinstance(e, ChangeScreenType):
+                    #End of night, changing screen to day voting
+                    self._game_state_manager.change_screen(e.next_screen)
 
 class VillagerWinScreen(AbstractScreen):
     """The winning screen for villager users"""
@@ -445,6 +449,12 @@ class VillagerWinScreen(AbstractScreen):
         """A winning screen for villager users"""
         self._display.fill(BACKGROUND_COLOR)
         self._title.draw(self._display)
+        if event is not None and event.type==CUSTOM_EVENT:
+                #parse the custom event into an object
+                e=create_custom_event_from_dict(event.dict)
+                if isinstance(e, ChangeScreenType):
+                    #End of winning screen, go to home?
+                    self._game_state_manager.change_screen(e.next_screen)
 
 class VillagerLossScreen(AbstractScreen):
     """The losing screen for villager users"""
@@ -457,6 +467,12 @@ class VillagerLossScreen(AbstractScreen):
         """A losing screen for villager users"""
         self._display.fill(BACKGROUND_COLOR)
         self._title.draw(self._display)
+        if event is not None and event.type==CUSTOM_EVENT:
+                #parse the custom event into an object
+                e=create_custom_event_from_dict(event.dict)
+                if isinstance(e, ChangeScreenType):
+                    #End of winning screen, go to home?
+                    self._game_state_manager.change_screen(e.next_screen)
 
 class WolfWinScreen(AbstractScreen):
     """The winning screen for werewolf users"""
@@ -469,6 +485,12 @@ class WolfWinScreen(AbstractScreen):
         """A winning screen for werewolf users"""
         self._display.fill(BACKGROUND_COLOR)
         self._title.draw(self._display)
+        if event is not None and event.type==CUSTOM_EVENT:
+                #parse the custom event into an object
+                e=create_custom_event_from_dict(event.dict)
+                if isinstance(e, ChangeScreenType):
+                    #End of winning screen, go to home?
+                    self._game_state_manager.change_screen(e.next_screen)
 
 class WolfLossScreen(AbstractScreen):
     """The losing screen for werewolf users"""
@@ -481,6 +503,12 @@ class WolfLossScreen(AbstractScreen):
         """A losing screen for werewolf users"""
         self._display.fill(BACKGROUND_COLOR)
         self._title.draw(self._display)
+        if event is not None and event.type==CUSTOM_EVENT:
+                #parse the custom event into an object
+                e=create_custom_event_from_dict(event.dict)
+                if isinstance(e, ChangeScreenType):
+                    #End of winning screen, go to home?
+                    self._game_state_manager.change_screen(e.next_screen)
 
 if __name__ == "__main__":
     my_app=App()
