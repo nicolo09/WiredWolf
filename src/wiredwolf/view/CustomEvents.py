@@ -140,9 +140,11 @@ def create_custom_event_from_dict(dict:dict)->AbstractEventType:
 
 class CustomEventSender():
     """This class is used to send custom events to the GUI"""
-    def __init__(self) -> None:
+    def __init__(self, times=-1) -> None:
         pygame.init()
         self._custom_event=pygame.event.custom_type() #Set once by custom event sender initialization
+        self._times=times
+        self._counter=0
     
     def send_event_to_screen(self, screen:Screens)->None:
         """Sends a custom event to change screen to the given screen"""
@@ -167,10 +169,16 @@ class CustomEventSender():
 
     def test(self)->None:
         """TODO: remove function, used for testing purpose"""
-        #self.send_event_go_day_voting()
-        #self.send_event_discovered_new_lobby("Lobby A")
-        #self.send_event_new_user("Mario")
-        #self.send_event_timeout()
+        if self._counter!=self._times and self._times!=-1:
+            #limit to avoid infinite events
+            self._counter=self._counter+1
+            #self.send_event_go_day_voting()
+            #self.send_event_discovered_new_lobby("Lobby A")
+            self.send_event_new_user("Mario")
+            #self.send_event_timeout()
+        if self._times==-1:
+            #send event forever
+            self.send_event_new_user("Mario")
 
 if __name__ == "__main__": 
     print("Hello world")
