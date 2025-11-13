@@ -420,23 +420,45 @@ class NightRoleScreen(AbstractScreen):
     """The screen where non villager role users act during the night"""
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
-        from wiredwolf.view.Components import Text
+        from wiredwolf.view.Components import Text, SelectorGroup, EnabledButton
         self._title=VContainer(0, [Text("Night")], self._display.get_size(), (50, 5))
-        self._role=VContainer(0, [Text("Use your power, special role")], self._display.get_size())
-        #TODO: get role from controller to customize text
-        #TODO: get user you can act on based on role (ex: werewolfs can only kill villagers ecc)
+        self._role=VContainer(0, [Text("Use your power, special role")], self._display.get_size()) #TODO: get role from controller to customize text
+        self._selector_group=SelectorGroup([]) #Added dynamically via events
+        self._users=VContainer(10, [], self._display.get_size()) #TODO: position
+        act_on=partial(self._act_on_player)
+        self._execute=EnabledButton(act_on, "Act on this player", 300, 50, enabled=True) #TODO: get role from controller to customize text
+        self._execute_container=VContainer(0, [self._execute], self._display.get_size()) #TODO: position
 
     def run(self,event:pygame.event.Event | None)->None:
         """A night non villager role screen"""
         self._display.fill(BACKGROUND_COLOR)
         self._title.draw(self._display)
         self._role.draw(self._display)
+        self._users.draw(self._display)
+        self._execute_container.draw(self._display)
         if event is not None and event.type==CUSTOM_EVENT:
                 #parse the custom event into an object
                 e=create_custom_event_from_dict(event.dict)
                 if isinstance(e, ChangeScreenType):
                     #End of night, changing screen to day voting
                     self._game_state_manager.change_screen(e.next_screen)
+                if isinstance(e, UsersType):
+                    #Add username to users you can act on (ex: werewolfs can only kill non werewolves ecc)
+                    button=SelectorButton(e.username, 100, 20)
+                    self._selector_group.add_selector_button(button)
+                    self._users.add_element(button)
+    
+    def _act_on_player(self)->None:
+        """The function called when the button is pressed, to save who you acted on"""
+        #Can only act once, disabling buttons
+        self._execute.is_enabled=False
+        voted_player=self._selector_group.selected_text() #gets the chosen player
+        if voted_player!=None:
+            #TODO: communicate to controller that user acted on given player
+            pass
+        #TODO: if anything selected->enable button->vote->disable all
+        #if nothing selected->all enabled
+
 
 class VillagerWinScreen(AbstractScreen):
     """The winning screen for villager users"""
