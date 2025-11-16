@@ -422,12 +422,12 @@ class NightRoleScreen(AbstractScreen):
         super().__init__(display, game_state_manager)
         from wiredwolf.view.Components import Text, SelectorGroup, EnabledButton
         self._title=VContainer(0, [Text("Night")], self._display.get_size(), (50, 5))
-        self._role=VContainer(0, [Text("Use your power, special role")], self._display.get_size()) #TODO: get role from controller to customize text
+        self._role=VContainer(0, [Text("Use your power, special role")], self._display.get_size(),(50, 10)) #TODO: get role from controller to customize text
         self._selector_group=SelectorGroup([]) #Added dynamically via events
-        self._users=VContainer(10, [], self._display.get_size()) #TODO: position
+        self._users=VContainer(10, [], self._display.get_size())
         act_on=partial(self._act_on_player)
         self._execute=EnabledButton(act_on, "Act on this player", 300, 50, enabled=True) #TODO: get role from controller to customize text
-        self._execute_container=VContainer(0, [self._execute], self._display.get_size()) #TODO: position
+        self._execute_container=VContainer(0, [self._execute], self._display.get_size(), (50, 90))
 
     def run(self,event:pygame.event.Event | None)->None:
         """A night non villager role screen"""
@@ -450,14 +450,12 @@ class NightRoleScreen(AbstractScreen):
     
     def _act_on_player(self)->None:
         """The function called when the button is pressed, to save who you acted on"""
-        #Can only act once, disabling buttons
-        self._execute.is_enabled=False
         voted_player=self._selector_group.selected_text() #gets the chosen player
-        if voted_player!=None:
+        if voted_player!="":
+            #Can only act once, disabling buttons
+            self._selector_group.set_enabled(False) #disable selectors
+            self._execute.is_enabled=False #disable button
             #TODO: communicate to controller that user acted on given player
-            pass
-        #TODO: if anything selected->enable button->vote->disable all
-        #if nothing selected->all enabled
 
 
 class VillagerWinScreen(AbstractScreen):
