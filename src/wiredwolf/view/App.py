@@ -17,6 +17,12 @@ MAX_MESSAGES_DISPLAYED=10
 CONTAINER_FACTOR=14 #this value is chosen by testing with different font sizes which value * wrap line withd fits all texts
 CUSTOM_EVENT=0
 
+def message_sender_util(message:str, list: LimitedList, multiple_text_display:MultipleTexts)->None:
+    split_message=textwrap.wrap(message, width=WRAP_LINE_WIDTH)
+    for elem in split_message:
+        list.add_element(elem) #adds message to messages sent
+    multiple_text_display.on_list_change() #displays the new message(s)
+
 class GameStateManager:
     """The game state manager internally stores which scene is displayed"""
     _current_state:Screens
@@ -312,11 +318,7 @@ class DayVotingScreen(AbstractScreen):
                     #if the message is not the last message sent and it's not empty, then send the new message
                     self._text_box.reset_last_input() #clear internal memory
                     global username
-                    message=textwrap.wrap(username+":"+tmp, width=WRAP_LINE_WIDTH) #username: message
-                    #too long messages will be split on multiple lines
-                    for elem in message:
-                        self._my_limited_list.add_element(elem) #adds message to messages sent
-                    self._multiple_texts.on_list_change() #displays the new message(s)
+                    message_sender_util(username+":"+tmp, self._my_limited_list, self._multiple_texts)
             if event.type==CUSTOM_EVENT:
                 #parse the custom event into an object
                 e=create_custom_event_from_dict(event.dict)
@@ -332,7 +334,10 @@ class DayVotingScreen(AbstractScreen):
                 if isinstance(e, ChangeScreenType):
                     #End of voting, changing screen to DayExecutionScreen
                     self._game_state_manager.change_screen(e.next_screen)
-            
+                if isinstance(e, ChatMessageType):
+                    #Messages recived from other users
+                    message_sender_util(e.message, self._my_limited_list, self._multiple_texts)
+
 
     def _set_voted_player(self)->None:
         """Function called when the user chooses who to nominate for execution"""
@@ -383,17 +388,16 @@ class DayExecutionScreen(AbstractScreen):
                     #if the message is not the last message sent and it's not empty, then send the new message
                     self._text_box.reset_last_input() #clear internal memory
                     global username
-                    message=textwrap.wrap(username+":"+tmp, width=WRAP_LINE_WIDTH) #username: message
-                    #too long messages will be split on multiple lines
-                    for elem in message:
-                        self._my_limited_list.add_element(elem) #adds message to messages sent
-                    self._multiple_texts.on_list_change() #displays the new message(s)
+                    message_sender_util(username+":"+tmp, self._my_limited_list, self._multiple_texts)
             if event.type==CUSTOM_EVENT:
                 #parse the custom event into an object
                 e=create_custom_event_from_dict(event.dict)
                 if isinstance(e, ChangeScreenType):
                     #End of day, changing screen to Night villager or night role, according to user role
                     self._game_state_manager.change_screen(e.next_screen)
+                if isinstance(e, ChatMessageType):
+                    #Messages recived from other users
+                    message_sender_util(e.message, self._my_limited_list, self._multiple_texts)
     
     def _spare_or_execute(self, outcome:bool)->None:
         """The function called when the buttons are pressed, to save the outcome of the voting"""

@@ -21,6 +21,7 @@ class EventType(Enum): #Used to easily identify the type of event sent
     USERNAME='username'
     TIMEOUT='timeout'
     WAITING_ROOM='waiting-room'
+    CHAT_MESSAGE='chat-message'
     NONE=""
 
 #App colors
