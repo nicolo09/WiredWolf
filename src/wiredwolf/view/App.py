@@ -2,7 +2,7 @@ import textwrap
 from typing import List
 import pygame
 from abc import ABC, abstractmethod
-from wiredwolf.view.CustomEvents import ChangeScreenType, CustomEventSender, DiscoveredLobbyType, TimeOutType, UsersType, create_custom_event_from_dict
+from wiredwolf.view.CustomEvents import ChangeScreenType, CustomEventSender, DiscoveredLobbyType, TimeOutType, UsersType, WaitingRoomType, create_custom_event_from_dict
 from wiredwolf.view.Components import SelectorButton, VContainer, HContainer
 from wiredwolf.view.Constants import BACKGROUND_COLOR, CHAT_BACKGROUND, FontSize, Screens
 from functools import partial
@@ -242,7 +242,8 @@ class WaitingLobbyScreen(AbstractScreen):
         self._local_lobby=lobby_name
         self._title=Text("Waiting for other players to join "+self._local_lobby+" lobby")
         self._title_container=VContainer(0, [self._title], self._display.get_size(), (50,20))
-        self._waiting=VContainer(0,[Text("1 player connected...", font=FontSize.H2)], self._display.get_size()) #TODO: how many connected users are waiting?
+        self._text_number=Text("1 player connected...", font=FontSize.H2) #Updated count via custom events
+        self._waiting=VContainer(0,[self._text_number], self._display.get_size())
         
     def run(self,event:pygame.event.Event | None)->None:
         """A simple waiting screen"""
@@ -262,9 +263,14 @@ class WaitingLobbyScreen(AbstractScreen):
                 #parse the custom event into an object
                 e=create_custom_event_from_dict(event.dict)
                 if isinstance(e, ChangeScreenType):
-                    #This screen only interacts with ChangeScreen Events
+                    #This screen only interacts ChangeScreen Events
                     #Should go to Day Voting Screen
                     self._game_state_manager.change_screen(e.next_screen)
+                if isinstance(e, WaitingRoomType):
+                    #Updates the number of players in the waiting room
+                    self._text_number.text=str(e.number) +" player connected..."
+                    self._waiting.update_on_next_draw()
+
 
 class DayVotingScreen(AbstractScreen):
     """The screens where users chat and choose which players to nominate for an execution"""

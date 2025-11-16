@@ -20,6 +20,7 @@ class EventType(Enum): #Used to easily identify the type of event sent
     DISCOVERED_LOBBY='discovered-lobby'
     USERNAME='username'
     TIMEOUT='timeout'
+    WAITING_ROOM='waiting-room'
     NONE=""
 
 #App colors

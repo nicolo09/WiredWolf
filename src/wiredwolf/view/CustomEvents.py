@@ -86,11 +86,29 @@ class TimeOutType(AbstractEventType):
         """Returns all the fields of the event as a dictionary, used when creating the event in pygame.event.Event()"""
         return {AbstractEventType.s_event:self._event}
 
+class WaitingRoomType(AbstractEventType):
+    """An event sent to update how many users are in a waiting room"""
+
+    #static field name to standardize the dictionary key
+    s_number="number"
+
+    def __init__(self, number:int)->None:
+        self._event=EventType.WAITING_ROOM
+        self._number=number
+
+    @property
+    def number(self)->int:
+        """Returns the number of waiting users contained in the event"""
+        return self._number
+    
+    def as_dictionary(self) -> dict:
+        """Returns all the fields of the event as a dictionary, used when creating the event in pygame.event.Event()"""
+        return {AbstractEventType.s_event:self._event, WaitingRoomType.s_number:self._number}
 
 def create_change_screen_type(dict: dict)->ChangeScreenType:
     """Creates a changing screen type from a correct dictionary"""
     event=dict.get(ChangeScreenType.s_event)
-    assert(event!=EventType.NONE and event!=None)
+    assert(event!=EventType.NONE and event!=None and event==EventType.CHANGE_SCREEN)
     next_screen=dict.get(ChangeScreenType.s_next_screen)
     assert(next_screen!=None)
     return ChangeScreenType(next_screen)
@@ -98,7 +116,7 @@ def create_change_screen_type(dict: dict)->ChangeScreenType:
 def create_discovered_lobby_type(dict: dict)->DiscoveredLobbyType:
     """Creates a discovered lobby type from a correct dictionary"""
     event=dict.get(DiscoveredLobbyType.s_event)
-    assert(event!=EventType.NONE and event!=None)
+    assert(event!=EventType.NONE and event!=None and event==EventType.DISCOVERED_LOBBY)
     discovered_lobby=dict.get(DiscoveredLobbyType.s_discovered_lobby)
     assert(discovered_lobby!=None)
     return DiscoveredLobbyType(discovered_lobby)
@@ -106,7 +124,7 @@ def create_discovered_lobby_type(dict: dict)->DiscoveredLobbyType:
 def create_users_type(dict: dict)->UsersType:
     """Creates a users type from a correct dictionary"""
     event=dict.get(UsersType.s_event)
-    assert(event!=EventType.NONE and event!=None)
+    assert(event!=EventType.NONE and event!=None and event==EventType.USERNAME)
     username=dict.get(UsersType.s_username)
     assert(username!=None)
     return UsersType(username)
@@ -114,8 +132,16 @@ def create_users_type(dict: dict)->UsersType:
 def create_timeout_type(dict:dict)->TimeOutType:
     """Creates a timeout type from a correct dictionary"""
     event=dict.get(TimeOutType.s_event)
-    assert(event!=EventType.NONE and event!=None)
+    assert(event!=EventType.NONE and event!=None and event==EventType.TIMEOUT)
     return TimeOutType()
+
+def create_waiting_room_type(dict:dict)->WaitingRoomType:
+    """Creates a waiting room type from a correct dictionary"""
+    event=dict.get(WaitingRoomType.s_event)
+    assert(event!=EventType.NONE and event!=None and event==EventType.WAITING_ROOM)
+    number=dict.get(WaitingRoomType.s_number)
+    assert(number!=None)
+    return WaitingRoomType(number)
 
 def create_custom_event_from_dict(dict:dict)->AbstractEventType:
     """Creates an event type from a dictionary by parsing the event field. If the event field doesn't match a Value error is thrown"""
@@ -133,7 +159,10 @@ def create_custom_event_from_dict(dict:dict)->AbstractEventType:
                     if event==EventType.TIMEOUT:
                         return create_timeout_type(dict)
                     else:
-                        raise ValueError("Dictionary event must be one of the EventType enums")         
+                        if event==EventType.WAITING_ROOM:
+                            return create_waiting_room_type(dict)
+                        else:
+                            raise ValueError("Dictionary event must be one of the EventType enums")         
     else:
         raise ValueError("Dictionary must contain event key")
     
@@ -162,6 +191,10 @@ class CustomEventSender():
         """Sends a custom event to say that some time has passed"""
         pygame.event.post(pygame.event.Event(self._custom_event, TimeOutType().as_dictionary()))
 
+    def send_event_waiting_room(self, number:int)->None:
+        """Sends a custom event to say how many players are in the waiting room"""
+        pygame.event.post(pygame.event.Event(self._custom_event, WaitingRoomType(number).as_dictionary()))
+
     @property
     def custom_event(self)->int:
         """Returns the id of custom events"""
@@ -174,11 +207,13 @@ class CustomEventSender():
             self._counter=self._counter+1
             #self.send_event_go_day_voting()
             #self.send_event_discovered_new_lobby("Lobby A")
-            self.send_event_new_user("Mario")
+            #self.send_event_new_user("Mario")
             #self.send_event_timeout()
+            self.send_event_waiting_room(10)
         if self._times==-1:
             #send event forever
-            self.send_event_new_user("Mario")
+            #self.send_event_new_user("Mario")
+            self.send_event_waiting_room(10)
 
 if __name__ == "__main__": 
     print("Hello world")
