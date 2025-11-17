@@ -124,6 +124,32 @@ class ChatMessageType(AbstractEventType):
         """Returns all the fields of the event as a dictionary, used when creating the event in pygame.event.Event()"""
         return {AbstractEventType.s_event:self._event, ChatMessageType.s_message:self._message}
 
+class GameRoleType(AbstractEventType):
+    """An event sent containing a the player role"""
+    #static field name to standardize the dictionary key
+    s_role_name="role_name"
+    s_role_descr="role_desc"
+
+    def __init__(self, role:str, description:str)->None:
+        self._event=EventType.GAME_ROLE
+        self._role=role
+        self._desc=description
+
+    @property
+    def role(self)->str:
+        """Returns the role name contained in the event"""
+        return self._role
+    
+    @property
+    def role_description(self)->str:
+        """Returns the role description contained in the event"""
+        return self._desc
+    
+    def as_dictionary(self) -> dict:
+        """Returns all the fields of the event as a dictionary, used when creating the event in pygame.event.Event()"""
+        return {AbstractEventType.s_event:self._event, GameRoleType.s_role_name:self._role, GameRoleType.s_role_descr: self._desc}
+
+
 def create_change_screen_type(dict: dict)->ChangeScreenType:
     """Creates a changing screen type from a correct dictionary"""
     event=dict.get(ChangeScreenType.s_event)
@@ -170,6 +196,15 @@ def create_chat_message_type(dict:dict)->ChatMessageType:
     assert(message!=None)
     return ChatMessageType(message)
 
+def create_game_role_type(dict:dict)->GameRoleType:
+    """Creates a game role type from a correct dictionary"""
+    event=dict.get(GameRoleType.s_event)
+    assert(event!=EventType.NONE and event!=None and event==EventType.GAME_ROLE)
+    role=dict.get(GameRoleType.s_role_name)
+    assert(role!=None)
+    desc=dict.get(GameRoleType.s_role_descr)
+    assert(desc!=None)
+    return GameRoleType(role, desc)
 
 def create_custom_event_from_dict(dict:dict)->AbstractEventType:
     """Creates an event type from a dictionary by parsing the event field. If the event field doesn't match a Value error is thrown"""
@@ -231,6 +266,10 @@ class CustomEventSender():
     def send_event_chat_message(self, message:str)->None:
         """Sends a custom event to send a chat message"""
         pygame.event.post(pygame.event.Event(self._custom_event, ChatMessageType(message).as_dictionary()))
+    
+    def send_event_game_role(self, role:str, description:str)->None:
+        """Sends a custom event containing the game role"""
+        pygame.event.post(pygame.event.Event(self._custom_event, GameRoleType(role, description).as_dictionary()))
 
     @property
     def custom_event(self)->int:
@@ -249,6 +288,7 @@ class CustomEventSender():
             #self.send_event_waiting_room(10)
             #self.send_event_chat_message("Mario: ciao")
             self.send_event_execute_or_spare_user("Mario")
+            self.send_event_game_role("werewolf", "kill people")
         if self._times==-1:
             #send event forever
             #self.send_event_new_user("Mario")

@@ -2,7 +2,7 @@ import textwrap
 from typing import List
 import pygame
 from abc import ABC, abstractmethod
-from wiredwolf.view.CustomEvents import ChangeScreenType, ChatMessageType, CustomEventSender, DiscoveredLobbyType, TimeOutType, UsersType, WaitingRoomType, create_custom_event_from_dict
+from wiredwolf.view.CustomEvents import ChangeScreenType, ChatMessageType, CustomEventSender, DiscoveredLobbyType, GameRoleType, TimeOutType, UsersType, WaitingRoomType, create_custom_event_from_dict
 from wiredwolf.view.Components import LimitedList, MultipleTexts, SelectorButton, VContainer, HContainer
 from wiredwolf.view.Constants import BACKGROUND_COLOR, CHAT_BACKGROUND, FontSize, Screens
 from functools import partial
@@ -17,9 +17,10 @@ CONTAINER_FACTOR=14 #this value is chosen by testing with different font sizes w
 CUSTOM_EVENT=0
 
 def message_sender_util(message:str, list: LimitedList, multiple_text_display:MultipleTexts)->None:
+    """A message sender util that handles message splitting into multiple lines and updates the display given"""
     split_message=textwrap.wrap(message, width=WRAP_LINE_WIDTH)
     for elem in split_message:
-        list.add_element(elem) #adds message to messages sent
+        list.add_element(elem) #adds message to messages displayed
     multiple_text_display.on_list_change() #displays the new message(s)
 
 class GameStateManager:
@@ -317,7 +318,7 @@ class DayVotingScreen(AbstractScreen):
                     #if the message is not the last message sent and it's not empty, then send the new message
                     self._text_box.reset_last_input() #clear internal memory
                     global username
-                    message_sender_util(username+":"+tmp, self._my_limited_list, self._multiple_texts)
+                    message_sender_util(username+":"+tmp, self._my_limited_list, self._multiple_texts) #TODO: communicate with controller the message
             if event.type==CUSTOM_EVENT:
                 #parse the custom event into an object
                 e=create_custom_event_from_dict(event.dict)
@@ -386,7 +387,7 @@ class DayExecutionScreen(AbstractScreen):
                     #if the message is not the last message sent and it's not empty, then send the new message
                     self._text_box.reset_last_input() #clear internal memory
                     global username
-                    message_sender_util(username+":"+tmp, self._my_limited_list, self._multiple_texts)
+                    message_sender_util(username+":"+tmp, self._my_limited_list, self._multiple_texts) #TODO: communicate with controller the message
             if event.type==CUSTOM_EVENT:
                 #parse the custom event into an object
                 e=create_custom_event_from_dict(event.dict)
@@ -437,18 +438,20 @@ class NightRoleScreen(AbstractScreen):
         super().__init__(display, game_state_manager)
         from wiredwolf.view.Components import Text, SelectorGroup, EnabledButton
         self._title=VContainer(0, [Text("Night")], self._display.get_size(), (50, 5))
-        self._role=VContainer(0, [Text("Use your power, special role")], self._display.get_size(),(50, 10)) #TODO: get role from controller to customize text
+        self._role_name=""
+        self._role_text=Text("Use your power, "+self._role_name)
+        self._role_container=VContainer(0, [self._role_text], self._display.get_size(),(50, 10)) 
         self._selector_group=SelectorGroup([]) #Added dynamically via events
         self._users=VContainer(10, [], self._display.get_size())
         act_on=partial(self._act_on_player)
-        self._execute=EnabledButton(act_on, "Act on this player", 300, 50, enabled=True) #TODO: get role from controller to customize text
+        self._execute=EnabledButton(act_on, "Act on this player", 300, 50, enabled=True) #TODO: customize this further? ex werewolves kill this player, ... 
         self._execute_container=VContainer(0, [self._execute], self._display.get_size(), (50, 90))
 
     def run(self,event:pygame.event.Event | None)->None:
         """A night non villager role screen"""
         self._display.fill(BACKGROUND_COLOR)
         self._title.draw(self._display)
-        self._role.draw(self._display)
+        self._role_container.draw(self._display)
         self._users.draw(self._display)
         self._execute_container.draw(self._display)
         if event is not None and event.type==CUSTOM_EVENT:
@@ -462,6 +465,11 @@ class NightRoleScreen(AbstractScreen):
                     button=SelectorButton(e.username, 100, 20)
                     self._selector_group.add_selector_button(button)
                     self._users.add_element(button)
+                if isinstance(e, GameRoleType):
+                    #Personalizes screen with player role
+                    self._role_name=e.role
+                    self._role_text.text="Use your power, "+self._role_name
+                    self._role_container.update_on_next_draw()
     
     def _act_on_player(self)->None:
         """The function called when the button is pressed, to save who you acted on"""
