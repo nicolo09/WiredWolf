@@ -2,8 +2,8 @@ import textwrap
 from typing import List
 import pygame
 from abc import ABC, abstractmethod
-from wiredwolf.view.CustomEvents import ChangeScreenType, CustomEventSender, DiscoveredLobbyType, TimeOutType, UsersType, WaitingRoomType, create_custom_event_from_dict
-from wiredwolf.view.Components import SelectorButton, VContainer, HContainer
+from wiredwolf.view.CustomEvents import ChangeScreenType, ChatMessageType, CustomEventSender, DiscoveredLobbyType, TimeOutType, UsersType, WaitingRoomType, create_custom_event_from_dict
+from wiredwolf.view.Components import LimitedList, MultipleTexts, SelectorButton, VContainer, HContainer
 from wiredwolf.view.Constants import BACKGROUND_COLOR, CHAT_BACKGROUND, FontSize, Screens
 from functools import partial
 
@@ -11,7 +11,6 @@ FPS=60
 username=""
 lobby_name=""
 voted_user=""
-executed_user=""
 WRAP_LINE_WIDTH=25
 MAX_MESSAGES_DISPLAYED=10
 CONTAINER_FACTOR=14 #this value is chosen by testing with different font sizes which value * wrap line withd fits all texts
@@ -70,7 +69,7 @@ class App:
         self._display_screen = pygame.display.set_mode(self._size, pygame.RESIZABLE) #the window is resizable
         pygame.display.set_caption("Wirewolf") #window title
         self._running = True
-        self._game_state_manager=GameStateManager(Screens.HOME)
+        self._game_state_manager=GameStateManager(Screens.DAY_EXECUTION)
         self._start_screen=StartScreen(self._display_screen, self._game_state_manager)
         self._new_lobby_screen=NewLobbyScreen(self._display_screen, self._game_state_manager)
         self._search_lobby_screen=SearchLobbyScreen(self._display_screen, self._game_state_manager)
@@ -364,12 +363,11 @@ class DayExecutionScreen(AbstractScreen):
         self._container_text=VContainer(0, [self._text_box], self._display.get_size(), (70,90))
         self._last_message=""
         self._vote_to_execute=None #Saved outcome of user voting, if None->not voted, True->executed, False->Spared
-        global executed_user
-        executed_user="Mario" #TODO: get username from controller
+        self._executed_user="" #Gets username via custom event
         executed=partial(self._spare_or_execute, True)
         spared=partial(self._spare_or_execute, False)
-        self._execute_button=EnabledButton(executed, "Vote to execute "+executed_user, 300, 50, enabled=True)
-        self._spare_button=EnabledButton(spared, "Vote to spare "+executed_user, 300, 50, enabled=True)
+        self._execute_button=EnabledButton(executed, "Vote to execute "+self._executed_user, 300, 50, enabled=True)
+        self._spare_button=EnabledButton(spared, "Vote to spare "+self._executed_user, 300, 50, enabled=True)
         self._button_container=VContainer(20, [self._execute_button, self._spare_button], self._display.get_size(), (20, 50))
 
     def run(self,event:pygame.event.Event | None)->None:
@@ -398,6 +396,13 @@ class DayExecutionScreen(AbstractScreen):
                 if isinstance(e, ChatMessageType):
                     #Messages recived from other users
                     message_sender_util(e.message, self._my_limited_list, self._multiple_texts)
+                if isinstance(e, UsersType):
+                    #Username of player to execute
+                    self._executed_user=e.username
+                    self._execute_button.text="Vote to execute "+self._executed_user
+                    self._spare_button.text="Vote to spare "+self._executed_user
+                    #Updating the button text requires an update on the container
+                    self._button_container.update_on_next_draw()
     
     def _spare_or_execute(self, outcome:bool)->None:
         """The function called when the buttons are pressed, to save the outcome of the voting"""
@@ -542,7 +547,7 @@ class WolfLossScreen(AbstractScreen):
 
 if __name__ == "__main__":
     my_app=App()
-    custom=CustomEventSender()
+    custom=CustomEventSender(3)
     CUSTOM_EVENT=custom.custom_event #Save value of custom events
     while my_app.app_running:
         custom.test()

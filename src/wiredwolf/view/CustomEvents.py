@@ -217,6 +217,10 @@ class CustomEventSender():
         """Sends a custom event to add a new user"""
         pygame.event.post(pygame.event.Event(self._custom_event, UsersType(username).as_dictionary()))
 
+    def send_event_execute_or_spare_user(self, username:str)->None:
+        """Sends a custom event to notify gui which player is to be spared or executed"""
+        pygame.event.post(pygame.event.Event(self._custom_event, UsersType(username).as_dictionary()))
+
     def send_event_timeout(self)->None:
         """Sends a custom event to say that some time has passed"""
         pygame.event.post(pygame.event.Event(self._custom_event, TimeOutType().as_dictionary()))
@@ -244,7 +248,8 @@ class CustomEventSender():
             #self.send_event_new_user("Mario")
             #self.send_event_timeout()
             #self.send_event_waiting_room(10)
-            self.send_event_chat_message("Mario: ciao")
+            #self.send_event_chat_message("Mario: ciao")
+            self.send_event_execute_or_spare_user("Mario")
         if self._times==-1:
             #send event forever
             #self.send_event_new_user("Mario")
