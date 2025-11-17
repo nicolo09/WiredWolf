@@ -170,29 +170,28 @@ def create_chat_message_type(dict:dict)->ChatMessageType:
     assert(message!=None)
     return ChatMessageType(message)
 
+
 def create_custom_event_from_dict(dict:dict)->AbstractEventType:
     """Creates an event type from a dictionary by parsing the event field. If the event field doesn't match a Value error is thrown"""
     event=dict.get(AbstractEventType.s_event)
     if event!=None:
-        if event==EventType.CHANGE_SCREEN:
-            return create_change_screen_type(dict)
-        else:
-            if event==EventType.DISCOVERED_LOBBY:
+        match event:
+            case EventType.CHANGE_SCREEN:
+                return create_change_screen_type(dict)
+            case EventType.DISCOVERED_LOBBY:
                 return create_discovered_lobby_type(dict)
-            else:
-                if event==EventType.USERNAME:
-                    return create_users_type(dict)
-                else:
-                    if event==EventType.TIMEOUT:
-                        return create_timeout_type(dict)
-                    else:
-                        if event==EventType.WAITING_ROOM:
-                            return create_waiting_room_type(dict)
-                        else:
-                            if event==EventType.CHAT_MESSAGE:
-                                return create_chat_message_type(dict)
-                            else:
-                                raise ValueError("Dictionary event must be one of the EventType enums")         
+            case EventType.USERNAME:
+                return create_users_type(dict)
+            case EventType.TIMEOUT:
+                return create_timeout_type(dict)
+            case EventType.WAITING_ROOM:
+                return create_waiting_room_type(dict)
+            case EventType.CHAT_MESSAGE:
+                return create_chat_message_type(dict)
+            case EventType.GAME_ROLE:
+                return create_game_role_type(dict)
+            case _: #default case, no matches
+                raise ValueError("Dictionary event must be one of the EventType enums")         
     else:
         raise ValueError("Dictionary must contain event key")
     
