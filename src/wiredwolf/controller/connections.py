@@ -105,7 +105,7 @@ class ClientConnectionHandler(abc.ABC):
 
     def __init__(self, my_self: Peer):
         """Initialize the client connection handler."""
-        self._on_message: Callable[[Any], None] | None = None
+        self._on_message: Callable[[BaseMessage], None] | None = None
         self._my_self: Peer = my_self
 
     @property
@@ -176,7 +176,7 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
             self._receive_loop()
         ).add_done_callback(self._handle_receive_loop_closed)
 
-    async def _handle_receive_loop_closed(self, task: asyncio.Task[None]) -> None:
+    def _handle_receive_loop_closed(self, task: asyncio.Task[None]) -> None:
         """Handle the completion of the receive loop task.
 
         Args:
@@ -429,6 +429,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                         peer,
                         msg.sender,
                     )
+                    await self.send_obj(peer, RuntimeError("Incorrect message sender")) #TODO: Define a proper exception for this case
                 else:
                     try:
                         await self._on_new_message(msg)

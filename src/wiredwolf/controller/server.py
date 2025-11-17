@@ -208,9 +208,7 @@ class GameServer:
         game_info = game_info_builder.build()
         players = create_players(
             [peer.uuid for peer in self._lobby.peers],
-            set(
-                game_info.get_handled_roles()
-            ),  # TODO: Check if get_handled_roles returns a set or a list
+            game_info.get_all_handled_roles()
         )
         self._game = Game(players, game_info)
         assert self._game.phase is GamePhase.DAY_DISCUSSION
