@@ -44,7 +44,7 @@ class AbstractButton(DrawableComponent):
         self._button_clicked=False #sets the button as not clicked
         self._font=font.value #gets the font chosen
         self._text=text
-        self._text_surface=self._font.render(text, True, TEXT_COLOR) #renders the text
+        self._text_surface=self._font.render(self._text, True, TEXT_COLOR) #renders the text
         self._text_rect=self._text_surface.get_rect(center=self._button_rect.center) #centers the text in the button
     
     @property
@@ -63,9 +63,20 @@ class AbstractButton(DrawableComponent):
         self._button_rect.x=value[0]
         self._button_rect.y=value[1]
 
+    @property
+    def text(self)->str:
+        """Returns button text"""
+        return self._text
+    
+    @text.setter
+    def text(self, new_text:str)->None:
+        """Sets button text"""
+        self._text=new_text
+
     def draw(self, screen: pygame.Surface)-> None:
         """Draws the button on the given surface"""
         #Since the window is resizable, the button position is calculated as centered.
+        self._text_surface=self._font.render(self._text, True, TEXT_COLOR) #renders the text
         self._text_rect=self._text_surface.get_rect(center=self._button_rect.center) #re-centers the text in the button
         #draws the button as a rectangle with rounded corners
         pygame.draw.rect(screen, self._button_color, self._button_rect, border_radius=12) #border radius is for rounded corners
@@ -300,6 +311,7 @@ class CallbackButton(AbstractButton):
     def __init__(self, callback:Callable[[],None], text: str, width:int, height:int, position:tuple[int, int]=(0,0), font:FontSize=FontSize.H1, default_color:str=BUTTON_COLOR, activation_color:str=BUTTON_HOVER_COLOR)-> None:
         super().__init__(text, width, height, position, font, default_color, activation_color)
         self._callback=callback
+
     def on_click(self)-> None:
         """Calls the callback function"""
         self._callback()
@@ -359,11 +371,6 @@ class SelectorButton(AbstractButton):
     def selected(self, selected:bool)->None:
         """Sets selected status"""
         self._selected=selected
-    
-    @property
-    def text(self)->str:
-        """Returns button text"""
-        return self._text
     
     @property
     def callback(self)->Callable[[],None]:
