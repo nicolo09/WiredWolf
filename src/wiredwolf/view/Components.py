@@ -299,11 +299,6 @@ class HContainer(AbstractContainer):
         """Sets the height to fixed"""
         self._dimensions=(self._dimensions[0], self._fixed_dim)
 
-class PrintButton(AbstractButton):
-    """A simple button implementation that prints a test string"""
-    def on_click(self)-> None:
-        """Prints a test string when the button is pressed"""
-        print("Hello concrete method")
 
 class CallbackButton(AbstractButton):
     """A button that calls the callback on click"""
