@@ -6,6 +6,7 @@ from wiredwolf.view.CustomEvents import ChangeScreenType, ChatMessageType, Custo
 from wiredwolf.view.Components import LimitedList, MultipleTexts, SelectorButton, VContainer, HContainer
 from wiredwolf.view.Constants import BACKGROUND_COLOR, CHAT_BACKGROUND, FontSize, Screens
 from functools import partial
+from wiredwolf.view.ViewConstants import *
 
 FPS=60
 username=""
@@ -14,7 +15,7 @@ voted_user=""
 WRAP_LINE_WIDTH=25
 MAX_MESSAGES_DISPLAYED=10
 CONTAINER_FACTOR=14 #this value is chosen by testing with different font sizes which value * wrap line withd fits all texts
-CUSTOM_EVENT=0
+CUSTOM_EVENT=0 #custom event id, to be set by event sender
 
 def message_sender_util(message:str, list: LimitedList, multiple_text_display:MultipleTexts)->None:
     """A message sender util that handles message splitting into multiple lines and updates the display given"""
@@ -70,7 +71,7 @@ class App:
         self._display_screen = pygame.display.set_mode(self._size, pygame.RESIZABLE) #the window is resizable
         pygame.display.set_caption("Wirewolf") #window title
         self._running = True
-        self._game_state_manager=GameStateManager(Screens.DAY_EXECUTION)
+        self._game_state_manager=GameStateManager(Screens.HOME)
         self._start_screen=StartScreen(self._display_screen, self._game_state_manager)
         self._new_lobby_screen=NewLobbyScreen(self._display_screen, self._game_state_manager)
         self._search_lobby_screen=SearchLobbyScreen(self._display_screen, self._game_state_manager)
@@ -142,14 +143,14 @@ class StartScreen(AbstractScreen):
         super().__init__(display, game_state_manager)
         from wiredwolf.view.Components import CallbackButton, Text, TextField
         go_new_lobby=partial(self._game_state_manager.change_screen, Screens.NEW_LOBBY)
-        new_lobby_button=CallbackButton(go_new_lobby, 'New Lobby', 250, 50) 
+        new_lobby_button=CallbackButton(go_new_lobby, 'New Lobby', LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT) 
         go_search_lobby=partial(self._game_state_manager.change_screen, Screens.SEARCH_LOBBY)
-        search_lobby_button=CallbackButton(go_search_lobby, 'Search for lobbies', 250, 50) 
-        self._field=TextField(250, 50)
+        search_lobby_button=CallbackButton(go_search_lobby, 'Search for lobbies', LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT) 
+        self._field=TextField(LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT)
         username_enter=Text("Insert username:", font=FontSize.H2)
         list=[username_enter, self._field, new_lobby_button, search_lobby_button]
-        self._v_container=VContainer(10, list, self._display.get_size())
-        self._title_container=VContainer(0, [Text("Wiredwolf", (0, 10))], self._display.get_size(), (50, 15))
+        self._v_container=VContainer(MEDIUM_ELEMENT_DIV, list, self._display.get_size())
+        self._title_container=VContainer(SINGLE_ELEMENT_DIV, [Text("Wiredwolf")], self._display.get_size(), (50, 15))
         
     def run(self,event:pygame.event.Event | None)->None:
         """The start screen, the first screen showed at startup"""
@@ -171,15 +172,15 @@ class NewLobbyScreen(AbstractScreen):
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
         from wiredwolf.view.Components import CallbackButton, Text, TextField, EnabledButton
-        self._title=VContainer(10,[Text("Create a new lobby")], self._display.get_size(),(50,20))
+        self._title=VContainer(SINGLE_ELEMENT_DIV,[Text("Create a new lobby")], self._display.get_size(), (50,20))
         lobby_name=Text("Insert the new lobby name", font=FontSize.H2)
-        self._field=TextField(300, 50)
+        self._field=TextField(LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT)
         create_lobby=partial(self._game_state_manager.change_screen, Screens.LOBBY_WAITING)
-        self._create_lobby_button=EnabledButton(create_lobby, 'Create the new lobby!', 300, 50,font=FontSize.H2)
+        self._create_lobby_button=EnabledButton(create_lobby, 'Create the new lobby!', LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT,font=FontSize.H2)
         go_home=partial(self._game_state_manager.change_screen, Screens.HOME)
-        go_home_button=CallbackButton(go_home, 'Go back to start screen', 300, 50,font=FontSize.H2)
-        self._button_container=VContainer(10, [lobby_name, self._field, self._create_lobby_button], self._display.get_size())
-        self._button_back=VContainer(10, [go_home_button], self._display.get_size(), (50, 80))
+        go_home_button=CallbackButton(go_home, 'Go back to start screen', LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT ,font=FontSize.H2)
+        self._button_container=VContainer(MEDIUM_ELEMENT_DIV, [lobby_name, self._field, self._create_lobby_button], self._display.get_size())
+        self._button_back=VContainer(SINGLE_ELEMENT_DIV, [go_home_button], self._display.get_size(), (50, 80))
     
     def run(self,event:pygame.event.Event | None)->None:
         """The new lobby screen, to create a new lobby"""
@@ -204,13 +205,13 @@ class SearchLobbyScreen(AbstractScreen):
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
         from wiredwolf.view.Components import CallbackButton, Text, SelectorGroup, EnabledButton
-        self._title=VContainer(0, [Text("Search for an existing lobby")], self._display.get_size(), (50, 10))
+        self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Search for an existing lobby")], self._display.get_size(), (50, 10))
         self._selector=SelectorGroup([]) #This handles how the selectors BEHAVE as a group
-        self._lobby_group=VContainer(20, [], self._display.get_size()) #This handles how the selectors are DISPLAYED
+        self._lobby_group=VContainer(MEDIUM_ELEMENT_DIV, [], self._display.get_size(), (50, 45)) #This handles how the selectors are DISPLAYED
         go_home=partial(self._game_state_manager.change_screen, Screens.HOME)
         join_lobby=partial(self._game_state_manager.change_screen, Screens.LOBBY_WAITING)
-        self._join_button=EnabledButton(join_lobby, 'Join selected lobby', 300, 50,font=FontSize.H2)
-        self._buttons=HContainer(10, [CallbackButton(go_home, 'Go back to start screen', 300, 50,font=FontSize.H2), self._join_button], self._display.get_size(), (50, 80))
+        self._join_button=EnabledButton(join_lobby, 'Join selected lobby', LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT,font=FontSize.H2)
+        self._buttons=HContainer(MEDIUM_ELEMENT_DIV, [CallbackButton(go_home, 'Go back to start screen', LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, font=FontSize.H2), self._join_button], self._display.get_size(), (50, 85))
     
     def run(self,event:pygame.event.Event | None)->None:
         """The search lobby screen, to search for existing lobbies"""
@@ -235,7 +236,7 @@ class SearchLobbyScreen(AbstractScreen):
                 e=create_custom_event_from_dict(event.dict)
                 if isinstance(e, DiscoveredLobbyType):
                     #This screen only interacts with Discovered Lobby Events
-                    button=SelectorButton(e.discovered_lobby, 100, 20)
+                    button=SelectorButton(e.discovered_lobby, SMALL_BTN_WIDTH, SMALL_BTN_HEIGHT)
                     self._selector.add_selector_button(button)
                     self._lobby_group.add_element(button)
 
@@ -247,9 +248,9 @@ class WaitingLobbyScreen(AbstractScreen):
         global lobby_name
         self._local_lobby=lobby_name
         self._title=Text("Waiting for other players to join "+self._local_lobby+" lobby")
-        self._title_container=VContainer(0, [self._title], self._display.get_size(), (50,20))
+        self._title_container=VContainer(SINGLE_ELEMENT_DIV, [self._title], self._display.get_size(), (50,20))
         self._text_number=Text("1 player connected...", font=FontSize.H2) #Updated count via custom events
-        self._waiting=VContainer(0,[self._text_number], self._display.get_size())
+        self._waiting=VContainer(SINGLE_ELEMENT_DIV,[self._text_number], self._display.get_size())
         
     def run(self,event:pygame.event.Event | None)->None:
         """A simple waiting screen"""
@@ -282,21 +283,21 @@ class DayVotingScreen(AbstractScreen):
     """The screens where users chat and choose which players to nominate for an execution"""
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
-        from wiredwolf.view.Components import MultipleTexts,LimitedList, MemoryTextField,Text,SelectorButton, SelectorGroup,EnabledButton
-        self._title=VContainer(0, [Text("Day")], self._display.get_size(), (50, 5))
+        from wiredwolf.view.Components import MultipleTexts,LimitedList, MemoryTextField,Text, SelectorGroup,EnabledButton
+        self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Day")], self._display.get_size(), (50, 5))
         self._my_limited_list=LimitedList(MAX_MESSAGES_DISPLAYED) #This is where the messages are stored, up to MAX_MESSAGES DISPLAYED
-        self._multiple_texts=MultipleTexts(self._my_limited_list, 5, self._display.get_size(), (70, 45), CONTAINER_FACTOR*WRAP_LINE_WIDTH, CHAT_BACKGROUND) #This is where the messages are displayed vertically
-        self._text_box=MemoryTextField(300, 50) #This is where the new messages are entered
-        self._container_text=VContainer(0, [self._text_box], self._display.get_size(), (70,90))
+        self._multiple_texts=MultipleTexts(self._my_limited_list, SMALL_ELEMENT_DIV, self._display.get_size(), (70, 45), CONTAINER_FACTOR*WRAP_LINE_WIDTH, CHAT_BACKGROUND) #This is where the messages are displayed vertically
+        self._text_box=MemoryTextField(LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT) #This is where the new messages are entered
+        self._container_text=VContainer(SINGLE_ELEMENT_DIV, [self._text_box], self._display.get_size(), (70,90))
         self._last_message=""
         self._selector=SelectorGroup([]) #This handles how the selectors BEHAVE as a group
         self._selector.set_enabled(False)
         change_player_voted=partial(self._set_voted_player)
-        self._vote_player=EnabledButton(change_player_voted, 'Vote to execute player', 250, 50,font=FontSize.H2, enabled=False) #Necessary so users can't vote instantly
-        self._vote_player_group=VContainer(0, [self._vote_player], self._display.get_size(), (20, 90))
-        self._players=VContainer(20, [], self._display.get_size(), (20, 50)) #This handles how the selectors are DISPLAYED
+        self._vote_player=EnabledButton(change_player_voted, 'Vote to execute player', MEDIUM_BTN_WIDTH, LARGE_BTN_HEIGHT,font=FontSize.H2, enabled=False) #Necessary so users can't vote instantly
+        self._vote_player_group=VContainer(SINGLE_ELEMENT_DIV, [self._vote_player], self._display.get_size(), (20, 90))
+        self._players=VContainer(MEDIUM_ELEMENT_DIV, [], self._display.get_size(), (20, 50)) #This handles how the selectors are DISPLAYED
         self._voted_text=Text("You haven't voted", font=FontSize.H3)
-        self._voted_container=HContainer(0, [self._voted_text], self._display.get_size(), (20, 80))
+        self._voted_container=HContainer(SINGLE_ELEMENT_DIV, [self._voted_text], self._display.get_size(), (20, 80))
 
     def run(self,event:pygame.event.Event | None)->None:
         """A day waiting and voting screen"""
@@ -324,7 +325,7 @@ class DayVotingScreen(AbstractScreen):
                 e=create_custom_event_from_dict(event.dict)
                 if isinstance(e, UsersType):
                     #Add new username
-                    button=SelectorButton(e.username, 100, 20)
+                    button=SelectorButton(e.username, SMALL_BTN_WIDTH, SMALL_BTN_HEIGHT)
                     self._selector.add_selector_button(button)
                     self._players.add_element(button)
                 if isinstance(e, TimeOutType):
@@ -356,20 +357,20 @@ class DayExecutionScreen(AbstractScreen):
     """The screen where users chat and choose if the player nominated for execution should be spared or not"""
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
-        from wiredwolf.view.Components import MultipleTexts,LimitedList, MemoryTextField,Text,EnabledButton, CallbackButton
-        self._title=VContainer(0, [Text("Day: execution")], self._display.get_size(), (50, 5))
+        from wiredwolf.view.Components import MultipleTexts,LimitedList, MemoryTextField,Text,EnabledButton
+        self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Day: execution")], self._display.get_size(), (50, 5))
         self._my_limited_list=LimitedList(MAX_MESSAGES_DISPLAYED) #This is where the messages are stored, up to MAX_MESSAGES DISPLAYED
-        self._multiple_texts=MultipleTexts(self._my_limited_list, 5, self._display.get_size(), (70, 45), CONTAINER_FACTOR*WRAP_LINE_WIDTH, CHAT_BACKGROUND) #This is where the messages are displayed vertically
-        self._text_box=MemoryTextField(300, 50) #This is where the new messages are entered
-        self._container_text=VContainer(0, [self._text_box], self._display.get_size(), (70,90))
+        self._multiple_texts=MultipleTexts(self._my_limited_list, SMALL_ELEMENT_DIV, self._display.get_size(), (70, 45), CONTAINER_FACTOR*WRAP_LINE_WIDTH, CHAT_BACKGROUND) #This is where the messages are displayed vertically
+        self._text_box=MemoryTextField(LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT) #This is where the new messages are entered
+        self._container_text=VContainer(SINGLE_ELEMENT_DIV, [self._text_box], self._display.get_size(), (70,90))
         self._last_message=""
         self._vote_to_execute=None #Saved outcome of user voting, if None->not voted, True->executed, False->Spared
         self._executed_user="" #Gets username via custom event
         executed=partial(self._spare_or_execute, True)
         spared=partial(self._spare_or_execute, False)
-        self._execute_button=EnabledButton(executed, "Vote to execute "+self._executed_user, 300, 50, enabled=True)
-        self._spare_button=EnabledButton(spared, "Vote to spare "+self._executed_user, 300, 50, enabled=True)
-        self._button_container=VContainer(20, [self._execute_button, self._spare_button], self._display.get_size(), (20, 50))
+        self._execute_button=EnabledButton(executed, "Vote to execute "+self._executed_user, MEDIUM_BTN_WIDTH, LARGE_BTN_HEIGHT, enabled=True)
+        self._spare_button=EnabledButton(spared, "Vote to spare "+self._executed_user, MEDIUM_BTN_WIDTH, LARGE_BTN_HEIGHT, enabled=True)
+        self._button_container=VContainer(LARGE_ELEMENT_DIV, [self._execute_button, self._spare_button], self._display.get_size(), (20, 50))
 
     def run(self,event:pygame.event.Event | None)->None:
         """A day execution screen"""
@@ -417,8 +418,8 @@ class NightVillagerScreen(AbstractScreen):
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
         from wiredwolf.view.Components import Text
-        self._title=VContainer(0, [Text("Night")], self._display.get_size(), (50, 5))
-        self._villager=VContainer(0, [Text("Wait for the night to end...")], self._display.get_size())
+        self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Night")], self._display.get_size(), (50, 5))
+        self._villager=VContainer(SINGLE_ELEMENT_DIV, [Text("Wait for the night to end...")], self._display.get_size())
 
     def run(self,event:pygame.event.Event | None)->None:
         """A night villager screen"""
@@ -437,15 +438,15 @@ class NightRoleScreen(AbstractScreen):
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
         from wiredwolf.view.Components import Text, SelectorGroup, EnabledButton
-        self._title=VContainer(0, [Text("Night")], self._display.get_size(), (50, 5))
+        self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Night")], self._display.get_size(), (50, 5))
         self._role_name=""
         self._role_text=Text("Use your power, "+self._role_name)
-        self._role_container=VContainer(0, [self._role_text], self._display.get_size(),(50, 10)) 
+        self._role_container=VContainer(SINGLE_ELEMENT_DIV, [self._role_text], self._display.get_size(),(50, 10)) 
         self._selector_group=SelectorGroup([]) #Added dynamically via events
-        self._users=VContainer(10, [], self._display.get_size())
+        self._users=VContainer(MEDIUM_ELEMENT_DIV, [], self._display.get_size()) #Added dynamically via events
         act_on=partial(self._act_on_player)
-        self._execute=EnabledButton(act_on, "Act on this player", 300, 50, enabled=True) #TODO: customize this further? ex werewolves kill this player, ... 
-        self._execute_container=VContainer(0, [self._execute], self._display.get_size(), (50, 90))
+        self._execute=EnabledButton(act_on, "Act on this player", LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, enabled=True) #TODO: customize this further? ex werewolves kill this player, ... 
+        self._execute_container=VContainer(SINGLE_ELEMENT_DIV, [self._execute], self._display.get_size(), (50, 90))
 
     def run(self,event:pygame.event.Event | None)->None:
         """A night non villager role screen"""
@@ -462,7 +463,7 @@ class NightRoleScreen(AbstractScreen):
                     self._game_state_manager.change_screen(e.next_screen)
                 if isinstance(e, UsersType):
                     #Add username to users you can act on (ex: werewolfs can only kill non werewolves ecc)
-                    button=SelectorButton(e.username, 100, 20)
+                    button=SelectorButton(e.username, SMALL_BTN_WIDTH, SMALL_BTN_HEIGHT)
                     self._selector_group.add_selector_button(button)
                     self._users.add_element(button)
                 if isinstance(e, GameRoleType):
@@ -486,7 +487,7 @@ class VillagerWinScreen(AbstractScreen):
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
         from wiredwolf.view.Components import Text
-        self._title=VContainer(0, [Text("Villagers have won!")], self._display.get_size())
+        self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Villagers have won!")], self._display.get_size())
 
     def run(self, event:pygame.event.Event | None)->None:
         """A winning screen for villager users"""
@@ -504,7 +505,7 @@ class VillagerLossScreen(AbstractScreen):
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
         from wiredwolf.view.Components import Text
-        self._title=VContainer(0, [Text("Villagers have lost")], self._display.get_size())
+        self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Villagers have lost")], self._display.get_size())
 
     def run(self, event:pygame.event.Event | None)->None:
         """A losing screen for villager users"""
@@ -522,7 +523,7 @@ class WolfWinScreen(AbstractScreen):
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
         from wiredwolf.view.Components import Text
-        self._title=VContainer(0, [Text("Werewolves have won!")], self._display.get_size())
+        self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Werewolves have won!")], self._display.get_size())
 
     def run(self, event:pygame.event.Event | None)->None:
         """A winning screen for werewolf users"""
@@ -540,7 +541,7 @@ class WolfLossScreen(AbstractScreen):
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
         from wiredwolf.view.Components import Text
-        self._title=VContainer(0, [Text("Werewolves have lost")], self._display.get_size())
+        self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Werewolves have lost")], self._display.get_size())
 
     def run(self, event:pygame.event.Event | None)->None:
         """A losing screen for werewolf users"""
