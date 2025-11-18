@@ -14,6 +14,7 @@ class Screens(Enum):
     VILLAGER_LOSS='villager loss'
     WOLF_WIN='wolf win'
     WOLF_LOSS='wolf loss'
+    ROLE_DISPLAY='role display'
 
 class EventType(Enum): #Used to easily identify the type of event sent
     CHANGE_SCREEN='change-screen'

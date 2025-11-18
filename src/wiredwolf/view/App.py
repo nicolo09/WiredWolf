@@ -84,6 +84,7 @@ class App:
         self._villager_loss_screen=VillagerLossScreen(self._display_screen, self._game_state_manager)
         self._wolf_win_screen=WolfWinScreen(self._display_screen, self._game_state_manager)
         self._wolf_loss_screen=WolfLossScreen(self._display_screen, self._game_state_manager)
+        self._role_display_screen=RoleDisplayScreen(self._display_screen, self._game_state_manager)
         self._dictionary={Screens.HOME: self._start_screen,
                           Screens.NEW_LOBBY:self._new_lobby_screen, 
                           Screens.SEARCH_LOBBY:self._search_lobby_screen, 
@@ -95,7 +96,8 @@ class App:
                           Screens.VILLAGER_WIN: self._villager_win_screen,
                           Screens.VILLAGER_LOSS: self._villager_loss_screen,
                           Screens.WOLF_WIN: self._wolf_win_screen,
-                          Screens.WOLF_LOSS: self._wolf_loss_screen}
+                          Screens.WOLF_LOSS: self._wolf_loss_screen,
+                          Screens.ROLE_DISPLAY: self._role_display_screen}
         self._clock = pygame.time.Clock()
         self._next_event=None
         
@@ -554,6 +556,33 @@ class WolfLossScreen(AbstractScreen):
                 #End of winning screen, go to home?
                 self._game_state_manager.change_screen(e.next_screen)
 
+class RoleDisplayScreen(AbstractScreen):
+    """The screen displaying which role you were assigned to and explaining its powers"""
+    def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
+        super().__init__(display, game_state_manager)
+        from wiredwolf.view.Components import Text
+        self._title=Text("Role") #Properly set via custom event
+        self._title_container=VContainer(SINGLE_ELEMENT_DIV, [self._title], self._display.get_size(), (50, 20))
+        self._description=Text("Description", font=FontSize.H2) #Properly set via custom event
+        self._description_container=VContainer(SINGLE_ELEMENT_DIV, [self._description], self._display.get_size())
+    
+    def run(self, event:pygame.event.Event | None)->None:
+        """A role screen for users"""
+        self._display.fill(BACKGROUND_COLOR)
+        self._title_container.draw(self._display)
+        self._description_container.draw(self._display)
+        if event is not None and event.type==CUSTOM_EVENT:
+            #parse the custom event into an object
+            e=create_custom_event_from_dict(event.dict)
+            if isinstance(e, ChangeScreenType):
+                #Go to next screen
+                self._game_state_manager.change_screen(e.next_screen)
+            if isinstance(e, GameRoleType):
+                #Update role and description
+                self._title.text=e.role
+                self._title_container.update_on_next_draw()
+                self._description.text=e.role_description
+                self._description_container.update_on_next_draw()
 if __name__ == "__main__":
     my_app=App()
     custom=CustomEventSender(3)
