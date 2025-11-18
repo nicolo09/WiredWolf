@@ -12,8 +12,8 @@ FPS=60
 username=""
 lobby_name=""
 voted_user=""
-WRAP_LINE_WIDTH=25
-MAX_MESSAGES_DISPLAYED=10
+WRAP_LINE_WIDTH=24
+MAX_MESSAGES_DISPLAYED=12
 CONTAINER_FACTOR=14 #this value is chosen by testing with different font sizes which value * wrap line withd fits all texts
 CUSTOM_EVENT=0 #custom event id, to be set by event sender
 
@@ -286,12 +286,11 @@ class DayVotingScreen(AbstractScreen):
         from wiredwolf.view.Components import MultipleTexts,LimitedList, MemoryTextField,Text, SelectorGroup,EnabledButton
         self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Day")], self._display.get_size(), (50, 5))
         self._my_limited_list=LimitedList(MAX_MESSAGES_DISPLAYED) #This is where the messages are stored, up to MAX_MESSAGES DISPLAYED
-        self._multiple_texts=MultipleTexts(self._my_limited_list, SMALL_ELEMENT_DIV, self._display.get_size(), (70, 45), CONTAINER_FACTOR*WRAP_LINE_WIDTH, CHAT_BACKGROUND) #This is where the messages are displayed vertically
-        self._text_box=MemoryTextField(LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT) #This is where the new messages are entered
+        self._multiple_texts=MultipleTexts(self._my_limited_list, SMALL_ELEMENT_DIV, self._display.get_size(), (70, 45), CONTAINER_FACTOR*WRAP_LINE_WIDTH, CHAT_BACKGROUND, font=FontSize.H3) #This is where the messages are displayed vertically
+        self._text_box=MemoryTextField(LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, font=FontSize.H3) #This is where the new messages are entered
         self._container_text=VContainer(SINGLE_ELEMENT_DIV, [self._text_box], self._display.get_size(), (70,90))
         self._last_message=""
         self._selector=SelectorGroup([]) #This handles how the selectors BEHAVE as a group
-        self._selector.set_enabled(False)
         change_player_voted=partial(self._set_voted_player)
         self._vote_player=EnabledButton(change_player_voted, 'Vote to execute player', MEDIUM_BTN_WIDTH, LARGE_BTN_HEIGHT,font=FontSize.H2, enabled=False) #Necessary so users can't vote instantly
         self._vote_player_group=VContainer(SINGLE_ELEMENT_DIV, [self._vote_player], self._display.get_size(), (20, 90))
@@ -327,6 +326,7 @@ class DayVotingScreen(AbstractScreen):
                     #Add new username
                     button=SelectorButton(e.username, SMALL_BTN_WIDTH, SMALL_BTN_HEIGHT)
                     self._selector.add_selector_button(button)
+                    self._selector.set_enabled(False)
                     self._players.add_element(button)
                 if isinstance(e, TimeOutType):
                     #Starts voting
@@ -360,8 +360,8 @@ class DayExecutionScreen(AbstractScreen):
         from wiredwolf.view.Components import MultipleTexts,LimitedList, MemoryTextField,Text,EnabledButton
         self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Day: execution")], self._display.get_size(), (50, 5))
         self._my_limited_list=LimitedList(MAX_MESSAGES_DISPLAYED) #This is where the messages are stored, up to MAX_MESSAGES DISPLAYED
-        self._multiple_texts=MultipleTexts(self._my_limited_list, SMALL_ELEMENT_DIV, self._display.get_size(), (70, 45), CONTAINER_FACTOR*WRAP_LINE_WIDTH, CHAT_BACKGROUND) #This is where the messages are displayed vertically
-        self._text_box=MemoryTextField(LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT) #This is where the new messages are entered
+        self._multiple_texts=MultipleTexts(self._my_limited_list, SMALL_ELEMENT_DIV, self._display.get_size(), (70, 45), CONTAINER_FACTOR*WRAP_LINE_WIDTH, CHAT_BACKGROUND, font=FontSize.H3) #This is where the messages are displayed vertically
+        self._text_box=MemoryTextField(LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, font=FontSize.H3) #This is where the new messages are entered
         self._container_text=VContainer(SINGLE_ELEMENT_DIV, [self._text_box], self._display.get_size(), (70,90))
         self._last_message=""
         self._vote_to_execute=None #Saved outcome of user voting, if None->not voted, True->executed, False->Spared

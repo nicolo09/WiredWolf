@@ -594,13 +594,13 @@ class LimitedList():
 class MultipleTexts():
     """Displays vertically multiple texts, the elements as shown in the given list. If list is not full, empty texts are created"""
 
-    def __init__(self, list:LimitedList, vertical_div:int, win_size:tuple[int,int], position:tuple[int,int]=(50,50), fixed_width:int=0, background_color:str=BACKGROUND_COLOR) -> None:
+    def __init__(self, list:LimitedList, vertical_div:int, win_size:tuple[int,int], position:tuple[int,int]=(50,50), fixed_width:int=0, background_color:str=BACKGROUND_COLOR, font=FontSize.H2) -> None:
         self._list=list
         self._max_elements=list.max_elements
         self._texts_list=[]
         for i in range(self._max_elements):
             #fills the list of empty text elements
-            self._texts_list.append(Text("", font=FontSize.H1))
+            self._texts_list.append(Text("", font=font))
         self._container=VContainer(vertical_div, self._texts_list, win_size, position, color=background_color, fixed_width=fixed_width)
         #After having a VContainer with max_elements empty texts, the texts are changed to the elements of the list
         self._fill_texts()
