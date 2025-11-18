@@ -4,7 +4,7 @@ import pygame
 from abc import ABC, abstractmethod
 from wiredwolf.view.CustomEvents import ChangeScreenType, ChatMessageType, CustomEventSender, DiscoveredLobbyType, GameRoleType, TimeOutType, UsersType, WaitingRoomType, create_custom_event_from_dict
 from wiredwolf.view.Components import LimitedList, MultipleTexts, SelectorButton, VContainer, HContainer
-from wiredwolf.view.Constants import BACKGROUND_COLOR, CHAT_BACKGROUND, FontSize, Screens
+from wiredwolf.view.Constants import FontSize, Screens
 from functools import partial
 from wiredwolf.view.ViewConstants import *
 

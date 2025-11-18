@@ -5,7 +5,8 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 import copy
 
-from wiredwolf.view.Constants import BACKGROUND_COLOR, BUTTON_COLOR, BUTTON_DISABLED_COLOR, BUTTON_HOVER_COLOR, SELECTED_COLOR, TEXT_COLOR, FontSize
+from wiredwolf.view.Constants import FontSize
+from wiredwolf.view.ViewConstants import *
 
 class DrawableComponent(ABC):
     """A drawable component abstraction"""
