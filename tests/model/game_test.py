@@ -80,33 +80,6 @@ class GameTest(unittest.TestCase):
         for player in self.game.players:
             self.assertEqual(player.status, Status.ALIVE)
 
-    def test_game_status_equals(self):
-
-        test_players = populate_players()
-        test_status: GameStatus = GameStatus(
-            test_players,
-            create_game_info(),
-            GamePhase.NIGHT,
-        )
-
-        test_status.players[get_index_by_name(test_players, "Alice")].status = (
-            Status.DEAD
-        )
-        test_status.players[get_index_by_name(test_players, "Bob")].status = Status.DEAD
-
-        escort: Player = test_status.players[get_index_by_name(test_players, "Charlie")]
-        medium: Player = test_status.players[get_index_by_name(test_players, "Eve")]
-
-        test_status.game_info.handle_night_actions(escort, medium)
-
-        self.game.kill_player("Alice")
-        self.game.kill_player("Bob")
-        self.game.advance_phase()
-        self.game.advance_phase()
-        self.game.perform_night_action("Charlie", "Eve")
-
-        self.assertEqual(self.game.get_game_status(), test_status)
-
     def test_villagers_victory(self):
         self.game.kill_player("Bob")
         self.game.advance_phase()
@@ -129,3 +102,83 @@ class GameTest(unittest.TestCase):
         self.game.advance_phase()
         self.game.kill_player("Eve")
         self.assertEqual(self.game.phase, GamePhase.WEREWOLVES_VICTORY)
+        
+class GameStatusTest(unittest.TestCase):
+
+    def setUp(self):
+        self.players = populate_players()
+        self.game = Game(self.players, create_game_info())
+        
+    def test_game_status_equals(self):
+
+        test_players = populate_players()
+        test_game_info: AbstractGameInfo = create_game_info()
+
+        test_players[get_index_by_name(test_players, "Alice")].status = (
+            Status.DEAD
+        )
+        test_players[get_index_by_name(test_players, "Bob")].status = Status.DEAD
+
+        escort: Player = test_players[get_index_by_name(test_players, "Charlie")]
+        medium: Player = test_players[get_index_by_name(test_players, "Eve")]
+
+        test_game_info.handle_night_actions(escort, medium)
+
+        test_status: GameStatus = GameStatus(
+            test_players,
+            test_game_info.get_all_handled_roles(),
+            test_game_info.get_game_data(),
+            GamePhase.NIGHT,
+        )
+        
+        self.game.kill_player("Alice")
+        self.game.kill_player("Bob")
+        self.game.advance_phase()
+        self.game.advance_phase()
+        self.game.perform_night_action("Charlie", "Eve")
+
+        self.assertEqual(self.game.get_game_status(), test_status)
+        
+    def test_game_status_consistency_between_phases(self):
+        self.game.kill_player("Bob")
+        self.game.advance_phase()
+        self.game.accuse_player("Alice", "Frank")
+
+        first_status: GameStatus = self.game.get_game_status()
+        first_game_copy: Game = Game.from_game_status(first_status)
+
+        first_game_copy.advance_phase()
+        first_game_copy.ballot_vote("Alice", True)
+
+        second_status = first_game_copy.get_game_status()
+        second_game_copy: Game = Game.from_game_status(second_status)
+
+        second_game_copy.ballot_vote("Charlie", True)
+        second_game_copy.ballot_vote("Diana", True)
+        second_game_copy.advance_phase()
+        
+        self.assertEqual(second_game_copy.phase, GamePhase.VILLAGERS_VICTORY)
+        
+        for status in [first_status, second_status]:
+            self.assertNotEqual(second_game_copy.get_game_status(), status)
+            
+    def test_game_status_consistency_between_actions(self):
+        self.game.advance_phase()
+        self.game.advance_phase()
+        self.game.perform_night_action("Bob", "Alice")
+        
+        gs_werewolf_action: GameStatus = self.game.get_game_status()
+
+        self.game.perform_night_action("Charlie", "Alice")
+        
+        gs_escort_action: GameStatus = self.game.get_game_status()
+        
+        self.game.perform_night_action("Diana", "Alice")
+        
+        gs_clairvoyant_action: GameStatus = self.game.get_game_status()
+        
+        self.game.kill_player("Grace")
+        self.game.perform_night_action("Eve", "Grace")
+
+        for status in [gs_werewolf_action, gs_escort_action, gs_clairvoyant_action]:
+            self.assertNotEqual(self.game.get_game_status(), status)
