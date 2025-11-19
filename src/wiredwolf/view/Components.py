@@ -1,4 +1,3 @@
-import textwrap
 from typing import List
 import pygame
 from abc import ABC, abstractmethod
@@ -33,6 +32,16 @@ class DrawableComponent(ABC):
     def draw(self, screen: pygame.Surface)->None:
         """Draws the component on the given screen"""
         raise NotImplementedError("Please implement this method")
+
+    @property
+    def text(self)->str:
+        """Returns the text of the component"""
+        return self._text
+    
+    @text.setter
+    def text(self, new_text:str)->None:
+        """Sets the text of the component"""
+        self._text=new_text
 
 class AbstractButton(DrawableComponent):
     """A button abstraction, handling all internal button logic"""
@@ -134,14 +143,6 @@ class Text(DrawableComponent):
     def position(self, value:tuple[int, int]):
         """Sets the given position as a the top left coords of the text position"""
         self._coords=value
-
-    @property
-    def text(self)->str:
-        return self._text
-    
-    @text.setter
-    def text(self, new_text:str)->None:
-        self._text=new_text
         
 class AbstractContainer(ABC):
     """An abstract container that displays the given components"""
@@ -299,7 +300,6 @@ class HContainer(AbstractContainer):
     def _dimensions_if_fixed_dim(self) -> None:
         """Sets the height to fixed"""
         self._dimensions=(self._dimensions[0], self._fixed_dim)
-
 
 class CallbackButton(AbstractButton):
     """A button that calls the callback on click"""
@@ -482,11 +482,6 @@ class TextField(DrawableComponent):
         self._txt_surface = self._font.render(self._text, True, self._text_color)
         self._active = False 
 
-    @property
-    def text(self)->str:
-        """Returns the currently written text"""
-        return self._text
-
     def handle_event(self, event:pygame.event.Event)->None:
         """Handles events and updates the text shown"""
         if event.type== pygame.MOUSEBUTTONDOWN and self._rect.collidepoint(event.pos):
@@ -571,7 +566,7 @@ class LimitedList():
     """This class models a list with a limited number of elements. After the limit is reached, the element in the last position is removed"""
 
     def __init__(self, max_elements:int) -> None:
-        self._list=[]
+        self._list:list[str]=[]
         self._max_elements=max_elements
 
     @property
@@ -594,11 +589,11 @@ class LimitedList():
 class MultipleTexts():
     """Displays vertically multiple texts, the elements as shown in the given list. If list is not full, empty texts are created"""
 
-    def __init__(self, list:LimitedList, vertical_div:int, win_size:tuple[int,int], position:tuple[int,int]=(50,50), fixed_width:int=0, background_color:str=BACKGROUND_COLOR, font=FontSize.H2) -> None:
+    def __init__(self, list:LimitedList, vertical_div:int, win_size:tuple[int,int], position:tuple[int,int]=(50,50), fixed_width:int=0, background_color:str=BACKGROUND_COLOR, font:FontSize=FontSize.H2) -> None:
         self._list=list
         self._max_elements=list.max_elements
-        self._texts_list=[]
-        for i in range(self._max_elements):
+        self._texts_list:List[DrawableComponent]=[]
+        for _ in range(self._max_elements):
             #fills the list of empty text elements
             self._texts_list.append(Text("", font=font))
         self._container=VContainer(vertical_div, self._texts_list, win_size, position, color=background_color, fixed_width=fixed_width)

@@ -1,8 +1,7 @@
 import textwrap
-from typing import List
 import pygame
 from abc import ABC, abstractmethod
-from wiredwolf.view.CustomEvents import ChangeScreenType, ChatMessageType, CustomEventSender, DiscoveredLobbyType, GameRoleType, TimeOutType, UsersType, WaitingRoomType, create_custom_event_from_dict
+from wiredwolf.view.CustomEvents import ChangeScreenType, ChatMessageType, CustomEventSender, DiscoveredLobbyType, EventSender, GameRoleType, TimeOutType, UsersType, WaitingRoomType, create_custom_event_from_dict
 from wiredwolf.view.Components import LimitedList, MultipleTexts, SelectorButton, VContainer, HContainer
 from wiredwolf.view.Constants import FontSize, Screens
 from functools import partial
@@ -15,7 +14,7 @@ voted_user=""
 WRAP_LINE_WIDTH=24
 MAX_MESSAGES_DISPLAYED=12
 CONTAINER_FACTOR=14 #this value is chosen by testing with different font sizes which value * wrap line withd fits all texts
-CUSTOM_EVENT=0 #custom event id, to be set by event sender
+custom_event=0 #custom event id, to be set by event sender
 
 def message_sender_util(message:str, list: LimitedList, multiple_text_display:MultipleTexts)->None:
     """A message sender util that handles message splitting into multiple lines and updates the display given"""
@@ -62,7 +61,6 @@ class AbstractScreen(ABC):
 
 class App:
     """The main window for the Wiredwolf game"""
-
     def __init__(self)-> None:
         pygame.init() #initializes pygame modules
         self._size=(640, 400) #default starting values
@@ -71,7 +69,7 @@ class App:
         self._display_screen = pygame.display.set_mode(self._size, pygame.RESIZABLE) #the window is resizable
         pygame.display.set_caption("Wirewolf") #window title
         self._running = True
-        self._game_state_manager=GameStateManager(Screens.HOME)
+        self._game_state_manager=GameStateManager(Screens.DAY_VOTING)
         self._start_screen=StartScreen(self._display_screen, self._game_state_manager)
         self._new_lobby_screen=NewLobbyScreen(self._display_screen, self._game_state_manager)
         self._search_lobby_screen=SearchLobbyScreen(self._display_screen, self._game_state_manager)
@@ -85,7 +83,7 @@ class App:
         self._wolf_win_screen=WolfWinScreen(self._display_screen, self._game_state_manager)
         self._wolf_loss_screen=WolfLossScreen(self._display_screen, self._game_state_manager)
         self._role_display_screen=RoleDisplayScreen(self._display_screen, self._game_state_manager)
-        self._dictionary={Screens.HOME: self._start_screen,
+        self._dictionary:dict[Screens, AbstractScreen]={Screens.HOME: self._start_screen,
                           Screens.NEW_LOBBY:self._new_lobby_screen, 
                           Screens.SEARCH_LOBBY:self._search_lobby_screen, 
                           Screens.LOBBY_WAITING:self._waiting_lobby_screen,
@@ -100,6 +98,15 @@ class App:
                           Screens.ROLE_DISPLAY: self._role_display_screen}
         self._clock = pygame.time.Clock()
         self._next_event=None
+        #Sets custom event sender
+        self._event_sender=CustomEventSender()
+        global custom_event
+        custom_event=self._event_sender.custom_event
+
+    @property
+    def event_sender(self)->EventSender:
+        """Returns the event sender object"""
+        return self._event_sender
         
     @property
     def screen(self)->pygame.Surface:
@@ -143,15 +150,15 @@ class StartScreen(AbstractScreen):
     """The start screen, the first screen showed at startup"""
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager) -> None:
         super().__init__(display, game_state_manager)
-        from wiredwolf.view.Components import CallbackButton, Text, TextField
+        from wiredwolf.view.Components import CallbackButton, Text, TextField, DrawableComponent
         go_new_lobby=partial(self._game_state_manager.change_screen, Screens.NEW_LOBBY)
         new_lobby_button=CallbackButton(go_new_lobby, 'New Lobby', LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT) 
         go_search_lobby=partial(self._game_state_manager.change_screen, Screens.SEARCH_LOBBY)
         search_lobby_button=CallbackButton(go_search_lobby, 'Search for lobbies', LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT) 
         self._field=TextField(LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT)
         username_enter=Text("Insert username:", font=FontSize.H2)
-        list=[username_enter, self._field, new_lobby_button, search_lobby_button]
-        self._v_container=VContainer(MEDIUM_ELEMENT_DIV, list, self._display.get_size())
+        list_buttons:list[DrawableComponent]=[username_enter, self._field, new_lobby_button, search_lobby_button]
+        self._v_container=VContainer(MEDIUM_ELEMENT_DIV, list_buttons, self._display.get_size())
         self._title_container=VContainer(SINGLE_ELEMENT_DIV, [Text("Wiredwolf")], self._display.get_size(), (50, 15))
         
     def run(self,event:pygame.event.Event | None)->None:
@@ -224,16 +231,15 @@ class SearchLobbyScreen(AbstractScreen):
         global lobby_name
         tmp=self._selector.selected_text()
         if len(tmp)>0:
-            self._join_button._is_enabled=True
+            self._join_button.is_enabled=True
             if lobby_name!=tmp:
                 lobby_name=tmp
                 #TODO: communicate which lobby the player joined to the controller
         else:
-            self._join_button._is_enabled=False
+            self._join_button.is_enabled=False
         if event is not None:
-            global CUSTOM_EVENT
             #Recived a custom event
-            if event.type==CUSTOM_EVENT:
+            if event.type==custom_event:
                 #parse the custom event into an object
                 e=create_custom_event_from_dict(event.dict)
                 if isinstance(e, DiscoveredLobbyType):
@@ -266,9 +272,8 @@ class WaitingLobbyScreen(AbstractScreen):
         self._title_container.draw(self._display)
         self._waiting.draw(self._display)
         if event is not None:
-            global CUSTOM_EVENT
             #Recived a custom event
-            if event.type==CUSTOM_EVENT:
+            if event.type==custom_event:
                 #parse the custom event into an object
                 e=create_custom_event_from_dict(event.dict)
                 if isinstance(e, ChangeScreenType):
@@ -309,10 +314,9 @@ class DayVotingScreen(AbstractScreen):
         self._players.draw(self._display)
         self._vote_player_group.draw(self._display)
         self._voted_container.draw(self._display)
-        
-        global CUSTOM_EVENT
+
         if event is not None:
-            if event.type!=CUSTOM_EVENT:
+            if event.type!=custom_event:
                 #pygame event, text box handles it
                 self._text_box.handle_event(event) #Textbox handles key input
                 tmp=self._text_box.last_input #get last message sent (if it's not already handled)
@@ -321,7 +325,7 @@ class DayVotingScreen(AbstractScreen):
                     self._text_box.reset_last_input() #clear internal memory
                     global username
                     message_sender_util(username+":"+tmp, self._my_limited_list, self._multiple_texts) #TODO: communicate with controller the message
-            if event.type==CUSTOM_EVENT:
+            if event.type==custom_event:
                 #parse the custom event into an object
                 e=create_custom_event_from_dict(event.dict)
                 if isinstance(e, UsersType):
@@ -381,9 +385,9 @@ class DayExecutionScreen(AbstractScreen):
         self._container_text.draw(self._display)
         self._title.draw(self._display)
         self._button_container.draw(self._display)
-        global CUSTOM_EVENT
+
         if event is not None:
-            if event.type!=CUSTOM_EVENT:
+            if event.type!=custom_event:
                 self._text_box.handle_event(event) #Textbox handles key input
                 tmp=self._text_box.last_input #get last message sent (if it's not already handled)
                 if len(tmp)>0 and str.isspace(tmp)==False:
@@ -391,7 +395,7 @@ class DayExecutionScreen(AbstractScreen):
                     self._text_box.reset_last_input() #clear internal memory
                     global username
                     message_sender_util(username+":"+tmp, self._my_limited_list, self._multiple_texts) #TODO: communicate with controller the message
-            if event.type==CUSTOM_EVENT:
+            if event.type==custom_event:
                 #parse the custom event into an object
                 e=create_custom_event_from_dict(event.dict)
                 if isinstance(e, ChangeScreenType):
@@ -428,7 +432,7 @@ class NightVillagerScreen(AbstractScreen):
         self._display.fill(BACKGROUND_COLOR)
         self._title.draw(self._display)
         self._villager.draw(self._display)
-        if event is not None and event.type==CUSTOM_EVENT:
+        if event is not None and event.type==custom_event:
                 #parse the custom event into an object
                 e=create_custom_event_from_dict(event.dict)
                 if isinstance(e, ChangeScreenType):
@@ -457,7 +461,7 @@ class NightRoleScreen(AbstractScreen):
         self._role_container.draw(self._display)
         self._users.draw(self._display)
         self._execute_container.draw(self._display)
-        if event is not None and event.type==CUSTOM_EVENT:
+        if event is not None and event.type==custom_event:
                 #parse the custom event into an object
                 e=create_custom_event_from_dict(event.dict)
                 if isinstance(e, ChangeScreenType):
@@ -495,7 +499,7 @@ class VillagerWinScreen(AbstractScreen):
         """A winning screen for villager users"""
         self._display.fill(BACKGROUND_COLOR)
         self._title.draw(self._display)
-        if event is not None and event.type==CUSTOM_EVENT:
+        if event is not None and event.type==custom_event:
             #parse the custom event into an object
             e=create_custom_event_from_dict(event.dict)
             if isinstance(e, ChangeScreenType):
@@ -513,7 +517,7 @@ class VillagerLossScreen(AbstractScreen):
         """A losing screen for villager users"""
         self._display.fill(BACKGROUND_COLOR)
         self._title.draw(self._display)
-        if event is not None and event.type==CUSTOM_EVENT:
+        if event is not None and event.type==custom_event:
             #parse the custom event into an object
             e=create_custom_event_from_dict(event.dict)
             if isinstance(e, ChangeScreenType):
@@ -531,7 +535,7 @@ class WolfWinScreen(AbstractScreen):
         """A winning screen for werewolf users"""
         self._display.fill(BACKGROUND_COLOR)
         self._title.draw(self._display)
-        if event is not None and event.type==CUSTOM_EVENT:
+        if event is not None and event.type==custom_event:
             #parse the custom event into an object
             e=create_custom_event_from_dict(event.dict)
             if isinstance(e, ChangeScreenType):
@@ -549,7 +553,7 @@ class WolfLossScreen(AbstractScreen):
         """A losing screen for werewolf users"""
         self._display.fill(BACKGROUND_COLOR)
         self._title.draw(self._display)
-        if event is not None and event.type==CUSTOM_EVENT:
+        if event is not None and event.type==custom_event:
             #parse the custom event into an object
             e=create_custom_event_from_dict(event.dict)
             if isinstance(e, ChangeScreenType):
@@ -571,7 +575,7 @@ class RoleDisplayScreen(AbstractScreen):
         self._display.fill(BACKGROUND_COLOR)
         self._title_container.draw(self._display)
         self._description_container.draw(self._display)
-        if event is not None and event.type==CUSTOM_EVENT:
+        if event is not None and event.type==custom_event:
             #parse the custom event into an object
             e=create_custom_event_from_dict(event.dict)
             if isinstance(e, ChangeScreenType):
@@ -585,8 +589,5 @@ class RoleDisplayScreen(AbstractScreen):
                 self._description_container.update_on_next_draw()
 if __name__ == "__main__":
     my_app=App()
-    custom=CustomEventSender(3)
-    CUSTOM_EVENT=custom.custom_event #Save value of custom events
     while my_app.app_running:
-        custom.test()
         my_app.update_display()
