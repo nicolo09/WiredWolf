@@ -1,0 +1,40 @@
+{
+     "defaults":
+     {
+         "colours":
+         {
+            
+         }
+     },
+     "panel":{
+        "colours":
+         {
+            "dark_bg": "#C5C5BF",
+            "normal_border":"#C5C5BF"
+         },
+         "misc":
+         {
+             "shadow_width": "0"
+
+         }
+     },
+     "button":{
+        "colours":{
+            "normal_bg": "#F3A6A6",
+            "active_bg":"#DA0000",
+            "hovered_bg":"#DA0000",
+            "selected_bg":"#DA0000",
+            "disabled_bg": "#727272",
+            "normal_text": "#1A1A1A",
+            "active_text":"#1A1A1A"
+         },
+        
+        "misc":{
+            "shape":"rounded_rectangle",
+            "shape_corner_radius":"12",
+            "border_width": "0",
+            "shadow_width": "0"
+        }
+     }
+     
+}
