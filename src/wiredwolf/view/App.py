@@ -69,7 +69,7 @@ class App:
         self._display_screen = pygame.display.set_mode(self._size, pygame.RESIZABLE) #the window is resizable
         pygame.display.set_caption("Wirewolf") #window title
         self._running = True
-        self._game_state_manager=GameStateManager(Screens.DAY_VOTING)
+        self._game_state_manager=GameStateManager(Screens.HOME)
         self._start_screen=StartScreen(self._display_screen, self._game_state_manager)
         self._new_lobby_screen=NewLobbyScreen(self._display_screen, self._game_state_manager)
         self._search_lobby_screen=SearchLobbyScreen(self._display_screen, self._game_state_manager)
