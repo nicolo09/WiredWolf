@@ -48,9 +48,6 @@ class GameStateManager:
 class AbstractScreen(ABC):
     """A screen abstraction, handling the base work of any screen implementation"""
 
-    _display:pygame.Surface
-    _game_state_manager:GameStateManager
-
     def __init__(self, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager) -> None:
         self._display=display
         self._game_state_manager=game_state_manager
