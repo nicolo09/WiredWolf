@@ -7,6 +7,7 @@ from wiredwolf.view.Components import LimitedList, MultipleTexts, SelectorButton
 from wiredwolf.view.Constants import FontSize, Screens
 from functools import partial
 from wiredwolf.view.ViewConstants import *
+from pygame_gui.core.interfaces import IUIElementInterface
 
 FPS=60
 username=""
@@ -57,6 +58,49 @@ class AbstractScreen(ABC):
     def run(self, event:pygame.event.Event | None)->None:
         """This is where your screen is displayed"""
         raise NotImplementedError("Please implement this method")
+
+class PanelHandler():
+    """A class to handle all panel creations and hiding/showing"""
+
+    def __init__(self, gui_manager:pygame_gui.UIManager)->None:
+        self._gui_manager=gui_manager
+        self._panel_dictionary:dict[Screens,list]={} #TODO: what type of element in list?
+        #this dictionary stores all existing panels according to the screen they are shown on
+        pass
+
+    def create_panel(self, screen:Screens, relative_rect:pygame.Rect, anchors:dict[str, str | IUIElementInterface], starting_height:int=10,)->pygame_gui.elements.UIPanel:
+        """Creates a pygame_gui UIPanel with the given parameters. Saves a reference to the panel together with the screen it's shown on for future use"""
+        panel=pygame_gui.elements.UIPanel(relative_rect=relative_rect, starting_height=starting_height, manager=self._gui_manager, anchors=anchors)
+        if screen in self._panel_dictionary:
+            #already another panel of the same screen has been created
+            self._panel_dictionary[screen].append(panel)
+        else:
+            #first panel of this screen
+            self._panel_dictionary[screen]=[panel]
+        return panel
+    
+    def show_screens(self, screen:Screens)->None:
+        """Shows all panels of a given screen"""
+        if screen in self._panel_dictionary:
+            for element in self._panel_dictionary[screen]:
+                element.show()
+    
+    def hide_screens(self, screen:Screens)->None:
+        """Hides all panels of a given screen"""
+        if screen in self._panel_dictionary:
+            for element in self._panel_dictionary[screen]:
+                element.hide()
+
+    def create_scrolling_panel(self, screen:Screens, relative_rect:pygame.Rect, anchors:dict[str, str | IUIElementInterface], starting_height:int=10,)->pygame_gui.elements.UIScrollingContainer:
+        panel=pygame_gui.elements.UIScrollingContainer(relative_rect=relative_rect, starting_height=starting_height, manager=self._gui_manager, anchors=anchors, allow_scroll_x=False)
+        """Creates a pygame_gui UIScrollingContainer with the given parameters. Saves a reference to the panel together with the screen it's shown on for future use"""
+        if screen in self._panel_dictionary:
+            #already another panel of the same screen has been created
+            self._panel_dictionary[screen].append(panel)
+        else:
+            #first panel of this screen
+            self._panel_dictionary[screen]=[panel]
+        return panel
 
 class App:
     """The main window for the Wiredwolf game"""
