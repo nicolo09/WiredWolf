@@ -193,7 +193,9 @@ class App:
         self._next_event=None
         for event in pygame.event.get():
             self._on_event(event) #handles generated events 
-        self._clock.tick(FPS)
+            self._gui_manager.process_events(event) #processes pygame_gui events
+        tick=self._clock.tick(FPS)
+        self._gui_manager.update(tick/1000.0) #gui manager needs to know how much time has passed since the last update in milliseconds
 
 class StartScreen(AbstractScreen):
     """The start screen, the first screen showed at startup"""
@@ -213,6 +215,7 @@ class StartScreen(AbstractScreen):
     def run(self,event:pygame.event.Event | None)->None:
         """The start screen, the first screen showed at startup"""
         self._display.fill(BACKGROUND_COLOR) #fills the background color for the application
+        self._gui_manager.draw_ui(self._display)
         self._v_container.draw(self._display)
         self._title_container.draw(self._display)
         if event is not None:
@@ -243,6 +246,7 @@ class NewLobbyScreen(AbstractScreen):
     def run(self,event:pygame.event.Event | None)->None:
         """The new lobby screen, to create a new lobby"""
         self._display.fill(BACKGROUND_COLOR)
+        self._gui_manager.draw_ui(self._display)
         self._title.draw(self._display)
         self._button_container.draw(self._display)
         self._button_back.draw(self._display)
@@ -274,6 +278,7 @@ class SearchLobbyScreen(AbstractScreen):
     def run(self,event:pygame.event.Event | None)->None:
         """The search lobby screen, to search for existing lobbies"""
         self._display.fill(BACKGROUND_COLOR)
+        self._gui_manager.draw_ui(self._display)
         self._title.draw(self._display)
         self._lobby_group.draw(self._display)
         self._buttons.draw(self._display)
@@ -318,6 +323,7 @@ class WaitingLobbyScreen(AbstractScreen):
             self._title.text="Waiting for other players to join "+self._local_lobby+" lobby"
             self._title_container.update_on_next_draw() #Once this component is drawn the size of the text box has yet to change, so a manual update after draw is needed
         self._display.fill(BACKGROUND_COLOR) #fills the background color for the application
+        self._gui_manager.draw_ui(self._display)
         self._title_container.draw(self._display)
         self._waiting.draw(self._display)
         if event is not None:
@@ -357,6 +363,7 @@ class DayVotingScreen(AbstractScreen):
     def run(self,event:pygame.event.Event | None)->None:
         """A day waiting and voting screen"""
         self._display.fill(BACKGROUND_COLOR)
+        self._gui_manager.draw_ui(self._display)
         self._multiple_texts.draw(self._display)
         self._container_text.draw(self._display)
         self._title.draw(self._display)
@@ -430,6 +437,7 @@ class DayExecutionScreen(AbstractScreen):
     def run(self,event:pygame.event.Event | None)->None:
         """A day execution screen"""
         self._display.fill(BACKGROUND_COLOR)
+        self._gui_manager.draw_ui(self._display)
         self._multiple_texts.draw(self._display)
         self._container_text.draw(self._display)
         self._title.draw(self._display)
@@ -479,6 +487,7 @@ class NightVillagerScreen(AbstractScreen):
     def run(self,event:pygame.event.Event | None)->None:
         """A night villager screen"""
         self._display.fill(BACKGROUND_COLOR)
+        self._gui_manager.draw_ui(self._display)
         self._title.draw(self._display)
         self._villager.draw(self._display)
         if event is not None and event.type==custom_event:
@@ -506,6 +515,7 @@ class NightRoleScreen(AbstractScreen):
     def run(self,event:pygame.event.Event | None)->None:
         """A night non villager role screen"""
         self._display.fill(BACKGROUND_COLOR)
+        self._gui_manager.draw_ui(self._display)
         self._title.draw(self._display)
         self._role_container.draw(self._display)
         self._users.draw(self._display)
@@ -547,6 +557,7 @@ class VillagerWinScreen(AbstractScreen):
     def run(self, event:pygame.event.Event | None)->None:
         """A winning screen for villager users"""
         self._display.fill(BACKGROUND_COLOR)
+        self._gui_manager.draw_ui(self._display)
         self._title.draw(self._display)
         if event is not None and event.type==custom_event:
             #parse the custom event into an object
@@ -565,6 +576,7 @@ class VillagerLossScreen(AbstractScreen):
     def run(self, event:pygame.event.Event | None)->None:
         """A losing screen for villager users"""
         self._display.fill(BACKGROUND_COLOR)
+        self._gui_manager.draw_ui(self._display)
         self._title.draw(self._display)
         if event is not None and event.type==custom_event:
             #parse the custom event into an object
@@ -583,6 +595,7 @@ class WolfWinScreen(AbstractScreen):
     def run(self, event:pygame.event.Event | None)->None:
         """A winning screen for werewolf users"""
         self._display.fill(BACKGROUND_COLOR)
+        self._gui_manager.draw_ui(self._display)
         self._title.draw(self._display)
         if event is not None and event.type==custom_event:
             #parse the custom event into an object
@@ -601,6 +614,7 @@ class WolfLossScreen(AbstractScreen):
     def run(self, event:pygame.event.Event | None)->None:
         """A losing screen for werewolf users"""
         self._display.fill(BACKGROUND_COLOR)
+        self._gui_manager.draw_ui(self._display)
         self._title.draw(self._display)
         if event is not None and event.type==custom_event:
             #parse the custom event into an object
@@ -622,6 +636,7 @@ class RoleDisplayScreen(AbstractScreen):
     def run(self, event:pygame.event.Event | None)->None:
         """A role screen for users"""
         self._display.fill(BACKGROUND_COLOR)
+        self._gui_manager.draw_ui(self._display)
         self._title_container.draw(self._display)
         self._description_container.draw(self._display)
         if event is not None and event.type==custom_event:
