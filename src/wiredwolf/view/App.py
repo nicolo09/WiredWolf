@@ -242,7 +242,7 @@ class StartScreen(AbstractScreen):
                 #TODO: communicate username to controller
     
     def reset_screen(self) -> None:
-        #TODO: implement
+        #Static screen, nothing to change
         pass
 
 class NewLobbyScreen(AbstractScreen):
@@ -280,7 +280,11 @@ class NewLobbyScreen(AbstractScreen):
                 lobby_name=""
             
     def reset_screen(self) -> None:
-        #TODO: implement
+        #Reset lobby name
+        self._field.text=""
+        global lobby_name
+        lobby_name=""
+        self._create_lobby_button.is_enabled=False
         pass
 
 class SearchLobbyScreen(AbstractScreen):
@@ -295,7 +299,8 @@ class SearchLobbyScreen(AbstractScreen):
         join_lobby=partial(self._game_state_manager.change_screen, Screens.LOBBY_WAITING)
         self._join_button=EnabledButton(join_lobby, 'Join selected lobby', LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT,font=FontSize.H2)
         self._buttons=HContainer(MEDIUM_ELEMENT_DIV, [CallbackButton(go_home, 'Go back to start screen', LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, font=FontSize.H2), self._join_button], self._display.get_size(), (50, 85))
-    
+        #TODO: scroll bar for existing lobbies
+
     def run(self,event:pygame.event.Event | None)->None:
         """The search lobby screen, to search for existing lobbies"""
         self._display.fill(BACKGROUND_COLOR)
@@ -338,6 +343,7 @@ class WaitingLobbyScreen(AbstractScreen):
         self._title_container=VContainer(SINGLE_ELEMENT_DIV, [self._title], self._display.get_size(), (50,20))
         self._text_number=Text("1 player connected...", font=FontSize.H2) #Updated count via custom events
         self._waiting=VContainer(SINGLE_ELEMENT_DIV,[self._text_number], self._display.get_size())
+        #TODO: button to start game, error displayed if user is not master
         
     def run(self,event:pygame.event.Event | None)->None:
         """A simple waiting screen"""
@@ -360,13 +366,19 @@ class WaitingLobbyScreen(AbstractScreen):
                     #This screen only interacts ChangeScreen Events
                     #Should go to Day Voting Screen
                     self._game_state_manager.change_screen(e.next_screen)
+                    self.reset_screen() #resets current screen for next time this is used
                 if isinstance(e, WaitingRoomType):
                     #Updates the number of players in the waiting room
                     self._text_number.text=str(e.number) +" player connected..."
                     self._waiting.update_on_next_draw()
     
     def reset_screen(self) -> None:
-        #TODO: implement
+        #Reset lobby name
+        self._title.text="Waiting for other players to join lobby"
+        self._title_container.update_on_next_draw()
+        #Reset number of connected players
+        self._text_number.text="1 player connected..."
+        self._waiting.update_on_next_draw()
         pass
 
 
@@ -426,6 +438,7 @@ class DayVotingScreen(AbstractScreen):
                 if isinstance(e, ChangeScreenType):
                     #End of voting, changing screen to DayExecutionScreen
                     self._game_state_manager.change_screen(e.next_screen)
+                    self.reset_screen() #resets current screen for next time this is used
                 if isinstance(e, ChatMessageType):
                     #Messages recived from other users
                     message_sender_util(e.message, self._my_limited_list, self._multiple_texts)
@@ -465,6 +478,7 @@ class DayExecutionScreen(AbstractScreen):
         self._execute_button=EnabledButton(executed, "Vote to execute "+self._executed_user, MEDIUM_BTN_WIDTH, LARGE_BTN_HEIGHT, enabled=True)
         self._spare_button=EnabledButton(spared, "Vote to spare "+self._executed_user, MEDIUM_BTN_WIDTH, LARGE_BTN_HEIGHT, enabled=True)
         self._button_container=VContainer(LARGE_ELEMENT_DIV, [self._execute_button, self._spare_button], self._display.get_size(), (20, 50))
+        #TODO: add scroll bar
 
     def run(self,event:pygame.event.Event | None)->None:
         """A day execution screen"""
@@ -490,6 +504,7 @@ class DayExecutionScreen(AbstractScreen):
                 if isinstance(e, ChangeScreenType):
                     #End of day, changing screen to Night villager or night role, according to user role
                     self._game_state_manager.change_screen(e.next_screen)
+                    self.reset_screen() #resets current screen for next time this is used
                 if isinstance(e, ChatMessageType):
                     #Messages recived from other users
                     message_sender_util(e.message, self._my_limited_list, self._multiple_texts)
@@ -509,8 +524,21 @@ class DayExecutionScreen(AbstractScreen):
         self._vote_to_execute=outcome
         
     def reset_screen(self) -> None:
-        #TODO: implement
-        pass
+        #Enable buttons to execute
+        self._execute_button.is_enabled=True
+        self._spare_button.is_enabled=True
+        #Resets outcome of voting
+        self._vote_to_execute=None #Saved outcome of user voting, if None->not voted, True->executed, False->Spared
+        #Reset name
+        self._execute_button.text="Vote to execute "
+        self._spare_button.text="Vote to spare "
+        self._button_container.update_on_next_draw()
+        #Delete all chat messages
+        self._my_limited_list.clear()
+        self._multiple_texts.on_list_change() #Updates view
+        #Clears textbox input
+        self._text_box.reset_last_input()
+        self._text_box.text=""
 
 class NightVillagerScreen(AbstractScreen):
     """The screen where villager role users wait for the night to end"""
@@ -532,9 +560,10 @@ class NightVillagerScreen(AbstractScreen):
                 if isinstance(e, ChangeScreenType):
                     #End of night, changing screen to day voting
                     self._game_state_manager.change_screen(e.next_screen)
+                    self.reset_screen() #resets current screen for next time this is used
     
     def reset_screen(self) -> None:
-        #TODO: implement
+        #Static screen, nothing to change
         pass
 
 class NightRoleScreen(AbstractScreen):
@@ -551,6 +580,7 @@ class NightRoleScreen(AbstractScreen):
         act_on=partial(self._act_on_player)
         self._execute=EnabledButton(act_on, "Act on this player", LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, enabled=True) #TODO: customize this further? ex werewolves kill this player, ... 
         self._execute_container=VContainer(SINGLE_ELEMENT_DIV, [self._execute], self._display.get_size(), (50, 90))
+        #TODO: add scroll bar for selector
 
     def run(self,event:pygame.event.Event | None)->None:
         """A night non villager role screen"""
@@ -566,6 +596,7 @@ class NightRoleScreen(AbstractScreen):
                 if isinstance(e, ChangeScreenType):
                     #End of night, changing screen to day voting
                     self._game_state_manager.change_screen(e.next_screen)
+                    self.reset_screen() #resets current screen for next time this is used
                 if isinstance(e, UsersType):
                     #Add username to users you can act on (ex: werewolfs can only kill non werewolves ecc)
                     button=SelectorButton(e.username, SMALL_BTN_WIDTH, SMALL_BTN_HEIGHT)
@@ -609,9 +640,10 @@ class VillagerWinScreen(AbstractScreen):
             if isinstance(e, ChangeScreenType):
                 #End of winning screen, go to home?
                 self._game_state_manager.change_screen(e.next_screen)
+                self.reset_screen() #resets current screen for next time this is used
  
     def reset_screen(self) -> None:
-        #TODO: implement
+        #Static screen, nothing to change
         pass
 
 class VillagerLossScreen(AbstractScreen):
@@ -632,9 +664,10 @@ class VillagerLossScreen(AbstractScreen):
             if isinstance(e, ChangeScreenType):
                 #End of winning screen, go to home?
                 self._game_state_manager.change_screen(e.next_screen)
+                self.reset_screen() #resets current screen for next time this is used
 
     def reset_screen(self) -> None:
-        #TODO: implement
+        #Static screen, nothing to change
         pass
 
 class WolfWinScreen(AbstractScreen):
@@ -655,9 +688,10 @@ class WolfWinScreen(AbstractScreen):
             if isinstance(e, ChangeScreenType):
                 #End of winning screen, go to home?
                 self._game_state_manager.change_screen(e.next_screen)
+                self.reset_screen() #resets current screen for next time this is used
 
     def reset_screen(self) -> None:
-        #TODO: implement
+        #Static screen, nothing to change
         pass
 
 class WolfLossScreen(AbstractScreen):
@@ -678,9 +712,10 @@ class WolfLossScreen(AbstractScreen):
             if isinstance(e, ChangeScreenType):
                 #End of winning screen, go to home?
                 self._game_state_manager.change_screen(e.next_screen)
+                self.reset_screen() #resets current screen for next time this is used
     
     def reset_screen(self) -> None:
-        #TODO: implement
+        #Static screen, nothing to change
         pass
 
 class RoleDisplayScreen(AbstractScreen):
@@ -705,6 +740,7 @@ class RoleDisplayScreen(AbstractScreen):
             if isinstance(e, ChangeScreenType):
                 #Go to next screen
                 self._game_state_manager.change_screen(e.next_screen)
+                self.reset_screen() #resets current screen for next time this is used
             if isinstance(e, GameRoleType):
                 #Update role and description
                 self._title.text=e.role
@@ -713,7 +749,11 @@ class RoleDisplayScreen(AbstractScreen):
                 self._description_container.update_on_next_draw()
         
     def reset_screen(self) -> None:
-        #TODO: implement
+        #Reset values that were sent via custom event
+        self._title.text="Role"
+        self._title_container.update_on_next_draw()
+        self._description.text="Description"
+        self._description_container.update_on_next_draw()
         pass
 
 if __name__ == "__main__":
