@@ -566,11 +566,13 @@ class LimitedList():
     """This class models a list with a limited number of elements. After the limit is reached, the element in the last position is removed"""
 
     def __init__(self, max_elements:int) -> None:
-        self._list:list[str]=[]
+        self._list:List[str]=[]
+        if max_elements<=0:
+            raise ValueError("Number of elements allowed must be more than 0")
         self._max_elements=max_elements
 
     @property
-    def list(self)->list[str]:
+    def list(self)->List[str]:
         """Returns the list"""
         return self._list
     
@@ -585,6 +587,10 @@ class LimitedList():
         if len(self._list)>self._max_elements:
             #deletes oldest element
             self._list.pop()
+
+    def clear(self)->None:
+        """Clears limited list of all elements"""
+        self._list.clear()
 
 class MultipleTexts():
     """Displays vertically multiple texts, the elements as shown in the given list. If list is not full, empty texts are created"""
