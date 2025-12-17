@@ -106,6 +106,11 @@ class AbstractScreen(ABC):
     def screen(self)->Screens:
         """Returns the Screen enum of the displayed screen"""
         return self._screen_id
+    
+    @abstractmethod
+    def reset_screen(self)->None:
+        """This is where your screen is reset, it should look like the fist draw"""
+        raise NotImplementedError("Please implement this method")
 
     @abstractmethod
     def run(self, event:pygame.event.Event | None)->None:
@@ -235,6 +240,10 @@ class StartScreen(AbstractScreen):
             else:
                 username="username" #default username
                 #TODO: communicate username to controller
+    
+    def reset_screen(self) -> None:
+        #TODO: implement
+        pass
 
 class NewLobbyScreen(AbstractScreen):
     """A simple new lobby screen"""
@@ -269,6 +278,10 @@ class NewLobbyScreen(AbstractScreen):
             else:
                 self._create_lobby_button.is_enabled=False
                 lobby_name=""
+            
+    def reset_screen(self) -> None:
+        #TODO: implement
+        pass
 
 class SearchLobbyScreen(AbstractScreen):
     """A simple search lobby screen"""
@@ -309,6 +322,10 @@ class SearchLobbyScreen(AbstractScreen):
                     button=SelectorButton(e.discovered_lobby, SMALL_BTN_WIDTH, SMALL_BTN_HEIGHT)
                     self._selector.add_selector_button(button)
                     self._lobby_group.add_element(button)
+        
+    def reset_screen(self) -> None:
+        #TODO: implement
+        pass
 
 class WaitingLobbyScreen(AbstractScreen):
     """The waiting room after joining a lobby"""
@@ -347,6 +364,10 @@ class WaitingLobbyScreen(AbstractScreen):
                     #Updates the number of players in the waiting room
                     self._text_number.text=str(e.number) +" player connected..."
                     self._waiting.update_on_next_draw()
+    
+    def reset_screen(self) -> None:
+        #TODO: implement
+        pass
 
 
 class DayVotingScreen(AbstractScreen):
@@ -409,7 +430,6 @@ class DayVotingScreen(AbstractScreen):
                     #Messages recived from other users
                     message_sender_util(e.message, self._my_limited_list, self._multiple_texts)
 
-
     def _set_voted_player(self)->None:
         """Function called when the user chooses who to nominate for execution"""
         get_voted_player=self._selector.selected_text() #gets the chosen player
@@ -422,6 +442,10 @@ class DayVotingScreen(AbstractScreen):
         else:
             voted_user="" #deselects player voted to be executed
             self._voted_text.text="You haven't voted"
+
+    def reset_screen(self) -> None:
+        #TODO: implement
+        pass
 
 class DayExecutionScreen(AbstractScreen):
     """The screen where users chat and choose if the player nominated for execution should be spared or not"""
@@ -483,6 +507,10 @@ class DayExecutionScreen(AbstractScreen):
         self._execute_button.is_enabled=False
         self._spare_button.is_enabled=False
         self._vote_to_execute=outcome
+        
+    def reset_screen(self) -> None:
+        #TODO: implement
+        pass
 
 class NightVillagerScreen(AbstractScreen):
     """The screen where villager role users wait for the night to end"""
@@ -504,6 +532,10 @@ class NightVillagerScreen(AbstractScreen):
                 if isinstance(e, ChangeScreenType):
                     #End of night, changing screen to day voting
                     self._game_state_manager.change_screen(e.next_screen)
+    
+    def reset_screen(self) -> None:
+        #TODO: implement
+        pass
 
 class NightRoleScreen(AbstractScreen):
     """The screen where non villager role users act during the night"""
@@ -554,6 +586,10 @@ class NightRoleScreen(AbstractScreen):
             self._execute.is_enabled=False #disable button
             #TODO: communicate to controller that user acted on given player
 
+    def reset_screen(self) -> None:
+        #TODO: implement
+        pass
+
 
 class VillagerWinScreen(AbstractScreen):
     """The winning screen for villager users"""
@@ -573,6 +609,10 @@ class VillagerWinScreen(AbstractScreen):
             if isinstance(e, ChangeScreenType):
                 #End of winning screen, go to home?
                 self._game_state_manager.change_screen(e.next_screen)
+ 
+    def reset_screen(self) -> None:
+        #TODO: implement
+        pass
 
 class VillagerLossScreen(AbstractScreen):
     """The losing screen for villager users"""
@@ -593,6 +633,10 @@ class VillagerLossScreen(AbstractScreen):
                 #End of winning screen, go to home?
                 self._game_state_manager.change_screen(e.next_screen)
 
+    def reset_screen(self) -> None:
+        #TODO: implement
+        pass
+
 class WolfWinScreen(AbstractScreen):
     """The winning screen for werewolf users"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler) -> None:
@@ -612,6 +656,10 @@ class WolfWinScreen(AbstractScreen):
                 #End of winning screen, go to home?
                 self._game_state_manager.change_screen(e.next_screen)
 
+    def reset_screen(self) -> None:
+        #TODO: implement
+        pass
+
 class WolfLossScreen(AbstractScreen):
     """The losing screen for werewolf users"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler) -> None:
@@ -630,6 +678,10 @@ class WolfLossScreen(AbstractScreen):
             if isinstance(e, ChangeScreenType):
                 #End of winning screen, go to home?
                 self._game_state_manager.change_screen(e.next_screen)
+    
+    def reset_screen(self) -> None:
+        #TODO: implement
+        pass
 
 class RoleDisplayScreen(AbstractScreen):
     """The screen displaying which role you were assigned to and explaining its powers"""
@@ -659,6 +711,11 @@ class RoleDisplayScreen(AbstractScreen):
                 self._title_container.update_on_next_draw()
                 self._description.text=e.role_description
                 self._description_container.update_on_next_draw()
+        
+    def reset_screen(self) -> None:
+        #TODO: implement
+        pass
+
 if __name__ == "__main__":
     my_app=App()
     while my_app.app_running:
