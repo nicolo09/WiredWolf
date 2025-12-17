@@ -25,27 +25,6 @@ def message_sender_util(message:str, list: LimitedList, multiple_text_display:Mu
         list.add_element(elem) #adds message to messages displayed
     multiple_text_display.on_list_change() #displays the new message(s)
 
-class GameStateManager:
-    """The game state manager internally stores which scene is displayed"""
-    _current_state:Screens
-
-    def __init__(self, start_screen:Screens) -> None:
-        self._current_state=start_screen
-
-    @property
-    def current_state(self)->Screens:
-        """Returns the screen the app game is on"""
-        return self._current_state
-    
-    @current_state.setter
-    def current_state(self, screen:Screens)->None:
-        """Sets the current game state as the parameter given"""
-        self._current_state=screen
-
-    def change_screen(self, target_screen:Screens)->None:
-        """A function to change the application screen to the given one"""
-        self.current_state=target_screen
-
 class PanelHandler():
     """A class to handle all panel creations and hiding/showing"""
 
@@ -90,6 +69,29 @@ class PanelHandler():
             for element in self._panel_dictionary[screen]:
                 element.hide()
 
+class GameStateManager:
+    """The game state manager internally stores which scene is displayed"""
+
+    def __init__(self, start_screen:Screens, panel_handler:PanelHandler) -> None:
+        self._current_state=start_screen
+        self._panel_handler=panel_handler
+
+    @property
+    def current_state(self)->Screens:
+        """Returns the screen the app game is on"""
+        return self._current_state
+    
+    @current_state.setter
+    def current_state(self, screen:Screens)->None:
+        """Sets the current game state as the parameter given"""
+        self._current_state=screen
+
+    def change_screen(self, target_screen:Screens)->None:
+        """A function to change the application screen to the given one"""
+        self._panel_handler.hide_screens(self._current_state) #hides old screen panels
+        self._current_state=target_screen
+        self._panel_handler.show_screens(target_screen) #shows new screen panels
+
 class AbstractScreen(ABC):
     """A screen abstraction, handling the base work of any screen implementation"""
 
@@ -114,9 +116,9 @@ class App:
         self._display_screen = pygame.display.set_mode(self._size, pygame.RESIZABLE) #the window is resizable
         pygame.display.set_caption("Wirewolf") #window title
         self._running = True
-        self._game_state_manager=GameStateManager(Screens.HOME)
         self._gui_manager=pygame_gui.UIManager(self._size, theme_path='resources/theme.json')
         self._panel_handler=PanelHandler(self._gui_manager)
+        self._game_state_manager=GameStateManager(Screens.HOME, self._panel_handler)
         self._start_screen=StartScreen(self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler)
         self._new_lobby_screen=NewLobbyScreen(self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler)
         self._search_lobby_screen=SearchLobbyScreen(self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler)
