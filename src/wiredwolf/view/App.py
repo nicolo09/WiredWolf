@@ -214,14 +214,14 @@ class StartScreen(AbstractScreen):
     """The start screen, the first screen showed at startup"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager,gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler)
-        from wiredwolf.view.Components import CallbackButton, Text, TextField, DrawableComponent
+        from wiredwolf.view.Components import EnabledButton, Text, TextField, DrawableComponent
         go_new_lobby=partial(self._game_state_manager.change_screen, Screens.NEW_LOBBY)
-        new_lobby_button=CallbackButton(go_new_lobby, 'New Lobby', LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT) 
+        self._new_lobby_button=EnabledButton(go_new_lobby, 'New Lobby', LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, enabled=False) 
         go_search_lobby=partial(self._game_state_manager.change_screen, Screens.SEARCH_LOBBY)
-        search_lobby_button=CallbackButton(go_search_lobby, 'Search for lobbies', LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT) 
+        self._search_lobby_button=EnabledButton(go_search_lobby, 'Search for lobbies', LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, enabled=False) 
         self._field=TextField(LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT)
         username_enter=Text("Insert username:", font=FontSize.H2)
-        list_buttons:list[DrawableComponent]=[username_enter, self._field, new_lobby_button, search_lobby_button]
+        list_buttons:list[DrawableComponent]=[username_enter, self._field, self._new_lobby_button, self._search_lobby_button]
         self._v_container=VContainer(MEDIUM_ELEMENT_DIV, list_buttons, self._display.get_size())
         self._title_container=VContainer(SINGLE_ELEMENT_DIV, [Text("Wiredwolf")], self._display.get_size(), (50, 15))
         
@@ -237,9 +237,12 @@ class StartScreen(AbstractScreen):
             global username
             if len(tmp)>0 and str.isspace(tmp)==False: #the username field is filled by chars, not empty or only whitespaces
                 username=self._field.text #save username in global variable
-            else:
-                username="username" #default username
                 #TODO: communicate username to controller
+                self._new_lobby_button.is_enabled=True
+                self._search_lobby_button.is_enabled=True
+            else:
+                self._new_lobby_button.is_enabled=False
+                self._search_lobby_button.is_enabled=False
     
     def reset_screen(self) -> None:
         #Static screen, nothing to change
