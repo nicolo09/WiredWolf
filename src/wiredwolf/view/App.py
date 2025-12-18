@@ -245,7 +245,8 @@ class StartScreen(AbstractScreen):
                 self._search_lobby_button.is_enabled=False
     
     def reset_screen(self) -> None:
-        #Static screen, nothing to change
+        #Reset field text
+        self._field.text=""
         pass
 
 class NewLobbyScreen(AbstractScreen):
@@ -285,8 +286,6 @@ class NewLobbyScreen(AbstractScreen):
     def reset_screen(self) -> None:
         #Reset lobby name
         self._field.text=""
-        global lobby_name
-        lobby_name=""
         self._create_lobby_button.is_enabled=False
         pass
 
