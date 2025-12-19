@@ -69,6 +69,13 @@ class PanelHandler():
             for element in self._panel_dictionary[screen]:
                 element.hide()
 
+    def delete_panels(self, screen:Screens)->None:
+        """Deletes all panels of a given screen"""
+        if screen in self._panel_dictionary:
+            for element in self._panel_dictionary[screen]:
+                element.kill()
+            self._panel_dictionary[screen]=[]
+
 class GameStateManager:
     """The game state manager internally stores which scene is displayed"""
 
