@@ -206,7 +206,6 @@ class App:
         self._next_event=None
         for event in pygame.event.get():
             self._on_event(event) #handles generated events 
-            self._gui_manager.process_events(event) #processes pygame_gui events
         tick=self._clock.tick(FPS)
         self._gui_manager.update(tick/1000.0) #gui manager needs to know how much time has passed since the last update in milliseconds
 
@@ -243,6 +242,7 @@ class StartScreen(AbstractScreen):
             else:
                 self._new_lobby_button.is_enabled=False
                 self._search_lobby_button.is_enabled=False
+            self._gui_manager.process_events(event) #processes pygame_gui events
     
     def reset_screen(self) -> None:
         #Reset field text
@@ -282,6 +282,7 @@ class NewLobbyScreen(AbstractScreen):
             else:
                 self._create_lobby_button.is_enabled=False
                 lobby_name=""
+            self._gui_manager.process_events(event) #processes pygame_gui events
             
     def reset_screen(self) -> None:
         #Reset lobby name
@@ -360,6 +361,7 @@ class WaitingLobbyScreen(AbstractScreen):
         self._title_container.draw(self._display)
         self._waiting.draw(self._display)
         if event is not None:
+            self._gui_manager.process_events(event) #processes pygame_gui events
             #Recived a custom event
             if event.type==custom_event:
                 #parse the custom event into an object
@@ -424,6 +426,7 @@ class DayVotingScreen(AbstractScreen):
                     self._text_box.reset_last_input() #clear internal memory
                     global username
                     message_sender_util(username+":"+tmp, self._my_limited_list, self._multiple_texts) #TODO: communicate with controller the message
+                self._gui_manager.process_events(event) #processes pygame_gui events
             if event.type==custom_event:
                 #parse the custom event into an object
                 e=create_custom_event_from_dict(event.dict)
@@ -500,6 +503,7 @@ class DayExecutionScreen(AbstractScreen):
                     self._text_box.reset_last_input() #clear internal memory
                     global username
                     message_sender_util(username+":"+tmp, self._my_limited_list, self._multiple_texts) #TODO: communicate with controller the message
+                self._gui_manager.process_events(event) #processes pygame_gui events
             if event.type==custom_event:
                 #parse the custom event into an object
                 e=create_custom_event_from_dict(event.dict)
@@ -556,7 +560,9 @@ class NightVillagerScreen(AbstractScreen):
         self._gui_manager.draw_ui(self._display)
         self._title.draw(self._display)
         self._villager.draw(self._display)
-        if event is not None and event.type==custom_event:
+        if event is not None:
+            self._gui_manager.process_events(event) #processes pygame_gui events
+            if event.type==custom_event:
                 #parse the custom event into an object
                 e=create_custom_event_from_dict(event.dict)
                 if isinstance(e, ChangeScreenType):
@@ -592,7 +598,9 @@ class NightRoleScreen(AbstractScreen):
         self._role_container.draw(self._display)
         self._users.draw(self._display)
         self._execute_container.draw(self._display)
-        if event is not None and event.type==custom_event:
+        if event is not None:
+            self._gui_manager.process_events(event) #processes pygame_gui events
+            if event.type==custom_event:
                 #parse the custom event into an object
                 e=create_custom_event_from_dict(event.dict)
                 if isinstance(e, ChangeScreenType):
@@ -636,13 +644,15 @@ class VillagerWinScreen(AbstractScreen):
         self._display.fill(BACKGROUND_COLOR)
         self._gui_manager.draw_ui(self._display)
         self._title.draw(self._display)
-        if event is not None and event.type==custom_event:
-            #parse the custom event into an object
-            e=create_custom_event_from_dict(event.dict)
-            if isinstance(e, ChangeScreenType):
-                #End of winning screen, go to home?
-                self._game_state_manager.change_screen(e.next_screen)
-                self.reset_screen() #resets current screen for next time this is used
+        if event is not None :
+            self._gui_manager.process_events(event) #processes pygame_gui events
+            if event.type==custom_event:
+                #parse the custom event into an object
+                e=create_custom_event_from_dict(event.dict)
+                if isinstance(e, ChangeScreenType):
+                    #End of winning screen, go to home?
+                    self._game_state_manager.change_screen(e.next_screen)
+                    self.reset_screen() #resets current screen for next time this is used
  
     def reset_screen(self) -> None:
         #Static screen, nothing to change
@@ -660,13 +670,15 @@ class VillagerLossScreen(AbstractScreen):
         self._display.fill(BACKGROUND_COLOR)
         self._gui_manager.draw_ui(self._display)
         self._title.draw(self._display)
-        if event is not None and event.type==custom_event:
-            #parse the custom event into an object
-            e=create_custom_event_from_dict(event.dict)
-            if isinstance(e, ChangeScreenType):
-                #End of winning screen, go to home?
-                self._game_state_manager.change_screen(e.next_screen)
-                self.reset_screen() #resets current screen for next time this is used
+        if event is not None:
+            self._gui_manager.process_events(event) #processes pygame_gui events
+            if event.type==custom_event:
+                #parse the custom event into an object
+                e=create_custom_event_from_dict(event.dict)
+                if isinstance(e, ChangeScreenType):
+                    #End of winning screen, go to home?
+                    self._game_state_manager.change_screen(e.next_screen)
+                    self.reset_screen() #resets current screen for next time this is used
 
     def reset_screen(self) -> None:
         #Static screen, nothing to change
@@ -684,13 +696,15 @@ class WolfWinScreen(AbstractScreen):
         self._display.fill(BACKGROUND_COLOR)
         self._gui_manager.draw_ui(self._display)
         self._title.draw(self._display)
-        if event is not None and event.type==custom_event:
-            #parse the custom event into an object
-            e=create_custom_event_from_dict(event.dict)
-            if isinstance(e, ChangeScreenType):
-                #End of winning screen, go to home?
-                self._game_state_manager.change_screen(e.next_screen)
-                self.reset_screen() #resets current screen for next time this is used
+        if event is not None:
+            self._gui_manager.process_events(event) #processes pygame_gui events
+            if event.type==custom_event:
+                #parse the custom event into an object
+                e=create_custom_event_from_dict(event.dict)
+                if isinstance(e, ChangeScreenType):
+                    #End of winning screen, go to home?
+                    self._game_state_manager.change_screen(e.next_screen)
+                    self.reset_screen() #resets current screen for next time this is used
 
     def reset_screen(self) -> None:
         #Static screen, nothing to change
@@ -708,13 +722,14 @@ class WolfLossScreen(AbstractScreen):
         self._display.fill(BACKGROUND_COLOR)
         self._gui_manager.draw_ui(self._display)
         self._title.draw(self._display)
-        if event is not None and event.type==custom_event:
-            #parse the custom event into an object
-            e=create_custom_event_from_dict(event.dict)
-            if isinstance(e, ChangeScreenType):
-                #End of winning screen, go to home?
-                self._game_state_manager.change_screen(e.next_screen)
-                self.reset_screen() #resets current screen for next time this is used
+        if event is not None :
+            if event.type==custom_event:
+                #parse the custom event into an object
+                e=create_custom_event_from_dict(event.dict)
+                if isinstance(e, ChangeScreenType):
+                    #End of winning screen, go to home?
+                    self._game_state_manager.change_screen(e.next_screen)
+                    self.reset_screen() #resets current screen for next time this is used
     
     def reset_screen(self) -> None:
         #Static screen, nothing to change
@@ -736,19 +751,21 @@ class RoleDisplayScreen(AbstractScreen):
         self._gui_manager.draw_ui(self._display)
         self._title_container.draw(self._display)
         self._description_container.draw(self._display)
-        if event is not None and event.type==custom_event:
-            #parse the custom event into an object
-            e=create_custom_event_from_dict(event.dict)
-            if isinstance(e, ChangeScreenType):
-                #Go to next screen
-                self._game_state_manager.change_screen(e.next_screen)
-                self.reset_screen() #resets current screen for next time this is used
-            if isinstance(e, GameRoleType):
-                #Update role and description
-                self._title.text=e.role
-                self._title_container.update_on_next_draw()
-                self._description.text=e.role_description
-                self._description_container.update_on_next_draw()
+        if event is not None:
+            self._gui_manager.process_events(event) #processes pygame_gui events
+            if event.type==custom_event:
+                #parse the custom event into an object
+                e=create_custom_event_from_dict(event.dict)
+                if isinstance(e, ChangeScreenType):
+                    #Go to next screen
+                    self._game_state_manager.change_screen(e.next_screen)
+                    self.reset_screen() #resets current screen for next time this is used
+                if isinstance(e, GameRoleType):
+                    #Update role and description
+                    self._title.text=e.role
+                    self._title_container.update_on_next_draw()
+                    self._description.text=e.role_description
+                    self._description_container.update_on_next_draw()
         
     def reset_screen(self) -> None:
         #Reset values that were sent via custom event
