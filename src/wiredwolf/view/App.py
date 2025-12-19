@@ -419,20 +419,18 @@ class DayVotingScreen(AbstractScreen):
     """The screens where users chat and choose which players to nominate for an execution"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler)
-        from wiredwolf.view.Components import MultipleTexts,LimitedList, MemoryTextField,Text, SelectorGroup,EnabledButton
+        from wiredwolf.view.Components import MultipleTexts,LimitedList, MemoryTextField,Text
         self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Day")], self._display.get_size(), (50, 5))
         self._my_limited_list=LimitedList(MAX_MESSAGES_DISPLAYED) #This is where the messages are stored, up to MAX_MESSAGES DISPLAYED
         self._multiple_texts=MultipleTexts(self._my_limited_list, SMALL_ELEMENT_DIV, self._display.get_size(), (70, 45), CONTAINER_FACTOR*WRAP_LINE_WIDTH, CHAT_BACKGROUND, font=FontSize.H3) #This is where the messages are displayed vertically
         self._text_box=MemoryTextField(LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, font=FontSize.H3) #This is where the new messages are entered
         self._container_text=VContainer(SINGLE_ELEMENT_DIV, [self._text_box], self._display.get_size(), (70,90))
         self._last_message=""
-        self._selector=SelectorGroup([]) #This handles how the selectors BEHAVE as a group
-        change_player_voted=partial(self._set_voted_player)
-        self._vote_player=EnabledButton(change_player_voted, 'Vote to execute player', MEDIUM_BTN_WIDTH, LARGE_BTN_HEIGHT,font=FontSize.H2, enabled=False) #Necessary so users can't vote instantly
-        self._vote_player_group=VContainer(SINGLE_ELEMENT_DIV, [self._vote_player], self._display.get_size(), (20, 90))
-        self._players=VContainer(MEDIUM_ELEMENT_DIV, [], self._display.get_size(), (20, 40)) #This handles how the selectors are DISPLAYED
-        self._voted_text=Text("You haven't voted", font=FontSize.H3)
-        self._voted_container=HContainer(SINGLE_ELEMENT_DIV, [self._voted_text], self._display.get_size(), (20, 80))
+        self._create_voting_panel()
+        #This is a list to store the buttons corrisponding to the lobbies
+        self._player_list=[]
+        self._voted_text=Text("Wait to vote...", font=FontSize.H3)
+        self._voted_container=HContainer(SINGLE_ELEMENT_DIV, [self._voted_text], self._display.get_size(), (15, 80))
 
     def run(self,event:pygame.event.Event | None)->None:
         """A day waiting and voting screen"""
@@ -441,8 +439,6 @@ class DayVotingScreen(AbstractScreen):
         self._multiple_texts.draw(self._display)
         self._container_text.draw(self._display)
         self._title.draw(self._display)
-        self._players.draw(self._display)
-        self._vote_player_group.draw(self._display)
         self._voted_container.draw(self._display)
 
         if event is not None:
@@ -456,19 +452,33 @@ class DayVotingScreen(AbstractScreen):
                     global username
                     message_sender_util(username+":"+tmp, self._my_limited_list, self._multiple_texts) #TODO: communicate with controller the message
                 self._gui_manager.process_events(event) #processes pygame_gui events
+                if event.type == pygame_gui.UI_BUTTON_PRESSED:
+                #A pygame_gui button is pressed
+                    if event.ui_element in self._player_list:
+                        #vote for selected player
+                        voted_player=event.ui_element.text
+                        self._set_voted_player(voted_player)
             if event.type==custom_event:
                 #parse the custom event into an object
                 e=create_custom_event_from_dict(event.dict)
                 if isinstance(e, UsersType):
-                    #Add new username
-                    button=SelectorButton(e.username, SMALL_BTN_WIDTH, SMALL_BTN_HEIGHT)
-                    self._selector.add_selector_button(button)
-                    self._selector.set_enabled(False)
-                    self._players.add_element(button)
+                    #Add new button username
+                    lenght=len(self._player_list)
+                    if lenght==0:
+                        #First element, absolute positioning inside the container
+                        self._player_list.insert(lenght, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, 10), (100, 50)), text=e.username, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._voting_panel))
+                    else:
+                        #Second element, relative positioning (below previous button)
+                        self._player_list.insert(lenght, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, 10), (100, 50)), text=e.username, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._player_list[lenght-1]}, container=self._voting_panel))
+                    if lenght>2:
+                        #Increase scrollbar size, up to 2 buttons can fit without a scrollbar
+                        self._increased_size=(self._increased_size[0], self._increased_size[1]+60)
+                        self._voting_panel.set_scrollable_area_dimensions(self._increased_size)
+                    self._voting_panel.disable()
                 if isinstance(e, TimeOutType):
                     #Starts voting
-                    self._selector.set_enabled(True)
-                    self._vote_player.is_enabled=True
+                    self._voting_panel.enable()
+                    self._voted_text.text="Start voting for execution!"
                 if isinstance(e, ChangeScreenType):
                     #End of voting, changing screen to DayExecutionScreen
                     self._game_state_manager.change_screen(e.next_screen)
@@ -477,22 +487,39 @@ class DayVotingScreen(AbstractScreen):
                     #Messages recived from other users
                     message_sender_util(e.message, self._my_limited_list, self._multiple_texts)
 
-    def _set_voted_player(self)->None:
+    def _set_voted_player(self, username:str)->None:
         """Function called when the user chooses who to nominate for execution"""
-        get_voted_player=self._selector.selected_text() #gets the chosen player
         global voted_user
-        self._vote_player_group.update_on_next_draw() #This is necessary to update the container size on the next draw
-        if len(get_voted_player)>0:
+        if len(username)>0:
             #can only vote a player if one is selected
-            voted_user=get_voted_player
+            voted_user=username
             self._voted_text.text="You voted for "+voted_user
         else:
             voted_user="" #deselects player voted to be executed
             self._voted_text.text="You haven't voted"
 
+    def _create_voting_panel(self)->None:
+        """Creates the scrolling panel containing all player buttons"""
+        self._starting_size=(150, 200)
+        self._increased_size=self._starting_size
+        self._voting_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(20,0, self._starting_size[0], self._starting_size[1]), anchors={'left':'left', 'centery':'centery'})
+        self._voting_panel.set_scrollable_area_dimensions(self._starting_size)
+        self._voting_panel.disable()
+
     def reset_screen(self) -> None:
-        #TODO: implement
-        pass
+        #reset player list
+        self._player_list.clear()
+        #Delete current panels and creates them again
+        self._panel_handler.delete_panels(self._screen_id)
+        self._create_voting_panel()
+        #Wait to vote 
+        self._voted_text.text="Wait to vote..."
+        #Delete all chat messages
+        self._my_limited_list.clear()
+        self._multiple_texts.on_list_change() #Updates view
+        #Clears textbox input
+        self._text_box.reset_last_input()
+        self._text_box.text=""
 
 class DayExecutionScreen(AbstractScreen):
     """The screen where users chat and choose if the player nominated for execution should be spared or not"""
