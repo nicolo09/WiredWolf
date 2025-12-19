@@ -169,6 +169,8 @@ class App:
         self._event_sender=CustomEventSender()
         global custom_event
         custom_event=self._event_sender.custom_event
+        #Activate panels of first screen
+        self._panel_handler.show_screens(self._game_state_manager.current_state)
 
     @property
     def event_sender(self)->EventSender:
