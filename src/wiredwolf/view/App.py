@@ -301,46 +301,67 @@ class SearchLobbyScreen(AbstractScreen):
     """A simple search lobby screen"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler)
-        from wiredwolf.view.Components import CallbackButton, Text, SelectorGroup, EnabledButton
-        self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Search for an existing lobby")], self._display.get_size(), (50, 10))
-        self._selector=SelectorGroup([]) #This handles how the selectors BEHAVE as a group
-        self._lobby_group=VContainer(MEDIUM_ELEMENT_DIV, [], self._display.get_size(), (50, 45)) #This handles how the selectors are DISPLAYED
+        from wiredwolf.view.Components import CallbackButton, Text
+        self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Join an existing lobby")], self._display.get_size(), (50, 10))
         go_home=partial(self._game_state_manager.change_screen, Screens.HOME)
-        join_lobby=partial(self._game_state_manager.change_screen, Screens.LOBBY_WAITING)
-        self._join_button=EnabledButton(join_lobby, 'Join selected lobby', LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT,font=FontSize.H2)
-        self._buttons=HContainer(MEDIUM_ELEMENT_DIV, [CallbackButton(go_home, 'Go back to start screen', LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, font=FontSize.H2), self._join_button], self._display.get_size(), (50, 85))
-        #TODO: scroll bar for existing lobbies
+        self._buttons=HContainer(MEDIUM_ELEMENT_DIV, [CallbackButton(go_home, 'Go back to start screen', LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, font=FontSize.H2)], self._display.get_size(), (50, 85))
+        #The lobbies discovered are stored in a lobby panel
+        self._create_lobby_panel()
+        #This is a list to store the buttons corrisponding to the lobbies
+        self._lobby_list=[]
 
     def run(self,event:pygame.event.Event | None)->None:
         """The search lobby screen, to search for existing lobbies"""
         self._display.fill(BACKGROUND_COLOR)
         self._gui_manager.draw_ui(self._display)
         self._title.draw(self._display)
-        self._lobby_group.draw(self._display)
         self._buttons.draw(self._display)
         global lobby_name
-        tmp=self._selector.selected_text()
-        if len(tmp)>0:
-            self._join_button.is_enabled=True
-            if lobby_name!=tmp:
-                lobby_name=tmp
-                #TODO: communicate which lobby the player joined to the controller
-        else:
-            self._join_button.is_enabled=False
         if event is not None:
-            #Recived a custom event
+            #process pygame_events
+            #then process pygame_gui events
+            self._gui_manager.process_events(event)
+            if event.type == pygame_gui.UI_BUTTON_PRESSED:
+                #A pygame_gui button is pressed
+                if event.ui_element in self._lobby_list:
+                  #join the clicked lobby
+                  lobby_name=event.ui_element.text
+                  self._game_state_manager.change_screen(Screens.LOBBY_WAITING)
+
+            #Process recived custom events
             if event.type==custom_event:
                 #parse the custom event into an object
                 e=create_custom_event_from_dict(event.dict)
                 if isinstance(e, DiscoveredLobbyType):
-                    #This screen only interacts with Discovered Lobby Events
-                    button=SelectorButton(e.discovered_lobby, SMALL_BTN_WIDTH, SMALL_BTN_HEIGHT)
-                    self._selector.add_selector_button(button)
-                    self._lobby_group.add_element(button)
+                    #This screen only interacts with Discovered Lobby Events)
+                    lenght=len(self._lobby_list)
+                    if lenght==0:
+                        #First element, absolute positioning inside the container
+                        self._lobby_list.insert(lenght, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, 10), (100, 50)), text=e.discovered_lobby, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._lobby_panel))
+                    else:
+                        #Second element, relative positioning (below previous button)
+                        self._lobby_list.insert(lenght, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, 10), (100, 50)), text=e.discovered_lobby, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._lobby_list[lenght-1]}, container=self._lobby_panel))
+                       
+                    if lenght>2:
+                        #Increase scrollbar size, up to 2 buttons can fit without a scrollbar
+                        self._increased_size=(self._increased_size[0], self._increased_size[1]+60)
+                        self._lobby_panel.set_scrollable_area_dimensions(self._increased_size)
+
         
     def reset_screen(self) -> None:
-        #TODO: implement
+        #reset lobby list
+        self._lobby_list.clear()
+        #Delete current panels and creates them again
+        self._panel_handler.delete_panels(self._screen_id)
+        self._create_lobby_panel()
         pass
+
+    def _create_lobby_panel(self)->None:
+        """Creates the scrolling panel containing all lobbies buttons"""
+        self._starting_size=(150, 200)
+        self._increased_size=self._starting_size
+        self._lobby_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(0,0, self._starting_size[0], self._starting_size[1]), anchors={'centerx':'centerx', 'centery':'centery'})
+        self._lobby_panel.set_scrollable_area_dimensions(self._starting_size)
 
 class WaitingLobbyScreen(AbstractScreen):
     """The waiting room after joining a lobby"""
