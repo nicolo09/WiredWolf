@@ -354,7 +354,6 @@ class SearchLobbyScreen(AbstractScreen):
         #Delete current panels and creates them again
         self._panel_handler.delete_panels(self._screen_id)
         self._create_lobby_panel()
-        pass
 
     def _create_lobby_panel(self)->None:
         """Creates the scrolling panel containing all lobbies buttons"""
