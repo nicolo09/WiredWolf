@@ -427,7 +427,7 @@ class DayVotingScreen(AbstractScreen):
         self._container_text=VContainer(SINGLE_ELEMENT_DIV, [self._text_box], self._display.get_size(), (70,90))
         self._last_message=""
         self._create_voting_panel()
-        #This is a list to store the buttons corrisponding to the lobbies
+        #This is a list to store the buttons corrisponding to the users
         self._player_list=[]
         self._voted_text=Text("Wait to vote...", font=FontSize.H3)
         self._voted_container=HContainer(SINGLE_ELEMENT_DIV, [self._voted_text], self._display.get_size(), (15, 80))
@@ -525,7 +525,7 @@ class DayExecutionScreen(AbstractScreen):
     """The screen where users chat and choose if the player nominated for execution should be spared or not"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler)
-        from wiredwolf.view.Components import MultipleTexts,LimitedList, MemoryTextField,Text,EnabledButton
+        from wiredwolf.view.Components import MultipleTexts, LimitedList, MemoryTextField,Text,EnabledButton
         self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Day: execution")], self._display.get_size(), (50, 5))
         self._my_limited_list=LimitedList(MAX_MESSAGES_DISPLAYED) #This is where the messages are stored, up to MAX_MESSAGES DISPLAYED
         self._multiple_texts=MultipleTexts(self._my_limited_list, SMALL_ELEMENT_DIV, self._display.get_size(), (70, 45), CONTAINER_FACTOR*WRAP_LINE_WIDTH, CHAT_BACKGROUND, font=FontSize.H3) #This is where the messages are displayed vertically
