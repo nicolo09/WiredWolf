@@ -4,7 +4,7 @@ import pygame_gui
 import tkinter
 from abc import ABC, abstractmethod
 from wiredwolf.view.CustomEvents import ChangeScreenType, ChatMessageType, CustomEventSender, DiscoveredLobbyType, EventSender, GameRoleType, TimeOutType, UsersType, WaitingRoomType, create_custom_event_from_dict
-from wiredwolf.view.Components import LimitedList, MultipleTexts, SelectorButton, VContainer, HContainer
+from wiredwolf.view.Components import LimitedList, MultipleTexts, VContainer, HContainer
 from wiredwolf.view.Constants import FontSize, Screens
 from functools import partial
 from wiredwolf.view.ViewConstants import *
@@ -312,7 +312,7 @@ class SearchLobbyScreen(AbstractScreen):
         #The lobbies discovered are stored in a lobby panel
         self._create_lobby_panel()
         #This is a list to store the buttons corrisponding to the lobbies
-        self._lobby_list=[]
+        self._lobby_list:list[pygame_gui.elements.UIButton]=[]
 
     def run(self,event:pygame.event.Event | None)->None:
         """The search lobby screen, to search for existing lobbies"""
@@ -443,7 +443,7 @@ class DayVotingScreen(AbstractScreen):
         self._last_message=""
         self._create_voting_panel()
         #This is a list to store the buttons corrisponding to the users
-        self._player_list=[]
+        self._player_list:list[pygame_gui.elements.UIButton]=[]
         self._voted_text=Text("Wait to vote...", font=FontSize.H3)
         self._voted_container=HContainer(SINGLE_ELEMENT_DIV, [self._voted_text], self._display.get_size(), (15, 80))
 
@@ -656,7 +656,7 @@ class NightRoleScreen(AbstractScreen):
         #TODO: customize this further? ex werewolves kill this player, ...
         self._create_users_panel()
         #This is a list to store the buttons corrisponding to the users
-        self._players_list=[]
+        self._players_list:list[pygame_gui.elements.UIButton]=[]
 
     def run(self,event:pygame.event.Event | None)->None:
         """A night non villager role screen"""
