@@ -35,17 +35,7 @@
             "shape_corner_radius":"12",
             "border_width": "0",
             "shadow_width": "0"
-        },
-    "scroll_bar": {
-        "colours": {
-            "normal_bg": "#2a2a2a",
-            "hovered_bg": "#444444",
-            "disabled_bg": "#1e1e1e",
-            "normal_bar": "#bbbbbb",
-            "hovered_bar": "#eeeeee",
-            "disabled_bar": "#777777"
         }
-    }
      }
      
 }
