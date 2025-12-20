@@ -9,6 +9,7 @@ from wiredwolf.view.Constants import FontSize, Screens
 from functools import partial
 from wiredwolf.view.ViewConstants import *
 from pygame_gui.core.interfaces import IUIElementInterface
+from pygame_gui.core import UIElement
 from tkinter import messagebox
 
 FPS=60
@@ -32,8 +33,8 @@ class PanelHandler():
 
     def __init__(self, gui_manager:pygame_gui.UIManager)->None:
         self._gui_manager=gui_manager
-        self._panel_dictionary:dict[Screens,list]={} #TODO: what type of element in list?
-        #this dictionary stores all existing panels according to the screen they are shown on
+        self._panel_dictionary:dict[Screens,list[UIElement]]={} #Can store both UiPanels and UiScrollingContainers
+        #this dictionary stores all existing panels connected to the screen they are shown on
 
     def create_panel(self, screen:Screens, relative_rect:pygame.Rect, anchors:dict[str, str | IUIElementInterface], starting_height:int=10,)->pygame_gui.elements.UIPanel:
         """Creates a hidden pygame_gui UIPanel with the given parameters. Saves a reference to the panel together with the screen it's shown on for future use"""
@@ -203,9 +204,11 @@ class App:
         else:
             if event.type == pygame.WINDOWRESIZED:
                 #when the window is resized, the local variable value is changed
-                self._size=pygame.display.get_surface().get_size()
-                #Update the manager with the new window size
-                self._gui_manager.set_window_resolution((event.x, event.y))
+                surface=pygame.display.get_surface()
+                if surface!=None:
+                    self._size=surface.get_size()
+                    #Update the manager with the new window size
+                    self._gui_manager.set_window_resolution((event.x, event.y))
             else:
                 #event is saved and may be handled by the specific screen
                 self._next_event=event
