@@ -539,7 +539,6 @@ class DayExecutionScreen(AbstractScreen):
         self._execute_button=EnabledButton(executed, "Vote to execute "+self._executed_user, MEDIUM_BTN_WIDTH, LARGE_BTN_HEIGHT, enabled=True)
         self._spare_button=EnabledButton(spared, "Vote to spare "+self._executed_user, MEDIUM_BTN_WIDTH, LARGE_BTN_HEIGHT, enabled=True)
         self._button_container=VContainer(LARGE_ELEMENT_DIV, [self._execute_button, self._spare_button], self._display.get_size(), (20, 50))
-        #TODO: add scroll bar
 
     def run(self,event:pygame.event.Event | None)->None:
         """A day execution screen"""
@@ -634,17 +633,15 @@ class NightRoleScreen(AbstractScreen):
     """The screen where non villager role users act during the night"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler)
-        from wiredwolf.view.Components import Text, SelectorGroup, EnabledButton
+        from wiredwolf.view.Components import Text
         self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Night")], self._display.get_size(), (50, 5))
         self._role_name=""
         self._role_text=Text("Use your power, "+self._role_name)
         self._role_container=VContainer(SINGLE_ELEMENT_DIV, [self._role_text], self._display.get_size(),(50, 10)) 
-        self._selector_group=SelectorGroup([]) #Added dynamically via events
-        self._users=VContainer(MEDIUM_ELEMENT_DIV, [], self._display.get_size()) #Added dynamically via events
-        act_on=partial(self._act_on_player)
-        self._execute=EnabledButton(act_on, "Act on this player", LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, enabled=True) #TODO: customize this further? ex werewolves kill this player, ... 
-        self._execute_container=VContainer(SINGLE_ELEMENT_DIV, [self._execute], self._display.get_size(), (50, 90))
-        #TODO: add scroll bar for selector
+        #TODO: customize this further? ex werewolves kill this player, ...
+        self._create_users_panel()
+        #This is a list to store the buttons corrisponding to the users
+        self._players_list=[]
 
     def run(self,event:pygame.event.Event | None)->None:
         """A night non villager role screen"""
@@ -652,10 +649,17 @@ class NightRoleScreen(AbstractScreen):
         self._gui_manager.draw_ui(self._display)
         self._title.draw(self._display)
         self._role_container.draw(self._display)
-        self._users.draw(self._display)
-        self._execute_container.draw(self._display)
         if event is not None:
             self._gui_manager.process_events(event) #processes pygame_gui events
+            if event.type == pygame_gui.UI_BUTTON_PRESSED:
+                #A pygame_gui button is pressed
+                    if event.ui_element in self._players_list:
+                        #vote for selected player
+                        global voted_player
+                        voted_player=event.ui_element.text
+                        #TODO: communicate to controller that user acted on given player
+                        self._voting_panel.disable() #Can only act once 
+
             if event.type==custom_event:
                 #parse the custom event into an object
                 e=create_custom_event_from_dict(event.dict)
@@ -665,27 +669,38 @@ class NightRoleScreen(AbstractScreen):
                     self.reset_screen() #resets current screen for next time this is used
                 if isinstance(e, UsersType):
                     #Add username to users you can act on (ex: werewolfs can only kill non werewolves ecc)
-                    button=SelectorButton(e.username, SMALL_BTN_WIDTH, SMALL_BTN_HEIGHT)
-                    self._selector_group.add_selector_button(button)
-                    self._users.add_element(button)
+                    lenght=len(self._players_list)
+                    if lenght==0:
+                        #First element, absolute positioning inside the container
+                        self._players_list.insert(lenght, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, 10), (100, 50)), text=e.username, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._voting_panel))
+                    else:
+                        #Second element, relative positioning (below previous button)
+                        self._players_list.insert(lenght, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, 10), (100, 50)), text=e.username, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._players_list[lenght-1]}, container=self._voting_panel))
+                    if lenght>2:
+                        #Increase scrollbar size, up to 2 buttons can fit without a scrollbar
+                        self._increased_size=(self._increased_size[0], self._increased_size[1]+60)
+                        self._voting_panel.set_scrollable_area_dimensions(self._increased_size)
                 if isinstance(e, GameRoleType):
                     #Personalizes screen with player role
                     self._role_name=e.role
                     self._role_text.text="Use your power, "+self._role_name
-                    self._role_container.update_on_next_draw()
-    
-    def _act_on_player(self)->None:
-        """The function called when the button is pressed, to save who you acted on"""
-        voted_player=self._selector_group.selected_text() #gets the chosen player
-        if voted_player!="":
-            #Can only act once, disabling buttons
-            self._selector_group.set_enabled(False) #disable selectors
-            self._execute.is_enabled=False #disable button
-            #TODO: communicate to controller that user acted on given player
+                    self._role_container.update_on_next_draw()          
+
+    def _create_users_panel(self)->None:
+        """Creates the scrolling panel containing all player buttons"""
+        self._starting_size=(150, 200)
+        self._increased_size=self._starting_size
+        self._voting_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(0,0, self._starting_size[0], self._starting_size[1]), anchors={'centerx':'centerx', 'centery':'centery'})
+        self._voting_panel.set_scrollable_area_dimensions(self._starting_size)
 
     def reset_screen(self) -> None:
-        #TODO: implement
-        pass
+        #reset player list
+        self._players_list.clear()
+        #Delete current panels and creates them again
+        self._panel_handler.delete_panels(self._screen_id)
+        self._create_users_panel()
+        #Wait for role 
+        self._role_text.text="Use your power, "
 
 
 class VillagerWinScreen(AbstractScreen):
