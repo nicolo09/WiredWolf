@@ -1,6 +1,7 @@
 import textwrap
 import pygame
 import pygame_gui
+import tkinter
 from abc import ABC, abstractmethod
 from wiredwolf.view.CustomEvents import ChangeScreenType, ChatMessageType, CustomEventSender, DiscoveredLobbyType, EventSender, GameRoleType, TimeOutType, UsersType, WaitingRoomType, create_custom_event_from_dict
 from wiredwolf.view.Components import LimitedList, MultipleTexts, SelectorButton, VContainer, HContainer
@@ -8,6 +9,7 @@ from wiredwolf.view.Constants import FontSize, Screens
 from functools import partial
 from wiredwolf.view.ViewConstants import *
 from pygame_gui.core.interfaces import IUIElementInterface
+from tkinter import messagebox
 
 FPS=60
 username=""
@@ -368,14 +370,15 @@ class WaitingLobbyScreen(AbstractScreen):
     """The waiting room after joining a lobby"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler)
-        from wiredwolf.view.Components import Text
+        from wiredwolf.view.Components import Text, CallbackButton
         global lobby_name
         self._local_lobby=lobby_name
         self._title=Text("Waiting for other players to join "+self._local_lobby+" lobby")
         self._title_container=VContainer(SINGLE_ELEMENT_DIV, [self._title], self._display.get_size(), (50,20))
         self._text_number=Text("1 player connected...", font=FontSize.H2) #Updated count via custom events
         self._waiting=VContainer(SINGLE_ELEMENT_DIV,[self._text_number], self._display.get_size())
-        #TODO: button to start game, error displayed if user is not master
+        self._button=CallbackButton(self._if_master_start, "Start the game!", LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT)
+        self._button_container=HContainer(SINGLE_ELEMENT_DIV, [self._button], self._display.get_size(), (50, 85))
         
     def run(self,event:pygame.event.Event | None)->None:
         """A simple waiting screen"""
@@ -389,6 +392,7 @@ class WaitingLobbyScreen(AbstractScreen):
         self._gui_manager.draw_ui(self._display)
         self._title_container.draw(self._display)
         self._waiting.draw(self._display)
+        self._button_container.draw(self._display)
         if event is not None:
             self._gui_manager.process_events(event) #processes pygame_gui events
             #Recived a custom event
@@ -414,6 +418,17 @@ class WaitingLobbyScreen(AbstractScreen):
         self._waiting.update_on_next_draw()
         pass
 
+    def _if_master_start(self) ->None:
+        """If the button is pressed by the master, start the game"""
+        #TODO: ask controller if player is master
+        master=True
+        if master==True: 
+            self._game_state_manager.change_screen(Screens.DAY_VOTING)
+            self.reset_screen() #resets current screen for next time this is used
+        else:
+            #error message
+            tkinter.Tk().wm_withdraw() #to hide the main window
+            messagebox.showwarning('Can\'t start game', 'Only the master can start the game')
 
 class DayVotingScreen(AbstractScreen):
     """The screens where users chat and choose which players to nominate for an execution"""
