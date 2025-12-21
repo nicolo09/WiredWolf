@@ -4,8 +4,8 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 import copy
 
-from wiredwolf.view.Constants import FontSize
-from wiredwolf.view.ViewConstants import *
+from wiredwolf.view.constants import FontSize
+from wiredwolf.view.view_constants import *
 
 class DrawableComponent(ABC):
     """A drawable component abstraction"""

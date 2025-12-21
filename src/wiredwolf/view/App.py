@@ -3,11 +3,11 @@ import pygame
 import pygame_gui
 import tkinter
 from abc import ABC, abstractmethod
-from wiredwolf.view.CustomEvents import ChangeScreenType, ChatMessageType, CustomEventSender, DiscoveredLobbyType, EventSender, GameRoleType, TimeOutType, UsersType, WaitingRoomType, create_custom_event_from_dict
-from wiredwolf.view.Components import LimitedList, MultipleTexts, VContainer, HContainer
-from wiredwolf.view.Constants import FontSize, Screens
+from wiredwolf.view.custom_events import ChangeScreenType, ChatMessageType, CustomEventSender, DiscoveredLobbyType, EventSender, GameRoleType, TimeOutType, UsersType, WaitingRoomType, create_custom_event_from_dict
+from wiredwolf.view.components import CallbackButton, LimitedList, MemoryTextField, MultipleTexts, VContainer, HContainer, EnabledButton, Text, TextField, DrawableComponent
+from wiredwolf.view.constants import FontSize, Screens
 from functools import partial
-from wiredwolf.view.ViewConstants import SINGLE_ELEMENT_DIV, SMALL_ELEMENT_DIV, MEDIUM_ELEMENT_DIV, LARGE_ELEMENT_DIV, LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, MEDIUM_BTN_WIDTH, BACKGROUND_COLOR, CHAT_BACKGROUND
+from wiredwolf.view.view_constants import SINGLE_ELEMENT_DIV, SMALL_ELEMENT_DIV, MEDIUM_ELEMENT_DIV, LARGE_ELEMENT_DIV, LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, MEDIUM_BTN_WIDTH, BACKGROUND_COLOR, CHAT_BACKGROUND
 from pygame_gui.core.interfaces import IUIElementInterface
 from pygame_gui.core import UIElement
 from tkinter import messagebox
@@ -227,7 +227,6 @@ class StartScreen(AbstractScreen):
     """The start screen, the first screen showed at startup"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager,gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler)
-        from wiredwolf.view.Components import EnabledButton, Text, TextField, DrawableComponent
         go_new_lobby=partial(self._game_state_manager.change_screen, Screens.NEW_LOBBY)
         self._new_lobby_button=EnabledButton(go_new_lobby, 'New Lobby', LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, enabled=False) 
         go_search_lobby=partial(self._game_state_manager.change_screen, Screens.SEARCH_LOBBY)
@@ -267,7 +266,6 @@ class NewLobbyScreen(AbstractScreen):
     """A simple new lobby screen"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler)
-        from wiredwolf.view.Components import CallbackButton, Text, TextField, EnabledButton
         self._title=VContainer(SINGLE_ELEMENT_DIV,[Text("Create a new lobby")], self._display.get_size(), (50,20))
         lobby_name=Text("Insert the new lobby name", font=FontSize.H2)
         self._field=TextField(LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT)
@@ -308,7 +306,6 @@ class SearchLobbyScreen(AbstractScreen):
     """A simple search lobby screen"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler)
-        from wiredwolf.view.Components import CallbackButton, Text
         self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Join an existing lobby")], self._display.get_size(), (50, 10))
         go_home=partial(self._game_state_manager.change_screen, Screens.HOME)
         self._buttons=HContainer(MEDIUM_ELEMENT_DIV, [CallbackButton(go_home, 'Go back to start screen', LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, font=FontSize.H2)], self._display.get_size(), (50, 85))
@@ -373,7 +370,6 @@ class WaitingLobbyScreen(AbstractScreen):
     """The waiting room after joining a lobby"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler)
-        from wiredwolf.view.Components import Text, CallbackButton
         global lobby_name
         self._local_lobby=lobby_name
         self._title=Text("Waiting for other players to join "+self._local_lobby+" lobby")
@@ -437,7 +433,6 @@ class DayVotingScreen(AbstractScreen):
     """The screens where users chat and choose which players to nominate for an execution"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler)
-        from wiredwolf.view.Components import MultipleTexts,LimitedList, MemoryTextField,Text
         self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Day")], self._display.get_size(), (50, 5))
         self._my_limited_list=LimitedList(MAX_MESSAGES_DISPLAYED) #This is where the messages are stored, up to MAX_MESSAGES DISPLAYED
         self._multiple_texts=MultipleTexts(self._my_limited_list, SMALL_ELEMENT_DIV, self._display.get_size(), (70, 45), CONTAINER_FACTOR*WRAP_LINE_WIDTH, CHAT_BACKGROUND, font=FontSize.H3) #This is where the messages are displayed vertically
@@ -543,7 +538,6 @@ class DayExecutionScreen(AbstractScreen):
     """The screen where users chat and choose if the player nominated for execution should be spared or not"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler)
-        from wiredwolf.view.Components import MultipleTexts, LimitedList, MemoryTextField,Text,EnabledButton
         self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Day: execution")], self._display.get_size(), (50, 5))
         self._my_limited_list=LimitedList(MAX_MESSAGES_DISPLAYED) #This is where the messages are stored, up to MAX_MESSAGES DISPLAYED
         self._multiple_texts=MultipleTexts(self._my_limited_list, SMALL_ELEMENT_DIV, self._display.get_size(), (70, 45), CONTAINER_FACTOR*WRAP_LINE_WIDTH, CHAT_BACKGROUND, font=FontSize.H3) #This is where the messages are displayed vertically
@@ -623,7 +617,6 @@ class NightVillagerScreen(AbstractScreen):
     """The screen where villager role users wait for the night to end"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler)
-        from wiredwolf.view.Components import Text
         self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Night")], self._display.get_size(), (50, 5))
         self._villager=VContainer(SINGLE_ELEMENT_DIV, [Text("Wait for the night to end...")], self._display.get_size())
 
@@ -651,7 +644,6 @@ class NightRoleScreen(AbstractScreen):
     """The screen where non villager role users act during the night"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler)
-        from wiredwolf.view.Components import Text
         self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Night")], self._display.get_size(), (50, 5))
         self._role_name=""
         self._role_text=Text("Use your power, "+self._role_name)
@@ -725,7 +717,6 @@ class VillagerWinScreen(AbstractScreen):
     """The winning screen for villager users"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler)
-        from wiredwolf.view.Components import Text
         self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Villagers have won!")], self._display.get_size())
 
     def run(self, event:pygame.event.Event | None)->None:
@@ -751,7 +742,6 @@ class VillagerLossScreen(AbstractScreen):
     """The losing screen for villager users"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler) -> None:
         super().__init__(screen, display, game_state_manager,gui_manager, panel_handler)
-        from wiredwolf.view.Components import Text
         self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Villagers have lost")], self._display.get_size())
 
     def run(self, event:pygame.event.Event | None)->None:
@@ -777,7 +767,6 @@ class WolfWinScreen(AbstractScreen):
     """The winning screen for werewolf users"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler)
-        from wiredwolf.view.Components import Text
         self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Werewolves have won!")], self._display.get_size())
 
     def run(self, event:pygame.event.Event | None)->None:
@@ -803,7 +792,6 @@ class WolfLossScreen(AbstractScreen):
     """The losing screen for werewolf users"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler)
-        from wiredwolf.view.Components import Text
         self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Werewolves have lost")], self._display.get_size())
 
     def run(self, event:pygame.event.Event | None)->None:
@@ -828,7 +816,6 @@ class RoleDisplayScreen(AbstractScreen):
     """The screen displaying which role you were assigned to and explaining its powers"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler)
-        from wiredwolf.view.Components import Text
         self._title=Text("Role") #Properly set via custom event
         self._title_container=VContainer(SINGLE_ELEMENT_DIV, [self._title], self._display.get_size(), (50, 20))
         self._description=Text("Description", font=FontSize.H2) #Properly set via custom event

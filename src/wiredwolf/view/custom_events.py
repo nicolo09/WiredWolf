@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any
-from wiredwolf.view.Constants import EventType, Screens
+from wiredwolf.view.constants import EventType, Screens
 import pygame
 
 
