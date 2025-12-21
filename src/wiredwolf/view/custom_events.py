@@ -2,8 +2,9 @@ from abc import ABC, abstractmethod
 from typing import Any
 from wiredwolf.view.constants import EventType, Screens
 import pygame
+from dataclasses import dataclass
 
-
+@dataclass
 class AbstractEventType(ABC):
     """The abstract event sent to the gui"""
     #static field to standardize the dictionary key
