@@ -7,7 +7,7 @@ from wiredwolf.view.CustomEvents import ChangeScreenType, ChatMessageType, Custo
 from wiredwolf.view.Components import LimitedList, MultipleTexts, VContainer, HContainer
 from wiredwolf.view.Constants import FontSize, Screens
 from functools import partial
-from wiredwolf.view.ViewConstants import *
+from wiredwolf.view.ViewConstants import SINGLE_ELEMENT_DIV, SMALL_ELEMENT_DIV, MEDIUM_ELEMENT_DIV, LARGE_ELEMENT_DIV, LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, MEDIUM_BTN_WIDTH, BACKGROUND_COLOR, CHAT_BACKGROUND
 from pygame_gui.core.interfaces import IUIElementInterface
 from pygame_gui.core import UIElement
 from tkinter import messagebox
