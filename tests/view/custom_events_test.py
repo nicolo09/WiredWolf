@@ -17,7 +17,7 @@ class TestCustomEvents(unittest.TestCase):
         self.chat_message=ChatMessageType("Mario:Hello!")
         self.role=GameRoleType("Villager", "Try not to die, vote out the werewolves")
 
-    def test_custom_event_serialization(self):
+    def test_custom_event_serialization(self)->None:
         """A custom event serialized and deserialized should be the same"""
         self.assertEqual(self.change_screen, create_custom_event_from_dict(self.change_screen.as_dictionary()))
         self.assertEqual(self.discovered_lobby, create_custom_event_from_dict(self.discovered_lobby.as_dictionary()))
@@ -27,7 +27,7 @@ class TestCustomEvents(unittest.TestCase):
         self.assertEqual(self.chat_message, create_custom_event_from_dict(self.chat_message.as_dictionary()))
         self.assertEqual(self.role, create_custom_event_from_dict(self.role.as_dictionary()))
 
-    def test_custom_event_pygame(self):
+    def test_custom_event_pygame(self)->None:
         """An event sent to the game loop should be parsed correctly"""
         events_recived=0
         total_events=7
@@ -56,13 +56,13 @@ class TestCustomEvents(unittest.TestCase):
                         self.assertEqual(e, self.timeout) #Useless, no information is passed via dictionary other than type
                         events_recived=events_recived+1
                     if isinstance(e, WaitingRoomType):
-                        self.assertEqual(e, self.waiting_users) #Useless, no information is passed via dictionary other than type
+                        self.assertEqual(e, self.waiting_users) 
                         events_recived=events_recived+1
                     if isinstance(e, ChatMessageType):
-                        self.assertEqual(e, self.chat_message) #Useless, no information is passed via dictionary other than type
+                        self.assertEqual(e, self.chat_message) 
                         events_recived=events_recived+1
                     if isinstance(e, GameRoleType):
-                        self.assertEqual(e, self.role) #Useless, no information is passed via dictionary other than type
+                        self.assertEqual(e, self.role) 
                         events_recived=events_recived+1
         #Recived all events
         self.assertEqual(events_recived, total_events)
