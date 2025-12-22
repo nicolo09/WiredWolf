@@ -213,10 +213,11 @@ class App:
         pygame.display.update() #necessary or the screen won't draw at all
         self._dictionary[self._game_state_manager.current_state].run(self._next_event)
         self._next_event=None
+        #gui manager needs to know how much time has passed since the last update in milliseconds
+        tick=self._clock.tick(FPS)
+        self._gui_manager.update(tick/1000.0)
         for event in pygame.event.get():
             self._on_event(event) #handles generated events 
-        tick=self._clock.tick(FPS)
-        self._gui_manager.update(tick/1000.0) #gui manager needs to know how much time has passed since the last update in milliseconds
 
 class StartScreen(AbstractScreen):
     """The start screen, the first screen showed at startup"""
