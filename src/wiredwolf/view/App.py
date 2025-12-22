@@ -90,11 +90,6 @@ class GameStateManager:
     def current_state(self)->Screens:
         """Returns the screen the app game is on"""
         return self._current_state
-    
-    @current_state.setter
-    def current_state(self, screen:Screens)->None:
-        """Sets the current game state as the parameter given"""
-        self._current_state=screen
 
     def change_screen(self, target_screen:Screens)->None:
         """A function to change the application screen to the given one"""
