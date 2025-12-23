@@ -234,9 +234,87 @@ def create_custom_event_from_dict(dict:dict[Any, Any])->AbstractEventType:
     
 
 class EventSender(ABC):
-    """Abstract interface"""
-    def __init__(self) -> None:
-        pass
+    """Abstract interface to abstract the sending of events to the view"""
+
+    @abstractmethod
+    def discovered_lobbies(self, lobbies_list:list[str])->None:
+        """The list of all discovered lobbies in the network"""
+        raise NotImplementedError("Please implement this method")
+
+    @abstractmethod
+    def users_waiting_to_start_game(self, number:int)->None:
+        """The number of how many users are waiting for the game to start"""
+        raise NotImplementedError("Please implement this method")
+
+    @abstractmethod
+    def game_started_by_master(self)->None:
+        """Communicates to the other players that the game was started by the master of the lobby"""
+        raise NotImplementedError("Please implement this method")
+
+    @abstractmethod
+    def players_to_nominate_for_execution(self, players:list[str])->None:
+        """The list of players possible to choose from when nominating for execution"""
+        raise NotImplementedError("Please implement this method")
+
+    @abstractmethod
+    def start_voting_for_nominations(self)->None:
+        """Players can start nominating for execution"""
+        raise NotImplementedError("Please implement this method")
+
+    @abstractmethod
+    def start_voting_for_execution(self)->None:
+        """Players can start voting for execution"""
+        raise NotImplementedError("Please implement this method")
+    
+    @abstractmethod
+    def user_to_nominated_for_execution(self, username:str)->None:
+        """The user nominated to be executed"""
+        raise NotImplementedError("Please implement this method")
+
+    @abstractmethod
+    def display_chat_message(self, message:str)->None:
+        """Displays a chat message sent by another user"""
+        raise NotImplementedError("Please implement this method")
+
+    @abstractmethod
+    def start_night(self, is_villager:bool)->None:
+        """Starts the night screens"""
+        raise NotImplementedError("Please implement this method")
+
+    @abstractmethod
+    def end_night(self)->None:
+        """Ends the night screens"""
+        raise NotImplementedError("Please implement this method")
+
+    @abstractmethod
+    def user_role(self, role_name:str, role_description:str)->None:
+        """Sends the user role and a brief description to the view"""
+        raise NotImplementedError("Please implement this method")
+
+    @abstractmethod
+    def can_use_powers_on(self, player_list:str)->None:
+        """The list of users the player can use their powers on (ex: werewolves can't kill other werewolves)"""
+        raise NotImplementedError("Please implement this method")
+
+    @abstractmethod
+    def villager_win(self)->None:
+        """Tells the view that villagers won"""
+        raise NotImplementedError("Please implement this method")
+    
+    @abstractmethod
+    def villager_loss(self)->None:
+        """Tells the view that villagers lost"""
+        raise NotImplementedError("Please implement this method")
+
+    @abstractmethod
+    def werewolf_win(self)->None:
+        """Tells the view that werewolves won"""
+        raise NotImplementedError("Please implement this method")
+
+    @abstractmethod
+    def werewolf_loss(self)->None:
+        """Tells the view that werewolves lost"""
+        raise NotImplementedError("Please implement this method")
 
 class CustomEventSender(EventSender):
     """This class is used to send custom events to the GUI"""
@@ -301,6 +379,60 @@ class CustomEventSender(EventSender):
             #self.send_event_new_user("Mario")
             #self.send_event_waiting_room(10)
             self.send_event_chat_message("Mario: ciao")
+
+    def discovered_lobbies(self, lobbies_list: list[str]) -> None:
+        for elem in lobbies_list:
+            self.send_event_discovered_new_lobby(elem)
+
+    def users_waiting_to_start_game(self, number: int) -> None:
+        self.send_event_waiting_room(number)
+
+    def game_started_by_master(self) -> None:
+        self.send_event_to_screen(Screens.DAY_VOTING)
+
+    def players_to_nominate_for_execution(self, players: list[str]) -> None:
+        for elem in players:
+            self.send_event_new_user(elem)
+
+    def start_voting_for_nominations(self) -> None:
+        self.send_event_timeout()
+
+    def start_voting_for_execution(self) -> None:
+        self.send_event_to_screen(Screens.DAY_EXECUTION)
+
+    def user_to_nominated_for_execution(self, username: str) -> None:
+        self.send_event_new_user(username)
+
+    def display_chat_message(self, message: str) -> None:
+        self.send_event_chat_message(message)
+
+    def start_night(self, is_villager: bool) -> None:
+        if is_villager==True:
+            self.send_event_to_screen(Screens.NIGHT_VILLAGER)
+        else:
+            self.send_event_to_screen(Screens.NIGHT_ROLE)
+
+    def end_night(self) -> None:
+        self.send_event_to_screen(Screens.DAY_VOTING)
+
+    def user_role(self, role_name: str, role_description: str) -> None:
+        self.send_event_game_role(role_name, role_description)
+
+    def can_use_powers_on(self, player_list: str) -> None:
+        for elem in player_list:
+            self.send_event_new_user(elem)
+
+    def villager_win(self) -> None:
+        self.send_event_to_screen(Screens.VILLAGER_WIN)
+
+    def villager_loss(self) -> None:
+        self.send_event_to_screen(Screens.VILLAGER_LOSS)
+
+    def werewolf_win(self) -> None:
+        self.send_event_to_screen(Screens.WOLF_WIN)
+
+    def werewolf_loss(self) -> None:
+        self.send_event_to_screen(Screens.WOLF_LOSS)
 
 if __name__ == "__main__": 
     print("Hello world")
