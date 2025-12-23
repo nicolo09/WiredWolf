@@ -29,8 +29,16 @@ class TestComponents(unittest.TestCase):
         self.assertEqual(self.list.list, ordinary_list)
 
     def test_clear_component(self)->None:
+        """A limited list can be cleared"""
         for i in range(0,self.MAX):
             self.list.add_element(str(i))
         self.assertEqual(len(self.list.list), self.MAX)
         self.list.clear()
         self.assertEqual(len(self.list.list), 0)
+        self.assertEqual(self.list.max_elements, self.MAX)
+
+    def test_component_error(self)->None:
+        """A limited list can only be created with max elements>=0"""
+        self.assertRaises(ValueError, LimitedList, -1)
+        self.assertRaises(ValueError, LimitedList, 0)
+    

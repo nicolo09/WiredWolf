@@ -66,3 +66,9 @@ class TestCustomEvents(unittest.TestCase):
                         events_recived=events_recived+1
         #Recived all events
         self.assertEqual(events_recived, total_events)
+
+    def test_custom_event_fail(self)->None:
+        """Test parsing a wrong dictionary should throw an error"""
+        self.assertRaises(ValueError, create_custom_event_from_dict, {'test':'hello'}) #fails because dictionary doesn't have the expected key
+        self.assertRaisesRegex(ValueError, 'EventType enums',create_custom_event_from_dict, {AbstractEventType.s_event: 'none'}) #fails because key isn't an EventType enum
+

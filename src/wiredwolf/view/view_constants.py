@@ -26,6 +26,3 @@ CHAT_BACKGROUND="#EFEFC4"
 PANEL_X=150
 PANEL_Y=200
 ELEMS_FOR_SCROLLBAR=2
-
-if __name__ == "__main__": 
-    print("Hello world")

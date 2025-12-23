@@ -231,7 +231,6 @@ def create_custom_event_from_dict(dict:dict[Any, Any])->AbstractEventType:
                 raise ValueError("Dictionary event must be one of the EventType enums")         
     else:
         raise ValueError("Dictionary must contain event key")
-    
 
 class EventSender(ABC):
     """Abstract interface to abstract the sending of events to the view"""
@@ -433,6 +432,3 @@ class CustomEventSender(EventSender):
 
     def werewolf_loss(self) -> None:
         self.send_event_to_screen(Screens.WOLF_LOSS)
-
-if __name__ == "__main__": 
-    print("Hello world")
