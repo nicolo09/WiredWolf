@@ -22,5 +22,10 @@ SELECTED_COLOR="#CC02FF"
 BUTTON_DISABLED_COLOR="#727272"
 CHAT_BACKGROUND="#EFEFC4"
 
+#Panel sizes
+PANEL_X=150
+PANEL_Y=200
+ELEMS_FOR_SCROLLBAR=2
+
 if __name__ == "__main__": 
     print("Hello world")

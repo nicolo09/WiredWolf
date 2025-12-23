@@ -7,7 +7,7 @@ from wiredwolf.view.custom_events import ChangeScreenType, ChatMessageType, Cust
 from wiredwolf.view.components import CallbackButton, LimitedList, MemoryTextField, MultipleTexts, VContainer, HContainer, EnabledButton, Text, TextField, DrawableComponent
 from wiredwolf.view.constants import FontSize, Screens
 from functools import partial
-from wiredwolf.view.view_constants import SINGLE_ELEMENT_DIV, SMALL_ELEMENT_DIV, MEDIUM_ELEMENT_DIV, LARGE_ELEMENT_DIV, LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, MEDIUM_BTN_WIDTH, BACKGROUND_COLOR, CHAT_BACKGROUND
+from wiredwolf.view.view_constants import ELEMS_FOR_SCROLLBAR, PANEL_X, PANEL_Y, SINGLE_ELEMENT_DIV, SMALL_BTN_WIDTH, SMALL_ELEMENT_DIV, MEDIUM_ELEMENT_DIV, LARGE_ELEMENT_DIV, LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, MEDIUM_BTN_WIDTH, BACKGROUND_COLOR, CHAT_BACKGROUND
 from pygame_gui.core.interfaces import IUIElementInterface
 from pygame_gui.core import UIElement
 from tkinter import messagebox
@@ -337,14 +337,14 @@ class SearchLobbyScreen(AbstractScreen):
                     lenght=len(self._lobby_list)
                     if lenght==0:
                         #First element, absolute positioning inside the container
-                        self._lobby_list.insert(lenght, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, 10), (100, 50)), text=e.discovered_lobby, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._lobby_panel))
+                        self._lobby_list.insert(lenght, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.discovered_lobby, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._lobby_panel))
                     else:
                         #Second element, relative positioning (below previous button)
-                        self._lobby_list.insert(lenght, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, 10), (100, 50)), text=e.discovered_lobby, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._lobby_list[lenght-1]}, container=self._lobby_panel))
+                        self._lobby_list.insert(lenght, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.discovered_lobby, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._lobby_list[lenght-1]}, container=self._lobby_panel))
                        
-                    if lenght>2:
+                    if lenght>ELEMS_FOR_SCROLLBAR:
                         #Increase scrollbar size, up to 2 buttons can fit without a scrollbar
-                        self._increased_size=(self._increased_size[0], self._increased_size[1]+60)
+                        self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
                         self._lobby_panel.set_scrollable_area_dimensions(self._increased_size)
 
         
@@ -357,7 +357,7 @@ class SearchLobbyScreen(AbstractScreen):
 
     def _create_lobby_panel(self)->None:
         """Creates the scrolling panel containing all lobbies buttons"""
-        self._starting_size=(150, 200)
+        self._starting_size=(PANEL_X, PANEL_Y) 
         self._increased_size=self._starting_size
         self._lobby_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(0,0, self._starting_size[0], self._starting_size[1]), anchors={'centerx':'centerx', 'centery':'centery'})
         self._lobby_panel.set_scrollable_area_dimensions(self._starting_size)
@@ -475,13 +475,13 @@ class DayVotingScreen(AbstractScreen):
                     lenght=len(self._player_list)
                     if lenght==0:
                         #First element, absolute positioning inside the container
-                        self._player_list.insert(lenght, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, 10), (100, 50)), text=e.username, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._voting_panel))
+                        self._player_list.insert(lenght, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.username, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._voting_panel))
                     else:
                         #Second element, relative positioning (below previous button)
-                        self._player_list.insert(lenght, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, 10), (100, 50)), text=e.username, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._player_list[lenght-1]}, container=self._voting_panel))
-                    if lenght>2:
+                        self._player_list.insert(lenght, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, 10), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.username, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._player_list[lenght-1]}, container=self._voting_panel))
+                    if lenght>ELEMS_FOR_SCROLLBAR:
                         #Increase scrollbar size, up to 2 buttons can fit without a scrollbar
-                        self._increased_size=(self._increased_size[0], self._increased_size[1]+60)
+                        self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
                         self._voting_panel.set_scrollable_area_dimensions(self._increased_size)
                     self._voting_panel.disable()
                 if isinstance(e, TimeOutType):
@@ -509,7 +509,7 @@ class DayVotingScreen(AbstractScreen):
 
     def _create_voting_panel(self)->None:
         """Creates the scrolling panel containing all player buttons"""
-        self._starting_size=(150, 200)
+        self._starting_size=(PANEL_X, PANEL_Y)  
         self._increased_size=self._starting_size
         self._voting_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(20,0, self._starting_size[0], self._starting_size[1]), anchors={'left':'left', 'centery':'centery'})
         self._voting_panel.set_scrollable_area_dimensions(self._starting_size)
@@ -678,13 +678,13 @@ class NightRoleScreen(AbstractScreen):
                     lenght=len(self._players_list)
                     if lenght==0:
                         #First element, absolute positioning inside the container
-                        self._players_list.insert(lenght, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, 10), (100, 50)), text=e.username, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._voting_panel))
+                        self._players_list.insert(lenght, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.username, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._voting_panel))
                     else:
                         #Second element, relative positioning (below previous button)
-                        self._players_list.insert(lenght, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, 10), (100, 50)), text=e.username, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._players_list[lenght-1]}, container=self._voting_panel))
-                    if lenght>2:
+                        self._players_list.insert(lenght, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.username, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._players_list[lenght-1]}, container=self._voting_panel))
+                    if lenght>ELEMS_FOR_SCROLLBAR:
                         #Increase scrollbar size, up to 2 buttons can fit without a scrollbar
-                        self._increased_size=(self._increased_size[0], self._increased_size[1]+60)
+                        self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
                         self._voting_panel.set_scrollable_area_dimensions(self._increased_size)
                 if isinstance(e, GameRoleType):
                     #Personalizes screen with player role
@@ -694,7 +694,7 @@ class NightRoleScreen(AbstractScreen):
 
     def _create_users_panel(self)->None:
         """Creates the scrolling panel containing all player buttons"""
-        self._starting_size=(150, 200)
+        self._starting_size=(PANEL_X, PANEL_Y) 
         self._increased_size=self._starting_size
         self._voting_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(0,0, self._starting_size[0], self._starting_size[1]), anchors={'centerx':'centerx', 'centery':'centery'})
         self._voting_panel.set_scrollable_area_dimensions(self._starting_size)
