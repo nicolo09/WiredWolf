@@ -160,7 +160,7 @@ class AbstractContainer(ABC):
         self._set_dimensions() #these are the dimensions of the container, calculated with the components list and the given divider
         self._fixed_dim=fixed_other_dim
         if self._fixed_dim!=0:
-            #if a fixed dimension is set, then the calculated dimension is overriden for the specific dimension
+            #if a fixed dimension is set, then the calculated dimension is overridden for the specific dimension
             self._dimensions_if_fixed_dim()
         self._top_left_pos=(0,0)
         self._set_top_left_position() #this is the position of the top left corner of the container 
@@ -582,7 +582,7 @@ class LimitedList():
         return self._max_elements
 
     def add_element(self, element:str):
-        """Adds the element to head of the list, if necessay by removing the last element"""
+        """Adds the element to head of the list, if necessary by removing the last element"""
         self._list.insert(0, element) #adds element to the start of the list
         if len(self._list)>self._max_elements:
             #deletes oldest element
@@ -625,7 +625,7 @@ class MultipleTexts():
     def on_list_change(self)->None:
         """Call this function to update the texts shown"""
         self._fill_texts()
-        self._container.update_on_next_draw() #a manual update to the container, otherwise the elements are counted with their previous lenght
+        self._container.update_on_next_draw() #a manual update to the container, otherwise the elements are counted with their previous length
 
     def draw(self, screen: pygame.Surface):
         """Draws the texts vertically on the given surface"""
