@@ -430,8 +430,6 @@ class DayVotingScreen(AbstractScreen):
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler)
         self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Day")], self._display.get_size(), (50, 5))
-        self._my_limited_list=LimitedList(MAX_MESSAGES_DISPLAYED) #This is where the messages are stored, up to MAX_MESSAGES DISPLAYED
-        self._multiple_texts=MultipleTexts(self._my_limited_list, SMALL_ELEMENT_DIV, self._display.get_size(), (70, 45), CONTAINER_FACTOR*WRAP_LINE_WIDTH, CHAT_BACKGROUND, font=FontSize.H3) #This is where the messages are displayed vertically
         self._text_box=MemoryTextField(LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, font=FontSize.H3) #This is where the new messages are entered
         self._container_text=VContainer(SINGLE_ELEMENT_DIV, [self._text_box], self._display.get_size(), (70,90))
         self._last_message=""
@@ -440,12 +438,14 @@ class DayVotingScreen(AbstractScreen):
         self._player_list:list[pygame_gui.elements.UIButton]=[]
         self._voted_text=Text("Wait to vote...", font=FontSize.H3)
         self._voted_container=HContainer(SINGLE_ELEMENT_DIV, [self._voted_text], self._display.get_size(), (15, 80))
+        #Chat panel
+        self._create_chat_panel()
+        self._chat_messages:list[pygame_gui.elements.UILabel]=[]
 
     def run(self,event:pygame.event.Event | None)->None:
         """A day waiting and voting screen"""
         self._display.fill(BACKGROUND_COLOR)
         self._gui_manager.draw_ui(self._display)
-        self._multiple_texts.draw(self._display)
         self._container_text.draw(self._display)
         self._title.draw(self._display)
         self._voted_container.draw(self._display)
@@ -459,7 +459,9 @@ class DayVotingScreen(AbstractScreen):
                     #if the message is not the last message sent and it's not empty, then send the new message
                     self._text_box.reset_last_input() #clear internal memory
                     global username
-                    message_sender_util(username+":"+tmp, self._my_limited_list, self._multiple_texts) #TODO: communicate with controller the message
+                    #TODO: communicate with controller the message
+                    self._send_message(username+":"+tmp)
+
                 self._gui_manager.process_events(event) #processes pygame_gui events
                 if event.type == pygame_gui.UI_BUTTON_PRESSED:
                 #A pygame_gui button is pressed
@@ -494,7 +496,7 @@ class DayVotingScreen(AbstractScreen):
                     self.reset_screen() #resets current screen for next time this is used
                 if isinstance(e, ChatMessageType):
                     #Messages received from other users
-                    message_sender_util(e.message, self._my_limited_list, self._multiple_texts)
+                    self._send_message(e.message)
 
     def _set_voted_player(self, username:str)->None:
         """Function called when the user chooses who to nominate for execution"""
@@ -506,6 +508,28 @@ class DayVotingScreen(AbstractScreen):
         else:
             voted_user="" #deselects player voted to be executed
             self._voted_text.text="You haven't voted"
+        
+    def _send_message(self, message:str)->None:
+        """Function called to display a new message in chat"""
+        split_message=textwrap.wrap(message, width=WRAP_LINE_WIDTH) #TODO: mess with wrap width
+        #Split element to fit
+        for elem in split_message:
+            length=len(self._chat_messages)
+            if length==0:
+                #First element, absolute positioning inside the container
+                self._chat_messages.insert(length, pygame_gui.elements.UILabel(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=elem, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._chat_panel))
+            else:
+                #Second element, relative positioning (below previous label)
+                self._chat_messages.insert(length, pygame_gui.elements.UILabel(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=elem, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._chat_messages[length-1]}, container=self._chat_panel))  
+            if length>ELEMS_FOR_SCROLLBAR:
+                #Increase scrollbar size, up to 2 buttons can fit without a scrollbar
+                self._increased_size_chat=(self._increased_size_chat[0], self._increased_size_chat[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
+                self._chat_panel.set_scrollable_area_dimensions(self._increased_size_chat)
+                scroll_bar=self._chat_panel.vert_scroll_bar
+                if scroll_bar!=None:
+                    #If there's a scroll bar, it should show the bottom of the internal panel
+                    #Lowest message = newest message
+                    scroll_bar.set_scroll_from_start_percentage(1.0)
 
     def _create_voting_panel(self)->None:
         """Creates the scrolling panel containing all player buttons"""
@@ -514,7 +538,15 @@ class DayVotingScreen(AbstractScreen):
         self._voting_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(20,0, self._starting_size[0], self._starting_size[1]), anchors={'left':'left', 'centery':'centery'})
         self._voting_panel.set_scrollable_area_dimensions(self._starting_size)
         self._voting_panel.disable()
-
+    
+    def _create_chat_panel(self)->None:
+        """Creates the chat panel"""
+        self._starting_size_chat=(PANEL_X, PANEL_Y)  
+        self._increased_size_chat=self._starting_size_chat
+        #TODO: fix positioning
+        self._chat_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(0,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'centery':'centery'})
+        self._chat_panel.set_scrollable_area_dimensions(self._increased_size_chat)
+        
     def reset_screen(self) -> None:
         #reset player list
         self._player_list.clear()
@@ -524,8 +556,10 @@ class DayVotingScreen(AbstractScreen):
         #Wait to vote 
         self._voted_text.text="Wait to vote..."
         #Delete all chat messages
-        self._my_limited_list.clear()
-        self._multiple_texts.on_list_change() #Updates view
+        #TODO: necessary?
+        self._chat_messages.clear()
+        #Already deleted panel
+        self._create_chat_panel()
         #Clears textbox input
         self._text_box.reset_last_input()
         self._text_box.text=""

@@ -36,6 +36,11 @@
             "border_width": "0",
             "shadow_width": "0"
         }
+     },
+     "label":{
+        "colours":{
+            "normal_text": "#000000"
+         }
      }
      
 }
