@@ -7,7 +7,7 @@ from wiredwolf.view.custom_events import ChangeScreenType, ChatMessageType, Cust
 from wiredwolf.view.components import CallbackButton, LimitedList, MemoryTextField, MultipleTexts, VContainer, HContainer, EnabledButton, Text, TextField, DrawableComponent
 from wiredwolf.view.constants import FontSize, Screens
 from functools import partial
-from wiredwolf.view.view_constants import ELEMS_FOR_SCROLLBAR, PANEL_X, PANEL_Y, SINGLE_ELEMENT_DIV, SMALL_BTN_WIDTH, SMALL_ELEMENT_DIV, MEDIUM_ELEMENT_DIV, LARGE_ELEMENT_DIV, LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, MEDIUM_BTN_WIDTH, BACKGROUND_COLOR, CHAT_BACKGROUND
+from wiredwolf.view.view_constants import ELEMS_FOR_SCROLLBAR, PANEL_X, PANEL_Y, SINGLE_ELEMENT_DIV, SMALL_BTN_WIDTH, SMALL_ELEMENT_DIV, MEDIUM_ELEMENT_DIV, LARGE_ELEMENT_DIV, LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, MEDIUM_BTN_WIDTH, BACKGROUND_COLOR, CHAT_BACKGROUND, WIDE_PANEL
 from pygame_gui.core.interfaces import IUIElementInterface
 from pygame_gui.core import UIElement
 from tkinter import messagebox
@@ -511,25 +511,28 @@ class DayVotingScreen(AbstractScreen):
         
     def _send_message(self, message:str)->None:
         """Function called to display a new message in chat"""
-        split_message=textwrap.wrap(message, width=WRAP_LINE_WIDTH) #TODO: mess with wrap width
-        #Split element to fit
-        for elem in split_message:
-            length=len(self._chat_messages)
-            if length==0:
-                #First element, absolute positioning inside the container
-                self._chat_messages.insert(length, pygame_gui.elements.UILabel(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=elem, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._chat_panel))
-            else:
-                #Second element, relative positioning (below previous label)
-                self._chat_messages.insert(length, pygame_gui.elements.UILabel(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=elem, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._chat_messages[length-1]}, container=self._chat_panel))  
-            if length>ELEMS_FOR_SCROLLBAR:
-                #Increase scrollbar size, up to 2 buttons can fit without a scrollbar
-                self._increased_size_chat=(self._increased_size_chat[0], self._increased_size_chat[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
-                self._chat_panel.set_scrollable_area_dimensions(self._increased_size_chat)
-                scroll_bar=self._chat_panel.vert_scroll_bar
-                if scroll_bar!=None:
-                    #If there's a scroll bar, it should show the bottom of the internal panel
-                    #Lowest message = newest message
-                    scroll_bar.set_scroll_from_start_percentage(1.0)
+        length=len(self._chat_messages)
+        label=None
+        if length==0:
+            #First element, absolute positioning inside the container
+            label=pygame_gui.elements.UILabel(relative_rect=pygame.Rect((0, 0), (-1, LARGE_BTN_HEIGHT)), text=message, manager=self._gui_manager, anchors={}, container=self._chat_panel)
+        else:
+            #Second element, relative positioning (below previous label)
+            label=pygame_gui.elements.UILabel(relative_rect=pygame.Rect((0, 0), (-1, LARGE_BTN_HEIGHT)), text=message, manager=self._gui_manager, anchors={'top_target': self._chat_messages[length-1]}, container=self._chat_panel) 
+        self._chat_messages.insert(length, label)
+        #To calculate the horizontal width of the internal container
+        #The horizontal scrollbar appears if the width of text inserted is bigger than the current size
+        self._increased_size_chat=(max(self._increased_size_chat[0], label.rect[2]), self._increased_size_chat[1]) # type: ignore
+        #Vertical scrollbar
+        if length>ELEMS_FOR_SCROLLBAR:
+            #Increase scrollbar size, up to 2 buttons can fit without a scrollbar
+            self._increased_size_chat=(self._increased_size_chat[0], self._increased_size_chat[1]+LARGE_BTN_HEIGHT)
+        self._chat_panel.set_scrollable_area_dimensions(self._increased_size_chat)
+        scroll_bar=self._chat_panel.vert_scroll_bar
+        if scroll_bar!=None:
+            #If there's a scroll bar, it should show the bottom of the internal panel
+            #Lowest message = newest message
+            scroll_bar.set_scroll_from_start_percentage(1.0)
 
     def _create_voting_panel(self)->None:
         """Creates the scrolling panel containing all player buttons"""
@@ -537,13 +540,11 @@ class DayVotingScreen(AbstractScreen):
         self._increased_size=self._starting_size
         self._voting_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(20,0, self._starting_size[0], self._starting_size[1]), anchors={'left':'left', 'centery':'centery'})
         self._voting_panel.set_scrollable_area_dimensions(self._starting_size)
-        self._voting_panel.disable()
     
     def _create_chat_panel(self)->None:
         """Creates the chat panel"""
-        self._starting_size_chat=(PANEL_X, PANEL_Y)  
-        self._increased_size_chat=self._starting_size_chat
-        #TODO: fix positioning
+        self._starting_size_chat=(WIDE_PANEL, PANEL_Y)  
+        self._increased_size_chat=(WIDE_PANEL-20, PANEL_Y) #Inner panel is slightly smaller, has to account for scrollabrs
         self._chat_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(-400,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'centery':'centery'}, allow_scroll_x=True)
         self._chat_panel.set_scrollable_area_dimensions(self._increased_size_chat)
         
