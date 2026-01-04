@@ -48,9 +48,9 @@ class PanelHandler():
             self._panel_dictionary[screen]=[panel]
         return panel
     
-    def create_scrolling_panel(self, screen:Screens, relative_rect:pygame.Rect, anchors:dict[str, str | IUIElementInterface], starting_height:int=10,)->pygame_gui.elements.UIScrollingContainer:
+    def create_scrolling_panel(self, screen:Screens, relative_rect:pygame.Rect, anchors:dict[str, str | IUIElementInterface], starting_height:int=10, allow_scroll_x:bool=False)->pygame_gui.elements.UIScrollingContainer:
         """Creates a hidden pygame_gui UIScrollingContainer with the given parameters. Saves a reference to the panel together with the screen it's shown on for future use"""
-        panel=pygame_gui.elements.UIScrollingContainer(relative_rect=relative_rect, starting_height=starting_height, manager=self._gui_manager, anchors=anchors, allow_scroll_x=False)
+        panel=pygame_gui.elements.UIScrollingContainer(relative_rect=relative_rect, starting_height=starting_height, manager=self._gui_manager, anchors=anchors, allow_scroll_x=allow_scroll_x)
         panel.hide() #starts panel as hidden
         if screen in self._panel_dictionary:
             #already another panel of the same screen has been created
@@ -544,7 +544,7 @@ class DayVotingScreen(AbstractScreen):
         self._starting_size_chat=(PANEL_X, PANEL_Y)  
         self._increased_size_chat=self._starting_size_chat
         #TODO: fix positioning
-        self._chat_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(0,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'centery':'centery'})
+        self._chat_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(-400,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'centery':'centery'}, allow_scroll_x=True)
         self._chat_panel.set_scrollable_area_dimensions(self._increased_size_chat)
         
     def reset_screen(self) -> None:
