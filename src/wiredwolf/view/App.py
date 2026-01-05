@@ -1,13 +1,12 @@
-import textwrap
 import pygame
 import pygame_gui
 import tkinter
 from abc import ABC, abstractmethod
 from wiredwolf.view.custom_events import ChangeScreenType, ChatMessageType, CustomEventSender, DiscoveredLobbyType, EventSender, GameRoleType, TimeOutType, UsersType, WaitingRoomType, create_custom_event_from_dict
-from wiredwolf.view.components import CallbackButton, LimitedList, MemoryTextField, MultipleTexts, VContainer, HContainer, EnabledButton, Text, TextField, DrawableComponent
+from wiredwolf.view.components import CallbackButton, MemoryTextField, VContainer, HContainer, EnabledButton, Text, TextField, DrawableComponent
 from wiredwolf.view.constants import FontSize, Screens
 from functools import partial
-from wiredwolf.view.view_constants import ELEMS_FOR_SCROLLBAR, MEDIUM_BTN_HEIGHT, PANEL_X, PANEL_Y, SINGLE_ELEMENT_DIV, SMALL_BTN_WIDTH, SMALL_ELEMENT_DIV, MEDIUM_ELEMENT_DIV, LARGE_ELEMENT_DIV, LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, MEDIUM_BTN_WIDTH, BACKGROUND_COLOR, CHAT_BACKGROUND, WIDE_PANEL
+from wiredwolf.view.view_constants import ELEMS_FOR_SCROLLBAR, MEDIUM_BTN_HEIGHT, MEDIUM_PANEL, PANEL_X, PANEL_Y, SINGLE_ELEMENT_DIV, SMALL_BTN_WIDTH, MEDIUM_ELEMENT_DIV, LARGE_ELEMENT_DIV, LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, MEDIUM_BTN_WIDTH, BACKGROUND_COLOR, CHAT_BACKGROUND, WIDE_PANEL
 from pygame_gui.core.interfaces import IUIElementInterface
 from pygame_gui.core import UIElement
 from tkinter import messagebox
@@ -16,18 +15,7 @@ FPS=60
 username=""
 lobby_name=""
 voted_user=""
-WRAP_LINE_WIDTH=24
-MAX_MESSAGES_DISPLAYED=12
-CONTAINER_FACTOR=14 #this value is chosen by testing with different font sizes which value * wrap line width fits all texts
 custom_event=0 #custom event id, to be set by event sender
-
-def message_sender_util(message:str, list: LimitedList, multiple_text_display:MultipleTexts)->None:
-    """A message sender util that handles message splitting into multiple lines and updates the display given"""
-    split_message=textwrap.wrap(message, width=WRAP_LINE_WIDTH)
-    for elem in split_message:
-        list.add_element(elem) #adds message to messages displayed
-    multiple_text_display.on_list_change() #displays the new message(s)
-
 class PanelHandler():
     """A class to handle all panel creations and hiding/showing"""
 
@@ -572,8 +560,6 @@ class DayExecutionScreen(AbstractScreen):
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler)
         self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Day: execution")], self._display.get_size(), (50, 5))
-        self._my_limited_list=LimitedList(MAX_MESSAGES_DISPLAYED) #This is where the messages are stored, up to MAX_MESSAGES DISPLAYED
-        self._multiple_texts=MultipleTexts(self._my_limited_list, SMALL_ELEMENT_DIV, self._display.get_size(), (70, 45), CONTAINER_FACTOR*WRAP_LINE_WIDTH, CHAT_BACKGROUND, font=FontSize.H3) #This is where the messages are displayed vertically
         self._text_box=MemoryTextField(LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, font=FontSize.H3) #This is where the new messages are entered
         self._container_text=VContainer(SINGLE_ELEMENT_DIV, [self._text_box], self._display.get_size(), (70,90))
         self._last_message=""
@@ -584,12 +570,14 @@ class DayExecutionScreen(AbstractScreen):
         self._execute_button=EnabledButton(executed, "Vote to execute "+self._executed_user, MEDIUM_BTN_WIDTH, LARGE_BTN_HEIGHT, enabled=True)
         self._spare_button=EnabledButton(spared, "Vote to spare "+self._executed_user, MEDIUM_BTN_WIDTH, LARGE_BTN_HEIGHT, enabled=True)
         self._button_container=VContainer(LARGE_ELEMENT_DIV, [self._execute_button, self._spare_button], self._display.get_size(), (20, 50))
+        #Chat panel
+        self._create_chat_panel()
+        self._chat_messages:list[pygame_gui.elements.UILabel]=[]
 
     def run(self,event:pygame.event.Event | None)->None:
         """A day execution screen"""
         self._display.fill(BACKGROUND_COLOR)
         self._gui_manager.draw_ui(self._display)
-        self._multiple_texts.draw(self._display)
         self._container_text.draw(self._display)
         self._title.draw(self._display)
         self._button_container.draw(self._display)
@@ -602,7 +590,7 @@ class DayExecutionScreen(AbstractScreen):
                     #if the message is not the last message sent and it's not empty, then send the new message
                     self._text_box.reset_last_input() #clear internal memory
                     global username
-                    message_sender_util(username+":"+tmp, self._my_limited_list, self._multiple_texts) #TODO: communicate with controller the message
+                    self._send_message(username+":"+tmp) #TODO: communicate with controller the message
                 self._gui_manager.process_events(event) #processes pygame_gui events
             if event.type==custom_event:
                 #parse the custom event into an object
@@ -613,7 +601,7 @@ class DayExecutionScreen(AbstractScreen):
                     self.reset_screen() #resets current screen for next time this is used
                 if isinstance(e, ChatMessageType):
                     #Messages received from other users
-                    message_sender_util(e.message, self._my_limited_list, self._multiple_texts)
+                    self._send_message(e.message)
                 if isinstance(e, UsersType):
                     #Username of player to execute
                     self._executed_user=e.username
@@ -628,6 +616,40 @@ class DayExecutionScreen(AbstractScreen):
         self._execute_button.is_enabled=False
         self._spare_button.is_enabled=False
         self._vote_to_execute=outcome
+
+    def _create_chat_panel(self)->None:
+        """Creates the chat panel"""
+        self._starting_size_chat=(MEDIUM_PANEL, PANEL_Y)  
+        self._increased_size_chat=(MEDIUM_PANEL-20, PANEL_Y) #Inner panel is slightly smaller, has to account for scrollbars
+        self._elements_before_scrollbar=int(PANEL_Y/MEDIUM_BTN_HEIGHT) #How many elements fit into the inner panel, rounded to the lowest integer 
+        self._chat_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(-MEDIUM_PANEL,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'centery':'centery'}, allow_scroll_x=True)
+        #Positioning is negative because the anchor is right, same applies to bottom anchors
+        self._chat_panel.set_scrollable_area_dimensions(self._increased_size_chat)
+
+    def _send_message(self, message:str)->None:
+        """Function called to display a new message in chat"""
+        length=len(self._chat_messages)
+        label=None
+        if length==0:
+            #First element, absolute positioning inside the container
+            label=pygame_gui.elements.UILabel(relative_rect=pygame.Rect((0, 0), (-1, MEDIUM_BTN_HEIGHT)), text=message, manager=self._gui_manager, anchors={}, container=self._chat_panel)
+        else:
+            #Second element, relative positioning (below previous label)
+            label=pygame_gui.elements.UILabel(relative_rect=pygame.Rect((0, 0), (-1, MEDIUM_BTN_HEIGHT)), text=message, manager=self._gui_manager, anchors={'top_target': self._chat_messages[length-1]}, container=self._chat_panel) 
+        self._chat_messages.insert(length, label)
+        #To calculate the horizontal width of the internal container
+        #The horizontal scrollbar appears if the width of text inserted is bigger than the current size
+        self._increased_size_chat=(max(self._increased_size_chat[0], label.rect[2]), self._increased_size_chat[1]) # type: ignore
+        #Vertical scrollbar
+        if length>self._elements_before_scrollbar:
+            #Increase scrollbar size, up to 2 buttons can fit without a scrollbar
+            self._increased_size_chat=(self._increased_size_chat[0], self._increased_size_chat[1]+MEDIUM_BTN_HEIGHT)
+        self._chat_panel.set_scrollable_area_dimensions(self._increased_size_chat)
+        scroll_bar=self._chat_panel.vert_scroll_bar
+        if scroll_bar!=None:
+            #If there's a scroll bar, it should show the bottom of the internal panel
+            #Lowest message = newest message
+            scroll_bar.set_scroll_from_start_percentage(1.0)
         
     def reset_screen(self) -> None:
         #Enable buttons to execute
@@ -640,8 +662,10 @@ class DayExecutionScreen(AbstractScreen):
         self._spare_button.text="Vote to spare "
         self._button_container.update_on_next_draw()
         #Delete all chat messages
-        self._my_limited_list.clear()
-        self._multiple_texts.on_list_change() #Updates view
+        #TODO: necessary?
+        self._chat_messages.clear()
+        #Already deleted panel
+        self._create_chat_panel()
         #Clears textbox input
         self._text_box.reset_last_input()
         self._text_box.text=""
