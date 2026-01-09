@@ -41,6 +41,14 @@
         "colours":{
             "normal_text": "#000000"
          }
+     },
+     "text_entry_line":{
+        "colours":{
+            "dark_bg":"#C5C5BF",
+            "normal_border":"#DA0000",
+            "normal_text":"#1A1A1A",
+            "text_cursor":"#1A1A1A"
+        }
      }
      
 }
