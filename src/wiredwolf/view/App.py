@@ -113,7 +113,7 @@ class AbstractScreen(ABC):
         """This is where your screen is displayed"""
         raise NotImplementedError("Please implement this method")
 
-class App:
+class View:
     """The main window for the Wiredwolf game"""
     def __init__(self)-> None:
         pygame.init() #initializes pygame modules
@@ -873,6 +873,6 @@ class RoleDisplayScreen(AbstractScreen):
         pass
 
 if __name__ == "__main__":
-    my_app=App()
+    my_app=View()
     while my_app.app_running:
         my_app.update_display()
