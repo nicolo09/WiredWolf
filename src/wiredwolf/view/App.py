@@ -21,50 +21,53 @@ class PanelHandler():
 
     def __init__(self, gui_manager:pygame_gui.UIManager)->None:
         self._gui_manager=gui_manager
-        self._panel_dictionary:dict[Screens,list[UIElement]]={} #Can store both UiPanels and UiScrollingContainers
+        self._panel_dictionary:dict[Screens,list[tuple[UIElement, bool]]]={} #Can store both UiPanels and UiScrollingContainers
         #this dictionary stores all existing panels connected to the screen they are shown on
+        #list of (panels, always_on)->if always_on==true, panel is always displayed when screen is shown. Otherwise it stays hidden
 
-    def create_panel(self, screen:Screens, relative_rect:pygame.Rect, anchors:dict[str, str | IUIElementInterface], starting_height:int=10,)->pygame_gui.elements.UIPanel:
+    def create_panel(self, screen:Screens, relative_rect:pygame.Rect, anchors:dict[str, str | IUIElementInterface], starting_height:int=10,always_on:bool=True)->pygame_gui.elements.UIPanel:
         """Creates a hidden pygame_gui UIPanel with the given parameters. Saves a reference to the panel together with the screen it's shown on for future use"""
         panel=pygame_gui.elements.UIPanel(relative_rect=relative_rect, starting_height=starting_height, manager=self._gui_manager, anchors=anchors)
         panel.hide() #starts panel as hidden
         if screen in self._panel_dictionary:
             #already another panel of the same screen has been created
-            self._panel_dictionary[screen].append(panel)
+            self._panel_dictionary[screen].append((panel,always_on))
         else:
             #first panel of this screen
-            self._panel_dictionary[screen]=[panel]
+            self._panel_dictionary[screen]=[(panel, always_on)]
         return panel
     
-    def create_scrolling_panel(self, screen:Screens, relative_rect:pygame.Rect, anchors:dict[str, str | IUIElementInterface], starting_height:int=10, allow_scroll_x:bool=False)->pygame_gui.elements.UIScrollingContainer:
+    def create_scrolling_panel(self, screen:Screens, relative_rect:pygame.Rect, anchors:dict[str, str | IUIElementInterface], starting_height:int=10, allow_scroll_x:bool=False, always_on:bool=True)->pygame_gui.elements.UIScrollingContainer:
         """Creates a hidden pygame_gui UIScrollingContainer with the given parameters. Saves a reference to the panel together with the screen it's shown on for future use"""
         panel=pygame_gui.elements.UIScrollingContainer(relative_rect=relative_rect, starting_height=starting_height, manager=self._gui_manager, anchors=anchors, allow_scroll_x=allow_scroll_x)
         panel.hide() #starts panel as hidden
         if screen in self._panel_dictionary:
             #already another panel of the same screen has been created
-            self._panel_dictionary[screen].append(panel)
+            self._panel_dictionary[screen].append((panel,always_on))
         else:
             #first panel of this screen
-            self._panel_dictionary[screen]=[panel]
+            self._panel_dictionary[screen]=[(panel,always_on)]
         return panel
 
     def show_screens(self, screen:Screens)->None:
         """Shows all panels of a given screen"""
         if screen in self._panel_dictionary:
             for element in self._panel_dictionary[screen]:
-                element.show()
+                if element[1]==True:
+                    #If always on->true then display
+                    element[0].show()
     
     def hide_screens(self, screen:Screens)->None:
         """Hides all panels of a given screen"""
         if screen in self._panel_dictionary:
             for element in self._panel_dictionary[screen]:
-                element.hide()
+                element[0].hide()
 
     def delete_panels(self, screen:Screens)->None:
         """Deletes all panels of a given screen"""
         if screen in self._panel_dictionary:
             for element in self._panel_dictionary[screen]:
-                element.kill()
+                element[0].kill()
             self._panel_dictionary[screen]=[]
 
 class GameStateManager:
@@ -759,7 +762,7 @@ class NightRoleScreen(AbstractScreen):
                     #TODO: if role==werewolf
                     self._chat_panel.show()
                     self._input_panel.show()
-                    #Otherwise hidden
+                    #Otherwise panels stay hidden
                 if isinstance(e, ChatMessageType):
                     self._send_message(e.message)
                               
@@ -775,18 +778,16 @@ class NightRoleScreen(AbstractScreen):
         self._starting_size_chat=(MEDIUM_PANEL, PANEL_Y)  
         self._increased_size_chat=(MEDIUM_PANEL-20, PANEL_Y) #Inner panel is slightly smaller, has to account for scrollbars
         self._elements_before_scrollbar=int(PANEL_Y/MEDIUM_BTN_HEIGHT) #How many elements fit into the inner panel, rounded to the lowest integer 
-        self._chat_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(-MEDIUM_PANEL,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'centery':'centery'}, allow_scroll_x=True)
+        self._chat_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(-MEDIUM_PANEL,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'centery':'centery'}, allow_scroll_x=True, always_on=False)
         #Positioning is negative because the anchor is right, same applies to bottom anchors
         self._chat_panel.set_scrollable_area_dimensions(self._increased_size_chat)
         #Panel default hidden unless werewolf role is set
-        self._chat_panel.hide()
 
     def _create_input_panel(self)->None:
         """Creates the text box panel"""
-        self._input_panel=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(-MEDIUM_PANEL,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'top_target': self._chat_panel})
+        self._input_panel=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(-MEDIUM_PANEL,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'top_target': self._chat_panel}, always_on=False)
         #Positioning is: below chat panel, same distance from right side as chat panel
         #Panel default hidden unless werewolf role is set
-        self._chat_panel.hide()
 
     def _send_message(self, message:str)->None:
         """Function called to display a new message in chat"""
