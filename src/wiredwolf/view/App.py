@@ -6,7 +6,7 @@ from wiredwolf.view.custom_events import ChangeScreenType, ChatMessageType, Cust
 from wiredwolf.view.components import CallbackButton, MemoryTextField, VContainer, HContainer, EnabledButton, Text, TextField, DrawableComponent
 from wiredwolf.view.constants import FontSize, Screens
 from functools import partial
-from wiredwolf.view.view_constants import AUTO_SIZING, ELEMS_FOR_SCROLLBAR, MEDIUM_BTN_HEIGHT, MEDIUM_PANEL, PANEL_X, PANEL_Y, SINGLE_ELEMENT_DIV, SMALL_BTN_WIDTH, MEDIUM_ELEMENT_DIV, LARGE_ELEMENT_DIV, LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, MEDIUM_BTN_WIDTH, BACKGROUND_COLOR, WIDE_PANEL
+from wiredwolf.view.view_constants import AUTO_SIZING, ELEMS_FOR_SCROLLBAR, MEDIUM_BTN_HEIGHT, MEDIUM_PANEL, PANEL_X, PANEL_Y, SINGLE_ELEMENT_DIV, SMALL_BTN_WIDTH, MEDIUM_ELEMENT_DIV, LARGE_ELEMENT_DIV, LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, MEDIUM_BTN_WIDTH, BACKGROUND_COLOR, SMALL_ELEMENT_DIV, WIDE_PANEL
 from pygame_gui.core.interfaces import IUIElementInterface
 from pygame_gui.core import UIElement
 from tkinter import messagebox
@@ -356,7 +356,9 @@ class WaitingLobbyScreen(AbstractScreen):
         self._text_number=Text("1 player connected...", font=FontSize.H2) #Updated count via custom events
         self._waiting=VContainer(SINGLE_ELEMENT_DIV,[self._text_number], self._display.get_size())
         self._button=CallbackButton(self._if_master_start, "Start the game!", LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT)
-        self._button_container=HContainer(SINGLE_ELEMENT_DIV, [self._button], self._display.get_size(), (50, 85))
+        go_home=partial(self._game_state_manager.change_screen, Screens.HOME)
+        self._back_button=CallbackButton(go_home, "Quit lobby, go to home",LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT)
+        self._button_container=HContainer(SMALL_ELEMENT_DIV, [self._button, self._back_button], self._display.get_size(), (50, 85))
         
     def run(self,event:pygame.event.Event | None)->None:
         """A simple waiting screen"""
