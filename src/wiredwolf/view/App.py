@@ -131,10 +131,6 @@ class App:
         self._day_execution_screen=DayExecutionScreen(Screens.DAY_EXECUTION, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler)
         self._night_villager_screen=NightVillagerScreen(Screens.NIGHT_VILLAGER, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler)
         self._night_role_screen=NightRoleScreen(Screens.NIGHT_ROLE, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler)
-        self._villager_win_screen=VillagerWinScreen(Screens.VILLAGER_WIN, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler)
-        self._villager_loss_screen=VillagerLossScreen(Screens.VILLAGER_LOSS, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler)
-        self._wolf_win_screen=WolfWinScreen(Screens.WOLF_WIN, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler)
-        self._wolf_loss_screen=WolfLossScreen(Screens.WOLF_LOSS, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler)
         self._role_display_screen=RoleDisplayScreen(Screens.ROLE_DISPLAY, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler)
         self._dictionary:dict[Screens, AbstractScreen]={self._start_screen.screen: self._start_screen,
                           self._new_lobby_screen.screen:self._new_lobby_screen, 
@@ -144,10 +140,6 @@ class App:
                           self._day_execution_screen.screen: self._day_execution_screen,
                           self._night_villager_screen.screen: self._night_villager_screen,
                           self._night_role_screen.screen: self._night_role_screen,
-                          self._villager_win_screen.screen: self._villager_win_screen,
-                          self._villager_loss_screen.screen: self._villager_loss_screen,
-                          self._wolf_win_screen.screen: self._wolf_win_screen,
-                          self._wolf_loss_screen.screen: self._wolf_loss_screen,
                           self._role_display_screen.screen: self._role_display_screen}
         self._clock = pygame.time.Clock()
         self._next_event=None
