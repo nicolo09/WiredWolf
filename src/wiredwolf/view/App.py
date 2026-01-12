@@ -2,7 +2,7 @@ import pygame
 import pygame_gui
 import tkinter
 from abc import ABC, abstractmethod
-from wiredwolf.view.custom_events import ChangeScreenType, ChatMessageType, CustomEventSender, DiscoveredLobbyType, EventSender, GameRoleType, TimeOutType, UsersType, WaitingRoomType, create_custom_event_from_dict
+from wiredwolf.view.custom_events import ChangeScreenType, ChatMessageType, CustomEventSender, DiscoveredLobbyType, EventSender, GameRoleType, TimeOutType, UsersType, create_custom_event_from_dict
 from wiredwolf.view.components import CallbackButton, MemoryTextField, VContainer, HContainer, EnabledButton, Text, TextField, DrawableComponent
 from wiredwolf.view.constants import FontSize, Screens
 from functools import partial
@@ -287,7 +287,7 @@ class SearchLobbyScreen(AbstractScreen):
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler)
         self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Join an existing lobby")], self._display.get_size(), (50, 10))
         go_home=partial(self._game_state_manager.change_screen, Screens.HOME)
-        self._buttons=HContainer(MEDIUM_ELEMENT_DIV, [CallbackButton(go_home, 'Go back to start screen', LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, font=FontSize.H2)], self._display.get_size(), (50, 85))
+        self._buttons=HContainer(SINGLE_ELEMENT_DIV, [CallbackButton(go_home, 'Go back to start screen', LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, font=FontSize.H2)], self._display.get_size(), (50, 85))
         #The lobbies discovered are stored in a lobby panel
         self._create_lobby_panel()
         #This is a list to store the buttons corresponding to the lobbies
@@ -357,8 +357,13 @@ class WaitingLobbyScreen(AbstractScreen):
         self._waiting=VContainer(SINGLE_ELEMENT_DIV,[self._text_number], self._display.get_size())
         self._button=CallbackButton(self._if_master_start, "Start the game!", LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT)
         go_home=partial(self._game_state_manager.change_screen, Screens.HOME)
-        self._back_button=CallbackButton(go_home, "Quit lobby, go to home",LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT)
+        self._back_button=CallbackButton(go_home, "Exit lobby, go to home",LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT)
         self._button_container=HContainer(SMALL_ELEMENT_DIV, [self._button, self._back_button], self._display.get_size(), (50, 85))
+        #Count and display which users are connected to the lobby
+        self._counter=1
+        self._users_list:list[pygame_gui.elements.UILabel]=[]
+        self._create_users_panel()
+
         
     def run(self,event:pygame.event.Event | None)->None:
         """A simple waiting screen"""
@@ -384,19 +389,46 @@ class WaitingLobbyScreen(AbstractScreen):
                     #Should go to Day Voting Screen
                     self._game_state_manager.change_screen(e.next_screen)
                     self.reset_screen() #resets current screen for next time this is used
-                if isinstance(e, WaitingRoomType):
+                if isinstance(e, UsersType):
                     #Updates the number of players in the waiting room
-                    self._text_number.text=str(e.number) +" player connected..."
+                    self._counter=self._counter+1
+                    self._text_number.text=str(self._counter) +" players connected..."
                     self._waiting.update_on_next_draw()
+                    self._add_player(e.username)
+                    
+    def _add_player(self, username:str)->None:
+        """Add a connected player username to the panel"""
+        length=len(self._users_list)
+        label=None
+        if length==0:
+            #First element, absolute positioning inside the container
+            label=pygame_gui.elements.UILabel(relative_rect=pygame.Rect((0, 0), (-1, MEDIUM_BTN_HEIGHT)), text=username, manager=self._gui_manager, anchors={}, container=self._user_panel)
+        else:
+            #Second element, relative positioning (below previous label)
+            label=pygame_gui.elements.UILabel(relative_rect=pygame.Rect((0, 0), (-1, MEDIUM_BTN_HEIGHT)), text=username, manager=self._gui_manager, anchors={'top_target': self._users_list[length-1]}, container=self._user_panel)
+        self._users_list.insert(length, label)
+        #To calculate the horizontal width of the internal container
+        #The horizontal scrollbar appears if the width of text inserted is bigger than the current size
+        self._increased_size=(max(self._increased_size[0], label.rect[2]), self._increased_size[1]) # type: ignore
+        #Vertical scrollbar
+        if length>self._elements_before_scrollbar:
+            self._increased_size=(self._increased_size[0], self._increased_size[1]+MEDIUM_BTN_HEIGHT+10) #TODO: fix
+        self._user_panel.set_scrollable_area_dimensions(self._increased_size)
     
     def reset_screen(self) -> None:
         #Reset lobby name
+        self._local_lobby=""
         self._title.text="Waiting for other players to join lobby"
         self._title_container.update_on_next_draw()
         #Reset number of connected players
         self._text_number.text="1 player connected..."
         self._waiting.update_on_next_draw()
-        pass
+        #Deleted panels
+        self._panel_handler.delete_panels(self._screen_id)
+        #Resets users connected to game
+        self._counter=0
+        self._users_list.clear()
+        self._create_users_panel()
 
     def _if_master_start(self) ->None:
         """If the button is pressed by the master, start the game"""
@@ -409,6 +441,14 @@ class WaitingLobbyScreen(AbstractScreen):
             #error message
             tkinter.Tk().wm_withdraw() #to hide the main window
             messagebox.showwarning('Can\'t start game', 'Only the master can start the game')
+    
+    def _create_users_panel(self)->None:
+        """Creates the scrolling panel containing all player buttons"""
+        self._starting_size=(PANEL_X, PANEL_Y)  
+        self._increased_size=self._starting_size
+        self._elements_before_scrollbar=int(PANEL_Y/MEDIUM_BTN_HEIGHT) #How many elements fit into the inner panel, rounded to the lowest integer 
+        self._user_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(20,0, self._starting_size[0], self._starting_size[1]), anchors={'left':'left', 'centery':'centery'})
+        self._user_panel.set_scrollable_area_dimensions(self._starting_size)
 
 class DayVotingScreen(AbstractScreen):
     """The screens where users chat and choose which players to nominate for an execution"""
