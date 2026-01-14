@@ -189,13 +189,11 @@ class View:
                     self._gui_manager.set_window_resolution((event.x, event.y))
             else:
                 #event is saved and may be handled by the specific screen
-                self._next_event=event
+                self._dictionary[self._game_state_manager.current_state].run(event)
 
     def update_display(self)->None:
         """Called inside the event loop, handles framerate limiting, event handling and scene switching"""
         pygame.display.update() #necessary or the screen won't draw at all
-        self._dictionary[self._game_state_manager.current_state].run(self._next_event)
-        self._next_event=None
         #gui manager needs to know how much time has passed since the last update in milliseconds
         tick=self._clock.tick(FPS)
         self._gui_manager.update(tick/1000.0)
@@ -764,12 +762,12 @@ class NightRoleScreen(AbstractScreen):
             self._gui_manager.process_events(event) #processes pygame_gui events
             if event.type == pygame_gui.UI_BUTTON_PRESSED:
                 #A pygame_gui button is pressed
-                    if event.ui_element in self._players_list:
-                        #vote for selected player
-                        global voted_player
-                        voted_player=event.ui_element.text
-                        #TODO: communicate to controller that user acted on given player
-                        self._voting_panel.disable() #Can only act once 
+                if event.ui_element in self._players_list:
+                    #vote for selected player
+                    global voted_player
+                    voted_player=event.ui_element.text
+                    #TODO: communicate to controller that user acted on given player
+                    self._voting_panel.disable() #Can only act once 
             if event.type==pygame_gui.UI_TEXT_ENTRY_FINISHED:
                 #Enter is entered in the textbox
                 if len(event.text)>0 and str.isspace(event.text)==False:
