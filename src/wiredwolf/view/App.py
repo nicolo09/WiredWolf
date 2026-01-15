@@ -109,7 +109,7 @@ class AbstractScreen(ABC):
         raise NotImplementedError("Please implement this method")
 
     @abstractmethod
-    def run(self, event:pygame.event.Event | None)->None:
+    def run(self, event:pygame.event.Event)->None:
         """This is where your screen is displayed"""
         raise NotImplementedError("Please implement this method")
 
@@ -145,7 +145,6 @@ class View:
                           self._night_role_screen.screen: self._night_role_screen,
                           self._role_display_screen.screen: self._role_display_screen}
         self._clock = pygame.time.Clock()
-        self._next_event=None
         #Sets custom event sender
         self._event_sender=CustomEventSender()
         global custom_event
@@ -188,7 +187,7 @@ class View:
                     #Update the manager with the new window size
                     self._gui_manager.set_window_resolution((event.x, event.y))
             else:
-                #event is saved and may be handled by the specific screen
+                #event is handled by the specific screen
                 self._dictionary[self._game_state_manager.current_state].run(event)
 
     def update_display(self)->None:
@@ -214,25 +213,26 @@ class StartScreen(AbstractScreen):
         self._v_container=VContainer(MEDIUM_ELEMENT_DIV, list_buttons, self._display.get_size())
         self._title_container=VContainer(SINGLE_ELEMENT_DIV, [Text("Wiredwolf")], self._display.get_size(), (50, 15))
         
-    def run(self,event:pygame.event.Event | None)->None:
+    def run(self,event:pygame.event.Event)->None:
         """The start screen, the first screen showed at startup"""
         self._display.fill(BACKGROUND_COLOR) #fills the background color for the application
         self._gui_manager.draw_ui(self._display)
         self._v_container.draw(self._display)
         self._title_container.draw(self._display)
-        if event is not None:
-            self._field.handle_event(event)
-            tmp=self._field.text
-            global username
-            if len(tmp)>0 and str.isspace(tmp)==False: #the username field is filled by chars, not empty or only whitespaces
-                username=self._field.text #save username in global variable
-                #TODO: communicate username to controller
-                self._new_lobby_button.is_enabled=True
-                self._search_lobby_button.is_enabled=True
-            else:
-                self._new_lobby_button.is_enabled=False
-                self._search_lobby_button.is_enabled=False
-            self._gui_manager.process_events(event) #processes pygame_gui events
+        
+        #Event handling
+        self._field.handle_event(event)
+        tmp=self._field.text
+        global username
+        if len(tmp)>0 and str.isspace(tmp)==False: #the username field is filled by chars, not empty or only whitespaces
+            username=self._field.text #save username in global variable
+            #TODO: communicate username to controller
+            self._new_lobby_button.is_enabled=True
+            self._search_lobby_button.is_enabled=True
+        else:
+            self._new_lobby_button.is_enabled=False
+            self._search_lobby_button.is_enabled=False
+        self._gui_manager.process_events(event) #processes pygame_gui events
     
     def reset_screen(self) -> None:
         #Reset field text
@@ -253,25 +253,25 @@ class NewLobbyScreen(AbstractScreen):
         self._button_container=VContainer(MEDIUM_ELEMENT_DIV, [lobby_name, self._field, self._create_lobby_button], self._display.get_size())
         self._button_back=VContainer(SINGLE_ELEMENT_DIV, [go_home_button], self._display.get_size(), (50, 80))
     
-    def run(self,event:pygame.event.Event | None)->None:
+    def run(self,event:pygame.event.Event)->None:
         """The new lobby screen, to create a new lobby"""
         self._display.fill(BACKGROUND_COLOR)
         self._gui_manager.draw_ui(self._display)
         self._title.draw(self._display)
         self._button_container.draw(self._display)
         self._button_back.draw(self._display)
-        if event is not None:
-            self._field.handle_event(event)
-            tmp=self._field.text
-            global lobby_name
-            if len(tmp)>0 and str.isspace(tmp)==False: #the lobby name field is filled by chars, not empty or only whitespaces
-                lobby_name=self._field.text #save new lobby name in global variable
-                self._create_lobby_button.is_enabled=True
-                #TODO: communicate lobby name to controller
-            else:
-                self._create_lobby_button.is_enabled=False
-                lobby_name=""
-            self._gui_manager.process_events(event) #processes pygame_gui events
+        #Event handling
+        self._field.handle_event(event)
+        tmp=self._field.text
+        global lobby_name
+        if len(tmp)>0 and str.isspace(tmp)==False: #the lobby name field is filled by chars, not empty or only whitespaces
+            lobby_name=self._field.text #save new lobby name in global variable
+            self._create_lobby_button.is_enabled=True
+            #TODO: communicate lobby name to controller
+        else:
+            self._create_lobby_button.is_enabled=False
+            lobby_name=""
+        self._gui_manager.process_events(event) #processes pygame_gui events
             
     def reset_screen(self) -> None:
         #Reset lobby name
@@ -291,41 +291,42 @@ class SearchLobbyScreen(AbstractScreen):
         #This is a list to store the buttons corresponding to the lobbies
         self._lobby_list:list[pygame_gui.elements.UIButton]=[]
 
-    def run(self,event:pygame.event.Event | None)->None:
+    def run(self,event:pygame.event.Event)->None:
         """The search lobby screen, to search for existing lobbies"""
         self._display.fill(BACKGROUND_COLOR)
         self._gui_manager.draw_ui(self._display)
         self._title.draw(self._display)
         self._buttons.draw(self._display)
         global lobby_name
-        if event is not None:
-            #process pygame_events
-            #then process pygame_gui events
-            self._gui_manager.process_events(event)
-            if event.type == pygame_gui.UI_BUTTON_PRESSED:
-                #A pygame_gui button is pressed
-                if event.ui_element in self._lobby_list:
-                  #join the clicked lobby
-                  lobby_name=event.ui_element.text
-                  self._game_state_manager.change_screen(Screens.LOBBY_WAITING)
 
-            #Process received custom events
-            if event.type==custom_event:
-                #parse the custom event into an object
-                e=create_custom_event_from_dict(event.dict)
-                if isinstance(e, DiscoveredLobbyType):
-                    #This screen only interacts with Discovered Lobby Events)
-                    length=len(self._lobby_list)
-                    if length==0:
-                        #First element, absolute positioning inside the container
-                        self._lobby_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.discovered_lobby, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._lobby_panel))
-                    else:
-                        #Second element, relative positioning (below previous button)
-                        self._lobby_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.discovered_lobby, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._lobby_list[length-1]}, container=self._lobby_panel))
-                    if length>self._elements_before_scrollbar:
-                        #Increase scrollbar size, up to self._elements_before_scrollbar buttons can fit without a scrollbar
-                        self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
-                        self._lobby_panel.set_scrollable_area_dimensions(self._increased_size)
+        #Event handling
+        #process pygame_events
+        #then process pygame_gui events
+        self._gui_manager.process_events(event)
+        if event.type == pygame_gui.UI_BUTTON_PRESSED:
+            #A pygame_gui button is pressed
+            if event.ui_element in self._lobby_list:
+                #join the clicked lobby
+                lobby_name=event.ui_element.text
+                self._game_state_manager.change_screen(Screens.LOBBY_WAITING)
+
+        #Process received custom events
+        if event.type==custom_event:
+            #parse the custom event into an object
+            e=create_custom_event_from_dict(event.dict)
+            if isinstance(e, DiscoveredLobbyType):
+                #This screen only interacts with Discovered Lobby Events)
+                length=len(self._lobby_list)
+                if length==0:
+                    #First element, absolute positioning inside the container
+                    self._lobby_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.discovered_lobby, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._lobby_panel))
+                else:
+                    #Second element, relative positioning (below previous button)
+                    self._lobby_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.discovered_lobby, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._lobby_list[length-1]}, container=self._lobby_panel))
+                if length>self._elements_before_scrollbar:
+                    #Increase scrollbar size, up to self._elements_before_scrollbar buttons can fit without a scrollbar
+                    self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
+                    self._lobby_panel.set_scrollable_area_dimensions(self._increased_size)
 
         
     def reset_screen(self) -> None:
@@ -363,7 +364,7 @@ class WaitingLobbyScreen(AbstractScreen):
         self._create_users_panel()
 
         
-    def run(self,event:pygame.event.Event | None)->None:
+    def run(self,event:pygame.event.Event)->None:
         """A simple waiting screen"""
         global lobby_name
         if lobby_name!=self._local_lobby:
@@ -376,23 +377,23 @@ class WaitingLobbyScreen(AbstractScreen):
         self._title_container.draw(self._display)
         self._waiting.draw(self._display)
         self._button_container.draw(self._display)
-        if event is not None:
-            self._gui_manager.process_events(event) #processes pygame_gui events
-            #Received a custom event
-            if event.type==custom_event:
-                #parse the custom event into an object
-                e=create_custom_event_from_dict(event.dict)
-                if isinstance(e, ChangeScreenType):
-                    #This screen only interacts ChangeScreen Events
-                    #Should go to Day Voting Screen
-                    self._game_state_manager.change_screen(e.next_screen)
-                    self.reset_screen() #resets current screen for next time this is used
-                if isinstance(e, UsersType):
-                    #Updates the number of players in the waiting room
-                    self._counter=self._counter+1
-                    self._text_number.text=str(self._counter) +" players connected..."
-                    self._waiting.update_on_next_draw()
-                    self._add_player(e.username)
+        #Event handling
+        self._gui_manager.process_events(event) #processes pygame_gui events
+        #Received a custom event
+        if event.type==custom_event:
+            #parse the custom event into an object
+            e=create_custom_event_from_dict(event.dict)
+            if isinstance(e, ChangeScreenType):
+                #This screen only interacts ChangeScreen Events
+                #Should go to Day Voting Screen
+                self._game_state_manager.change_screen(e.next_screen)
+                self.reset_screen() #resets current screen for next time this is used
+            if isinstance(e, UsersType):
+                #Updates the number of players in the waiting room
+                self._counter=self._counter+1
+                self._text_number.text=str(self._counter) +" players connected..."
+                self._waiting.update_on_next_draw()
+                self._add_player(e.username)
                     
     def _add_player(self, username:str)->None:
         """Add a connected player username to the panel"""
@@ -465,7 +466,7 @@ class DayVotingScreen(AbstractScreen):
         self._create_chat_panel()
         self._chat_messages:list[pygame_gui.elements.UILabel]=[]
 
-    def run(self,event:pygame.event.Event | None)->None:
+    def run(self,event:pygame.event.Event)->None:
         """A day waiting and voting screen"""
         self._display.fill(BACKGROUND_COLOR)
         self._gui_manager.draw_ui(self._display)
@@ -473,53 +474,53 @@ class DayVotingScreen(AbstractScreen):
         self._title.draw(self._display)
         self._voted_container.draw(self._display)
 
-        if event is not None:
-            if event.type!=custom_event:
-                #pygame event, text box handles it
-                self._text_box.handle_event(event) #Textbox handles key input
-                tmp=self._text_box.last_input #get last message sent (if it's not already handled)
-                if len(tmp)>0 and str.isspace(tmp)==False:
-                    #if the message is not the last message sent and it's not empty, then send the new message
-                    self._text_box.reset_last_input() #clear internal memory
-                    global username
-                    #TODO: communicate with controller the message
-                    self._send_message(username+":"+tmp)
+        #Event handling
+        if event.type!=custom_event:
+            #pygame event, text box handles it
+            self._text_box.handle_event(event) #Textbox handles key input
+            tmp=self._text_box.last_input #get last message sent (if it's not already handled)
+            if len(tmp)>0 and str.isspace(tmp)==False:
+                #if the message is not the last message sent and it's not empty, then send the new message
+                self._text_box.reset_last_input() #clear internal memory
+                global username
+                #TODO: communicate with controller the message
+                self._send_message(username+":"+tmp)
 
-                self._gui_manager.process_events(event) #processes pygame_gui events
-                if event.type == pygame_gui.UI_BUTTON_PRESSED:
+            self._gui_manager.process_events(event) #processes pygame_gui events
+            if event.type == pygame_gui.UI_BUTTON_PRESSED:
                 #A pygame_gui button is pressed
-                    if event.ui_element in self._player_list:
-                        #vote for selected player
-                        voted_player=event.ui_element.text
-                        self._set_voted_player(voted_player)
-            if event.type==custom_event:
-                #parse the custom event into an object
-                e=create_custom_event_from_dict(event.dict)
-                if isinstance(e, UsersType):
-                    #Add new button username
-                    length=len(self._player_list)
-                    if length==0:
-                        #First element, absolute positioning inside the container
-                        self._player_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.username, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._voting_panel))
-                    else:
-                        #Second element, relative positioning (below previous button)
-                        self._player_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, 10), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.username, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._player_list[length-1]}, container=self._voting_panel))
-                    if length>self._elements_before_scrollbar_players:
-                        #Increase scrollbar size, up to 2 buttons can fit without a scrollbar
-                        self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
-                        self._voting_panel.set_scrollable_area_dimensions(self._increased_size)
-                    self._voting_panel.disable()
-                if isinstance(e, TimeOutType):
-                    #Starts voting
-                    self._voting_panel.enable()
-                    self._voted_text.text="Start voting for execution!"
-                if isinstance(e, ChangeScreenType):
-                    #End of voting, changing screen to DayExecutionScreen
-                    self._game_state_manager.change_screen(e.next_screen)
-                    self.reset_screen() #resets current screen for next time this is used
-                if isinstance(e, ChatMessageType):
-                    #Messages received from other users
-                    self._send_message(e.message)
+                if event.ui_element in self._player_list:
+                    #vote for selected player
+                    voted_player=event.ui_element.text
+                    self._set_voted_player(voted_player)
+        if event.type==custom_event:
+            #parse the custom event into an object
+            e=create_custom_event_from_dict(event.dict)
+            if isinstance(e, UsersType):
+                #Add new button username
+                length=len(self._player_list)
+                if length==0:
+                    #First element, absolute positioning inside the container
+                    self._player_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.username, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._voting_panel))
+                else:
+                    #Second element, relative positioning (below previous button)
+                    self._player_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, 10), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.username, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._player_list[length-1]}, container=self._voting_panel))
+                if length>self._elements_before_scrollbar_players:
+                    #Increase scrollbar size, up to 2 buttons can fit without a scrollbar
+                    self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
+                    self._voting_panel.set_scrollable_area_dimensions(self._increased_size)
+                self._voting_panel.disable()
+            if isinstance(e, TimeOutType):
+                #Starts voting
+                self._voting_panel.enable()
+                self._voted_text.text="Start voting for execution!"
+            if isinstance(e, ChangeScreenType):
+                #End of voting, changing screen to DayExecutionScreen
+                self._game_state_manager.change_screen(e.next_screen)
+                self.reset_screen() #resets current screen for next time this is used
+            if isinstance(e, ChatMessageType):
+                #Messages received from other users
+                self._send_message(e.message)
 
     def _set_voted_player(self, username:str)->None:
         """Function called when the user chooses who to nominate for execution"""
@@ -610,7 +611,7 @@ class DayExecutionScreen(AbstractScreen):
         self._create_chat_panel()
         self._chat_messages:list[pygame_gui.elements.UILabel]=[]
 
-    def run(self,event:pygame.event.Event | None)->None:
+    def run(self,event:pygame.event.Event)->None:
         """A day execution screen"""
         self._display.fill(BACKGROUND_COLOR)
         self._gui_manager.draw_ui(self._display)
@@ -618,33 +619,33 @@ class DayExecutionScreen(AbstractScreen):
         self._title.draw(self._display)
         self._button_container.draw(self._display)
 
-        if event is not None:
-            if event.type!=custom_event:
-                self._text_box.handle_event(event) #Textbox handles key input
-                tmp=self._text_box.last_input #get last message sent (if it's not already handled)
-                if len(tmp)>0 and str.isspace(tmp)==False:
-                    #if the message is not the last message sent and it's not empty, then send the new message
-                    self._text_box.reset_last_input() #clear internal memory
-                    global username
-                    self._send_message(username+":"+tmp) #TODO: communicate with controller the message
-                self._gui_manager.process_events(event) #processes pygame_gui events
-            if event.type==custom_event:
-                #parse the custom event into an object
-                e=create_custom_event_from_dict(event.dict)
-                if isinstance(e, ChangeScreenType):
-                    #End of day, changing screen to Night villager or night role, according to user role
-                    self._game_state_manager.change_screen(e.next_screen)
-                    self.reset_screen() #resets current screen for next time this is used
-                if isinstance(e, ChatMessageType):
-                    #Messages received from other users
-                    self._send_message(e.message)
-                if isinstance(e, UsersType):
-                    #Username of player to execute
-                    self._executed_user=e.username
-                    self._execute_button.text="Vote to execute "+self._executed_user
-                    self._spare_button.text="Vote to spare "+self._executed_user
-                    #Updating the button text requires an update on the container
-                    self._button_container.update_on_next_draw()
+        #Event handling
+        if event.type!=custom_event:
+            self._text_box.handle_event(event) #Textbox handles key input
+            tmp=self._text_box.last_input #get last message sent (if it's not already handled)
+            if len(tmp)>0 and str.isspace(tmp)==False:
+                #if the message is not the last message sent and it's not empty, then send the new message
+                self._text_box.reset_last_input() #clear internal memory
+                global username
+                self._send_message(username+":"+tmp) #TODO: communicate with controller the message
+            self._gui_manager.process_events(event) #processes pygame_gui events
+        if event.type==custom_event:
+            #parse the custom event into an object
+            e=create_custom_event_from_dict(event.dict)
+            if isinstance(e, ChangeScreenType):
+                #End of day, changing screen to Night villager or night role, according to user role
+                self._game_state_manager.change_screen(e.next_screen)
+                self.reset_screen() #resets current screen for next time this is used
+            if isinstance(e, ChatMessageType):
+                #Messages received from other users
+                self._send_message(e.message)
+            if isinstance(e, UsersType):
+                #Username of player to execute
+                self._executed_user=e.username
+                self._execute_button.text="Vote to execute "+self._executed_user
+                self._spare_button.text="Vote to spare "+self._executed_user
+                #Updating the button text requires an update on the container
+                self._button_container.update_on_next_draw()
     
     def _spare_or_execute(self, outcome:bool)->None:
         """The function called when the buttons are pressed, to save the outcome of the voting"""
@@ -713,21 +714,22 @@ class NightVillagerScreen(AbstractScreen):
         self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Night")], self._display.get_size(), (50, 5))
         self._villager=VContainer(SINGLE_ELEMENT_DIV, [Text("Wait for the night to end...")], self._display.get_size())
 
-    def run(self,event:pygame.event.Event | None)->None:
+    def run(self,event:pygame.event.Event)->None:
         """A night villager screen"""
         self._display.fill(BACKGROUND_COLOR)
         self._gui_manager.draw_ui(self._display)
         self._title.draw(self._display)
         self._villager.draw(self._display)
-        if event is not None:
-            self._gui_manager.process_events(event) #processes pygame_gui events
-            if event.type==custom_event:
-                #parse the custom event into an object
-                e=create_custom_event_from_dict(event.dict)
-                if isinstance(e, ChangeScreenType):
-                    #End of night, changing screen to day voting
-                    self._game_state_manager.change_screen(e.next_screen)
-                    self.reset_screen() #resets current screen for next time this is used
+        
+        #Event handling
+        self._gui_manager.process_events(event) #processes pygame_gui events
+        if event.type==custom_event:
+            #parse the custom event into an object
+            e=create_custom_event_from_dict(event.dict)
+            if isinstance(e, ChangeScreenType):
+                #End of night, changing screen to day voting
+                self._game_state_manager.change_screen(e.next_screen)
+                self.reset_screen() #resets current screen for next time this is used
     
     def reset_screen(self) -> None:
         #Static screen, nothing to change
@@ -752,60 +754,61 @@ class NightRoleScreen(AbstractScreen):
         self._create_input_panel()
         self._text_input=pygame_gui.elements.UITextEntryLine(relative_rect=(0,0,MEDIUM_BTN_WIDTH, AUTO_SIZING), manager=self._gui_manager, initial_text="",container=self._input_panel)
 
-    def run(self,event:pygame.event.Event | None)->None:
+    def run(self,event:pygame.event.Event)->None:
         """A night non villager role screen"""
         self._display.fill(BACKGROUND_COLOR)
         self._gui_manager.draw_ui(self._display)
         self._title.draw(self._display)
         self._role_container.draw(self._display)
-        if event is not None:
-            self._gui_manager.process_events(event) #processes pygame_gui events
-            if event.type == pygame_gui.UI_BUTTON_PRESSED:
-                #A pygame_gui button is pressed
-                if event.ui_element in self._players_list:
-                    #vote for selected player
-                    global voted_player
-                    voted_player=event.ui_element.text
-                    #TODO: communicate to controller that user acted on given player
-                    self._voting_panel.disable() #Can only act once 
-            if event.type==pygame_gui.UI_TEXT_ENTRY_FINISHED:
-                #Enter is entered in the textbox
-                if len(event.text)>0 and str.isspace(event.text)==False:
-                    #Message isn't empty
-                    self._send_message(username+":"+event.text)
-                    self._text_input.clear() #Remove message
-                    #TODO: send message to controller, that sends it to other wolves
-            if event.type==custom_event:
-                #parse the custom event into an object
-                e=create_custom_event_from_dict(event.dict)
-                if isinstance(e, ChangeScreenType):
-                    #End of night, changing screen to day voting
-                    self._game_state_manager.change_screen(e.next_screen)
-                    self.reset_screen() #resets current screen for next time this is used
-                if isinstance(e, UsersType):
-                    #Add username to users you can act on (ex: werewolves can only kill non werewolves ecc)
-                    length=len(self._players_list)
-                    if length==0:
-                        #First element, absolute positioning inside the container
-                        self._players_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.username, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._voting_panel))
-                    else:
-                        #Second element, relative positioning (below previous button)
-                        self._players_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.username, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._players_list[length-1]}, container=self._voting_panel))
-                    if length>self._elements_before_scrollbar_players:
-                        #Increase scrollbar size, up to 2 buttons can fit without a scrollbar
-                        self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
-                        self._voting_panel.set_scrollable_area_dimensions(self._increased_size)
-                if isinstance(e, GameRoleType):
-                    #Personalizes screen with player role
-                    self._role_name=e.role
-                    self._role_text.text="Use your power, "+self._role_name
-                    self._role_container.update_on_next_draw()
-                    #TODO: if role==werewolf
-                    self._chat_panel.show()
-                    self._input_panel.show()
-                    #Otherwise panels stay hidden
-                if isinstance(e, ChatMessageType):
-                    self._send_message(e.message)
+        
+        #Event handling
+        self._gui_manager.process_events(event) #processes pygame_gui events
+        if event.type == pygame_gui.UI_BUTTON_PRESSED:
+            #A pygame_gui button is pressed
+            if event.ui_element in self._players_list:
+                #vote for selected player
+                global voted_player
+                voted_player=event.ui_element.text
+                #TODO: communicate to controller that user acted on given player
+                self._voting_panel.disable() #Can only act once 
+        if event.type==pygame_gui.UI_TEXT_ENTRY_FINISHED:
+            #Enter is entered in the textbox
+            if len(event.text)>0 and str.isspace(event.text)==False:
+                #Message isn't empty
+                self._send_message(username+":"+event.text)
+                self._text_input.clear() #Remove message
+                #TODO: send message to controller, that sends it to other wolves
+        if event.type==custom_event:
+            #parse the custom event into an object
+            e=create_custom_event_from_dict(event.dict)
+            if isinstance(e, ChangeScreenType):
+                #End of night, changing screen to day voting
+                self._game_state_manager.change_screen(e.next_screen)
+                self.reset_screen() #resets current screen for next time this is used
+            if isinstance(e, UsersType):
+                #Add username to users you can act on (ex: werewolves can only kill non werewolves ecc)
+                length=len(self._players_list)
+                if length==0:
+                    #First element, absolute positioning inside the container
+                    self._players_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.username, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._voting_panel))
+                else:
+                    #Second element, relative positioning (below previous button)
+                    self._players_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.username, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._players_list[length-1]}, container=self._voting_panel))
+                if length>self._elements_before_scrollbar_players:
+                    #Increase scrollbar size, up to 2 buttons can fit without a scrollbar
+                    self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
+                    self._voting_panel.set_scrollable_area_dimensions(self._increased_size)
+            if isinstance(e, GameRoleType):
+                #Personalizes screen with player role
+                self._role_name=e.role
+                self._role_text.text="Use your power, "+self._role_name
+                self._role_container.update_on_next_draw()
+                #TODO: if role==werewolf
+                self._chat_panel.show()
+                self._input_panel.show()
+                #Otherwise panels stay hidden
+            if isinstance(e, ChatMessageType):
+                self._send_message(e.message)
                               
     def _create_users_panel(self)->None:
         """Creates the scrolling panel containing all player buttons"""
@@ -882,27 +885,28 @@ class RoleDisplayScreen(AbstractScreen):
         self._description=Text("Description", font=FontSize.H2) #Properly set via custom event
         self._description_container=VContainer(SINGLE_ELEMENT_DIV, [self._description], self._display.get_size())
     
-    def run(self, event:pygame.event.Event | None)->None:
+    def run(self, event:pygame.event.Event)->None:
         """A role screen for users"""
         self._display.fill(BACKGROUND_COLOR)
         self._gui_manager.draw_ui(self._display)
         self._title_container.draw(self._display)
         self._description_container.draw(self._display)
-        if event is not None:
-            self._gui_manager.process_events(event) #processes pygame_gui events
-            if event.type==custom_event:
-                #parse the custom event into an object
-                e=create_custom_event_from_dict(event.dict)
-                if isinstance(e, ChangeScreenType):
-                    #Go to next screen
-                    self._game_state_manager.change_screen(e.next_screen)
-                    self.reset_screen() #resets current screen for next time this is used
-                if isinstance(e, GameRoleType):
-                    #Update role and description
-                    self._title.text=e.role
-                    self._title_container.update_on_next_draw()
-                    self._description.text=e.role_description
-                    self._description_container.update_on_next_draw()
+        
+        #Event handling
+        self._gui_manager.process_events(event) #processes pygame_gui events
+        if event.type==custom_event:
+            #parse the custom event into an object
+            e=create_custom_event_from_dict(event.dict)
+            if isinstance(e, ChangeScreenType):
+                #Go to next screen
+                self._game_state_manager.change_screen(e.next_screen)
+                self.reset_screen() #resets current screen for next time this is used
+            if isinstance(e, GameRoleType):
+                #Update role and description
+                self._title.text=e.role
+                self._title_container.update_on_next_draw()
+                self._description.text=e.role_description
+                self._description_container.update_on_next_draw()
         
     def reset_screen(self) -> None:
         #Reset values that were sent via custom event
