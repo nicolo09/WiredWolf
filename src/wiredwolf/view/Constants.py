@@ -10,10 +10,6 @@ class Screens(Enum):
     DAY_EXECUTION='day execution'
     NIGHT_VILLAGER='night'
     NIGHT_ROLE='night role'
-    VILLAGER_WIN='villager win'
-    VILLAGER_LOSS='villager loss'
-    WOLF_WIN='wolf win'
-    WOLF_LOSS='wolf loss'
     ROLE_DISPLAY='role display'
 
 class EventType(Enum): #Used to easily identify the type of event sent

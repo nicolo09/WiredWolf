@@ -422,13 +422,21 @@ class CustomEventSender(EventSender):
             self.send_event_new_user(elem)
 
     def villager_win(self) -> None:
-        self.send_event_to_screen(Screens.VILLAGER_WIN)
+        #TODO: fix
+        # self.send_event_to_screen(Screens.VILLAGER_WIN)
+        return
 
     def villager_loss(self) -> None:
-        self.send_event_to_screen(Screens.VILLAGER_LOSS)
+        #TODO: fix
+        #self.send_event_to_screen(Screens.VILLAGER_LOSS)
+        return
 
     def werewolf_win(self) -> None:
-        self.send_event_to_screen(Screens.WOLF_WIN)
+        #TODO: fix
+        #self.send_event_to_screen(Screens.WOLF_WIN)
+        return
 
     def werewolf_loss(self) -> None:
-        self.send_event_to_screen(Screens.WOLF_LOSS)
+        #TODO: fix
+        #self.send_event_to_screen(Screens.WOLF_LOSS)
+        return
