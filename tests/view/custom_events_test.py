@@ -8,6 +8,7 @@ class TestCustomEvents(unittest.TestCase):
     def setUp(self) -> None:
         pygame.init()
         self.event_sender=CustomEventSender()
+        self.status_messages=StatusMessages()
         self.custom_event=self.event_sender.custom_event
         self.change_screen=ChangeScreenType(Screens.HOME)
         self.discovered_lobby=DiscoveredLobbyType("lobby")
@@ -72,3 +73,15 @@ class TestCustomEvents(unittest.TestCase):
         self.assertRaises(ValueError, create_custom_event_from_dict, {'test':'hello'}) #fails because dictionary doesn't have the expected key
         self.assertRaisesRegex(ValueError, 'EventType enums',create_custom_event_from_dict, {AbstractEventType.s_event: 'none'}) #fails because key isn't an EventType enum
 
+    def test_status_messages_consistency(self)->None:
+        """Test checking if day and night messages are correctly constructed"""
+        for i in range(1, 5):
+            self.assertEqual(self.status_messages.day_count, i)
+            self.assertTrue("Day "+str(i) in self.status_messages.message_day())#Message is something like ...: Day n
+            self.assertTrue("Night "+str(i) in self.status_messages.message_night()) #Message is something like ...: Night n
+            self.status_messages.next_day()
+
+    def test_status_messages_win(self)->None:
+        """Test checking if winning messages are correctly constructed"""
+        self.assertTrue("Villagers won" in self.status_messages.villager_win())
+        self.assertTrue("Werewolves won" in self.status_messages.wolf_win())
