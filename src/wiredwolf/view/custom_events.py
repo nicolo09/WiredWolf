@@ -451,7 +451,7 @@ class CustomEventSender(EventSender):
 
     def end_night(self) -> None:
         self.send_event_to_screen(Screens.DAY_VOTING)
-        self._status_messages.next_day
+        self._status_messages.next_day()
         self.day_message()
 
     def user_role(self, role_name: str, role_description: str) -> None:
