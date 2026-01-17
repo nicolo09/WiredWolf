@@ -15,7 +15,7 @@ class TestApp(unittest.TestCase):
 
     def test_game_state_manager_state(self)->None:
         """The game state manager must change state correctly"""
-        other_screen=Screens.VILLAGER_WIN
+        other_screen=Screens.LOBBY_WAITING
         self.assertEqual(self.game_state_manager.current_state, self.start_screen)
         self.game_state_manager.change_screen(other_screen)
         self.assertNotEqual(self.game_state_manager.current_state, self.start_screen)
