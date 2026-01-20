@@ -409,25 +409,6 @@ class CustomEventSender(EventSender):
         """Returns the id of custom events"""
         return self._custom_event
 
-    def test(self)->None:
-        """TODO: remove function, used for testing purpose"""
-        if self._counter!=self._times and self._times!=-1:
-            #limit to avoid infinite events
-            self._counter=self._counter+1
-            #self.send_event_go_day_voting()
-            #self.send_event_discovered_new_lobby("Lobby A")
-            #self.send_event_new_user("Mario")
-            #self.send_event_timeout()
-            #self.send_event_waiting_room(10)
-            #self.send_event_chat_message("Mario: ciao")
-            self.send_event_execute_or_spare_user("Mario")
-            self.send_event_game_role("werewolf", "kill people")
-        if self._times==-1:
-            #send event forever
-            #self.send_event_new_user("Mario")
-            #self.send_event_waiting_room(10)
-            self.send_event_chat_message("Mario: ciao")
-
     def discovered_lobbies(self, lobbies_list: list[str]) -> None:
         for elem in lobbies_list:
             self.send_event_discovered_new_lobby(elem)
