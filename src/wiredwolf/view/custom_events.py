@@ -61,22 +61,32 @@ class DiscoveredLobbyType(AbstractEventType):
         return {AbstractEventType.s_event:self._event, DiscoveredLobbyType.s_discovered_lobby:self._discovered_lobby}
     
 class UsersType(AbstractEventType):
-    """An event regarding a user, with a given username"""
+    """An event regarding a user, with a given username and an action"""
     #static field name to standardize the dictionary key
     s_username="username"
+    s_action="action"
+    s_action_add="add"
+    s_action_remove="remove"
 
-    def __init__(self, username: str)->None:
+    def __init__(self, username: str, action:str)->None:
         self._event=EventType.USERNAME
         self._username=username
+        self._action=action
 
     @property
     def username(self)->str:
         """Returns the username contained in the event"""
         return self._username
     
+    @property
+    def action(self)->str:
+        """Returns the username contained in the event"""
+        return self._action
+
+    
     def as_dictionary(self) -> dict[Any, Any]:
         """Returns all the fields of the event as a dictionary, used when creating the event in pygame.event.Event()"""
-        return {AbstractEventType.s_event:self._event, UsersType.s_username:self._username}
+        return {AbstractEventType.s_event:self._event, UsersType.s_username:self._username, UsersType.s_action: self._action}
     
 class TimeOutType(AbstractEventType):
     """An event triggered after some time has passed"""
@@ -175,7 +185,9 @@ def create_users_type(dict: dict[Any, Any])->UsersType:
     assert(event!=EventType.NONE and event!=None and event==EventType.USERNAME)
     username=dict.get(UsersType.s_username)
     assert(username!=None)
-    return UsersType(username)
+    action=dict.get(UsersType.s_action)
+    assert(action!=None and (action==UsersType.s_action_add or action==UsersType.s_action_remove))
+    return UsersType(username, action)
 
 def create_timeout_type(dict:dict[Any, Any])->TimeOutType:
     """Creates a timeout type from a correct dictionary"""
@@ -364,13 +376,17 @@ class CustomEventSender(EventSender):
         """Sends a custom event to add a new lobby"""
         pygame.event.post(pygame.event.Event(self._custom_event, DiscoveredLobbyType(lobby_name).as_dictionary()))
 
-    def send_event_new_user(self, username:str)->None:
+    def send_event_add_user(self, username:str)->None:
         """Sends a custom event to add a new user"""
-        pygame.event.post(pygame.event.Event(self._custom_event, UsersType(username).as_dictionary()))
+        pygame.event.post(pygame.event.Event(self._custom_event, UsersType(username, UsersType.s_action_add).as_dictionary()))
 
     def send_event_execute_or_spare_user(self, username:str)->None:
         """Sends a custom event to notify gui which player is to be spared or executed"""
-        pygame.event.post(pygame.event.Event(self._custom_event, UsersType(username).as_dictionary()))
+        pygame.event.post(pygame.event.Event(self._custom_event, UsersType(username, UsersType.s_action_add).as_dictionary()))
+    
+    def send_event_remove_user(self, username:str)->None:
+        """Sends a custom event to remove a user"""
+        pygame.event.post(pygame.event.Event(self._custom_event, UsersType(username, UsersType.s_action_remove).as_dictionary()))
 
     def send_event_timeout(self)->None:
         """Sends a custom event to say that some time has passed"""
@@ -418,7 +434,7 @@ class CustomEventSender(EventSender):
 
     def users_waiting_to_start_game(self, usernames_list:list[str]) -> None:
         for elem in usernames_list:
-            self.send_event_new_user(elem)
+            self.send_event_add_user(elem)
 
     def game_started_by_master(self) -> None:
         self.send_event_to_screen(Screens.DAY_VOTING)
@@ -427,7 +443,7 @@ class CustomEventSender(EventSender):
 
     def players_to_nominate_for_execution(self, players: list[str]) -> None:
         for elem in players:
-            self.send_event_new_user(elem)
+            self.send_event_add_user(elem)
 
     def start_voting_for_nominations(self) -> None:
         self.send_event_timeout()
@@ -437,7 +453,7 @@ class CustomEventSender(EventSender):
         self.send_event_to_screen(Screens.DAY_EXECUTION)
 
     def user_to_nominated_for_execution(self, username: str) -> None:
-        self.send_event_new_user(username)
+        self.send_event_add_user(username)
 
     def display_chat_message(self, message: str) -> None:
         self.send_event_chat_message(message)
@@ -459,7 +475,7 @@ class CustomEventSender(EventSender):
 
     def can_use_powers_on(self, player_list: str) -> None:
         for elem in player_list:
-            self.send_event_new_user(elem)
+            self.send_event_add_user(elem)
 
     def villager_win(self) -> None:
        self.send_event_chat_message(self._status_messages.villager_win())
