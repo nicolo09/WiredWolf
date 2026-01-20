@@ -6,6 +6,7 @@ from wiredwolf.view.custom_events import ChangeScreenType, ChatMessageType, Cust
 from wiredwolf.view.components import CallbackButton, MemoryTextField, VContainer, HContainer, EnabledButton, Text, TextField, DrawableComponent
 from wiredwolf.view.constants import FontSize, Screens
 from functools import partial
+from wiredwolf.view.placeholder import ControllerPlaceholder
 from wiredwolf.view.view_constants import AUTO_SIZING, MEDIUM_BTN_HEIGHT, MEDIUM_PANEL, PANEL_X, PANEL_Y, SINGLE_ELEMENT_DIV, SMALL_BTN_WIDTH, MEDIUM_ELEMENT_DIV, LARGE_ELEMENT_DIV, LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, MEDIUM_BTN_WIDTH, BACKGROUND_COLOR, SMALL_ELEMENT_DIV, WIDE_PANEL
 from pygame_gui.core.interfaces import IUIElementInterface
 from pygame_gui.core import UIElement
@@ -97,6 +98,7 @@ class AbstractScreen(ABC):
         self._gui_manager=gui_manager
         self._panel_handler=panel_handler
         self._screen_id=screen
+        self._controller=None
     
     @property
     def screen(self)->Screens:
@@ -112,6 +114,9 @@ class AbstractScreen(ABC):
     def run(self, event:pygame.event.Event)->None:
         """This is where your screen is displayed"""
         raise NotImplementedError("Please implement this method")
+    
+    def set_controller(self, controller: ControllerPlaceholder)->None:
+        self._controller=controller
 
 class View:
     """The main window for the Wiredwolf game"""
@@ -151,6 +156,7 @@ class View:
         custom_event=self._event_sender.custom_event
         #Activate panels of first screen
         self._panel_handler.show_screens(self._game_state_manager.current_state)
+        self._controller=None
 
     @property
     def event_sender(self)->EventSender:
@@ -198,6 +204,13 @@ class View:
         self._gui_manager.update(tick/1000.0)
         for event in pygame.event.get():
             self._on_event(event) #handles generated events 
+
+    def set_controller(self, controller:ControllerPlaceholder)->None:
+        """A function to connect the controller to the view"""
+        self._controller=controller
+        #Communicate controller to all screens
+        for screen in self._dictionary:
+            self._dictionary[screen].set_controller(controller)
 
 class StartScreen(AbstractScreen):
     """The start screen, the first screen showed at startup"""
@@ -918,5 +931,7 @@ class RoleDisplayScreen(AbstractScreen):
 
 if __name__ == "__main__":
     my_app=View()
+    controller=ControllerPlaceholder()
+    my_app.set_controller(controller)
     while my_app.app_running:
         my_app.update_display()
