@@ -430,6 +430,9 @@ class WaitingLobbyScreen(AbstractScreen):
                         self._users_list.remove(element_to_remove)
                         element_to_remove.kill()
                         #TODO: possibly make smaller increased size, also horizontally
+                        self._counter=self._counter-1
+                        self._text_number.text=str(self._counter) +" players connected..."
+                        self._waiting.update_on_next_draw()
                 
                     
     def _add_player(self, username:str)->None:
