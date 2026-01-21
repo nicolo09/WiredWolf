@@ -403,10 +403,34 @@ class WaitingLobbyScreen(AbstractScreen):
                 self.reset_screen() #resets current screen for next time this is used
             if isinstance(e, UsersType):
                 #Updates the number of players in the waiting room
-                self._counter=self._counter+1
-                self._text_number.text=str(self._counter) +" players connected..."
-                self._waiting.update_on_next_draw()
-                self._add_player(e.username)
+                if e.action==UsersType.s_action_add:
+                    #Add user
+                    self._counter=self._counter+1
+                    self._text_number.text=str(self._counter) +" players connected..."
+                    self._waiting.update_on_next_draw()
+                    self._add_player(e.username)
+                if e.action==UsersType.s_action_remove:
+                    #Remove user
+                    element_to_remove=None
+                    anchors=None
+                    for elem in self._users_list:
+                        if elem.text==e.username:
+                            element_to_remove=elem
+                            anchors=elem.anchors
+                            #Save anchors
+                        else:
+                            if anchors!=None:
+                                #A match has been found, shift anchors (lower element gets upper element anchors)
+                                temp=elem.anchors
+                                elem.anchors=anchors
+                                anchors=temp
+                    
+                    #Now delete element
+                    if element_to_remove!=None:
+                        self._users_list.remove(element_to_remove)
+                        element_to_remove.kill()
+                        #TODO: possibly make smaller increased size, also horizontally
+                
                     
     def _add_player(self, username:str)->None:
         """Add a connected player username to the panel"""
