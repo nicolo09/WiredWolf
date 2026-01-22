@@ -413,12 +413,15 @@ class WaitingLobbyScreen(AbstractScreen):
                     #Remove user
                     element_to_remove=None
                     anchors=None
+                    biggest_width_remaining=0
                     for elem in self._users_list:
                         if elem.text==e.username:
                             element_to_remove=elem
                             anchors=elem.anchors
                             #Save anchors
                         else:
+                            #Get biggest width of any non-deleted element
+                            biggest_width_remaining=max(biggest_width_remaining, elem.rect[2]) # type: ignore
                             if anchors!=None:
                                 #A match has been found, shift anchors (lower element gets upper element anchors)
                                 temp=elem.anchors
@@ -429,10 +432,12 @@ class WaitingLobbyScreen(AbstractScreen):
                     if element_to_remove!=None:
                         self._users_list.remove(element_to_remove)
                         element_to_remove.kill()
-                        #TODO: possibly make smaller increased size, also horizontally
                         self._counter=self._counter-1
                         self._text_number.text=str(self._counter) +" players connected..."
                         self._waiting.update_on_next_draw()
+                        #Scrollbar updates to horizontally biggest element not deleted and height - deleted element height
+                        self._increased_size=(min(self._increased_size[0], biggest_width_remaining), self._increased_size[1]-MEDIUM_BTN_HEIGHT-10)
+                        self._user_panel.set_scrollable_area_dimensions(self._increased_size)
                 
                     
     def _add_player(self, username:str)->None:
@@ -486,7 +491,7 @@ class WaitingLobbyScreen(AbstractScreen):
         self._starting_size=(PANEL_X, PANEL_Y)  
         self._increased_size=self._starting_size
         self._elements_before_scrollbar=int(PANEL_Y/MEDIUM_BTN_HEIGHT) #How many elements fit into the inner panel, rounded to the lowest integer 
-        self._user_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(20,0, self._starting_size[0], self._starting_size[1]), anchors={'left':'left', 'centery':'centery'})
+        self._user_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(20,0, self._starting_size[0], self._starting_size[1]), anchors={'left':'left', 'centery':'centery'}, allow_scroll_x=True)
         self._user_panel.set_scrollable_area_dimensions(self._starting_size)
 
 class DayVotingScreen(AbstractScreen):
