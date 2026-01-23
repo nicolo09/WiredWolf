@@ -411,34 +411,7 @@ class WaitingLobbyScreen(AbstractScreen):
                     self._add_player(e.username)
                 if e.action==UsersType.s_action_remove:
                     #Remove user
-                    element_to_remove=None
-                    anchors=None
-                    biggest_width_remaining=0
-                    for elem in self._users_list:
-                        if elem.text==e.username:
-                            element_to_remove=elem
-                            anchors=elem.anchors
-                            #Save anchors
-                        else:
-                            #Get biggest width of any non-deleted element
-                            biggest_width_remaining=max(biggest_width_remaining, elem.rect[2]) # type: ignore
-                            if anchors!=None:
-                                #A match has been found, shift anchors (lower element gets upper element anchors)
-                                temp=elem.anchors
-                                elem.anchors=anchors
-                                anchors=temp
-                    
-                    #Now delete element
-                    if element_to_remove!=None:
-                        self._users_list.remove(element_to_remove)
-                        element_to_remove.kill()
-                        self._counter=self._counter-1
-                        self._text_number.text=str(self._counter) +" players connected..."
-                        self._waiting.update_on_next_draw()
-                        #Scrollbar updates to horizontally biggest element not deleted and height - deleted element height
-                        self._increased_size=(min(self._increased_size[0], biggest_width_remaining), self._increased_size[1]-MEDIUM_BTN_HEIGHT-10)
-                        self._user_panel.set_scrollable_area_dimensions(self._increased_size)
-                
+                    self._delete_player(e.username)        
                     
     def _add_player(self, username:str)->None:
         """Add a connected player username to the panel"""
@@ -458,6 +431,36 @@ class WaitingLobbyScreen(AbstractScreen):
         if length>self._elements_before_scrollbar:
             self._increased_size=(self._increased_size[0], self._increased_size[1]+MEDIUM_BTN_HEIGHT+10) #TODO: fix
         self._user_panel.set_scrollable_area_dimensions(self._increased_size)
+
+    def _delete_player(self, username:str)->None:
+        """Remove a player username to the panel if present"""
+        element_to_remove=None
+        anchors=None
+        biggest_width_remaining=0
+        for elem in self._users_list:
+            if elem.text==username:
+                element_to_remove=elem
+                anchors=elem.anchors
+                #Save anchors
+            else:
+                #Get biggest width of any non-deleted element
+                biggest_width_remaining=max(biggest_width_remaining, elem.rect[2]) # type: ignore
+                if anchors!=None:
+                    #A match has been found, shift anchors (lower element gets upper element anchors)
+                    temp=elem.anchors
+                    elem.anchors=anchors
+                    anchors=temp
+                    
+        #Now delete element
+        if element_to_remove!=None:
+            self._users_list.remove(element_to_remove)
+            element_to_remove.kill()
+            self._counter=self._counter-1
+            self._text_number.text=str(self._counter) +" players connected..."
+            self._waiting.update_on_next_draw()
+            #Scrollbar updates to horizontally biggest element not deleted and height - deleted element height
+            self._increased_size=(min(self._increased_size[0], biggest_width_remaining), self._increased_size[1]-MEDIUM_BTN_HEIGHT-10)
+            self._user_panel.set_scrollable_area_dimensions(self._increased_size)
     
     def reset_screen(self) -> None:
         #Reset lobby name
