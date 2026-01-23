@@ -545,19 +545,13 @@ class DayVotingScreen(AbstractScreen):
             #parse the custom event into an object
             e=create_custom_event_from_dict(event.dict)
             if isinstance(e, UsersType):
-                #Add new button username
-                length=len(self._player_list)
-                if length==0:
-                    #First element, absolute positioning inside the container
-                    self._player_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.username, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._voting_panel))
-                else:
-                    #Second element, relative positioning (below previous button)
-                    self._player_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, 10), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.username, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._player_list[length-1]}, container=self._voting_panel))
-                if length>self._elements_before_scrollbar_players:
-                    #Increase scrollbar size, up to 2 buttons can fit without a scrollbar
-                    self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
-                    self._voting_panel.set_scrollable_area_dimensions(self._increased_size)
-                self._voting_panel.disable()
+                if e.action==UsersType.s_action_add:
+                    #Add user
+                    self._counter=self._counter+1
+                    self._add_player(e.username)
+                if e.action==UsersType.s_action_remove:
+                    #Remove user
+                    self._delete_player(e.username)
             if isinstance(e, TimeOutType):
                 #Starts voting
                 self._voting_panel.enable()
@@ -569,6 +563,46 @@ class DayVotingScreen(AbstractScreen):
             if isinstance(e, ChatMessageType):
                 #Messages received from other users
                 self._send_message(e.message)
+
+    def _add_player(self, username:str)->None:
+        """Adds a new button username to the panel"""
+        #Add new button username
+        length=len(self._player_list)
+        if length==0:
+            #First element, absolute positioning inside the container
+            self._player_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=username, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._voting_panel))
+        else:
+            #Second element, relative positioning (below previous button)
+            self._player_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=username, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._player_list[length-1]}, container=self._voting_panel))
+        if length>self._elements_before_scrollbar_players:
+            #Increase scrollbar size, up to 2 buttons can fit without a scrollbar
+            self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
+            self._voting_panel.set_scrollable_area_dimensions(self._increased_size)
+        self._voting_panel.disable()#All buttons start as disabled
+
+    def _delete_player(self, username:str)->None:
+        """Remove a player username to the panel if present"""
+        element_to_remove=None
+        anchors=None
+        for elem in self._player_list:
+            if elem.text==username:
+                element_to_remove=elem
+                anchors=elem.anchors
+                #Save anchors
+            else:
+                if anchors!=None:
+                    #A match has been found, shift anchors (lower element gets upper element anchors)
+                    temp=elem.anchors
+                    elem.anchors=anchors
+                    anchors=temp
+                    
+        #Now delete element
+        if element_to_remove!=None:
+            self._player_list.remove(element_to_remove)
+            element_to_remove.kill()
+            #Scrollbar updates to horizontally biggest element not deleted and height - deleted element height
+            self._increased_size=self._increased_size[0], self._increased_size[1]-LARGE_BTN_HEIGHT-MEDIUM_ELEMENT_DIV
+            self._voting_panel.set_scrollable_area_dimensions(self._increased_size)
 
     def _set_voted_player(self, username:str)->None:
         """Function called when the user chooses who to nominate for execution"""
@@ -688,12 +722,13 @@ class DayExecutionScreen(AbstractScreen):
                 #Messages received from other users
                 self._send_message(e.message)
             if isinstance(e, UsersType):
-                #Username of player to execute
-                self._executed_user=e.username
-                self._execute_button.text="Vote to execute "+self._executed_user
-                self._spare_button.text="Vote to spare "+self._executed_user
-                #Updating the button text requires an update on the container
-                self._button_container.update_on_next_draw()
+                if e.action==UsersType.s_action_add:
+                    #Username of player to execute
+                    self._executed_user=e.username
+                    self._execute_button.text="Vote to execute "+self._executed_user
+                    self._spare_button.text="Vote to spare "+self._executed_user
+                    #Updating the button text requires an update on the container
+                    self._button_container.update_on_next_draw()
     
     def _spare_or_execute(self, outcome:bool)->None:
         """The function called when the buttons are pressed, to save the outcome of the voting"""
@@ -834,18 +869,19 @@ class NightRoleScreen(AbstractScreen):
                 self._game_state_manager.change_screen(e.next_screen)
                 self.reset_screen() #resets current screen for next time this is used
             if isinstance(e, UsersType):
+                if e.action==UsersType.s_action_add:
                 #Add username to users you can act on (ex: werewolves can only kill non werewolves ecc)
-                length=len(self._players_list)
-                if length==0:
-                    #First element, absolute positioning inside the container
-                    self._players_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.username, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._voting_panel))
-                else:
-                    #Second element, relative positioning (below previous button)
-                    self._players_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.username, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._players_list[length-1]}, container=self._voting_panel))
-                if length>self._elements_before_scrollbar_players:
-                    #Increase scrollbar size, up to 2 buttons can fit without a scrollbar
-                    self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
-                    self._voting_panel.set_scrollable_area_dimensions(self._increased_size)
+                    length=len(self._players_list)
+                    if length==0:
+                        #First element, absolute positioning inside the container
+                        self._players_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.username, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._voting_panel))
+                    else:
+                        #Second element, relative positioning (below previous button)
+                        self._players_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.username, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._players_list[length-1]}, container=self._voting_panel))
+                    if length>self._elements_before_scrollbar_players:
+                        #Increase scrollbar size, up to 2 buttons can fit without a scrollbar
+                        self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
+                        self._voting_panel.set_scrollable_area_dimensions(self._increased_size)
             if isinstance(e, GameRoleType):
                 #Personalizes screen with player role
                 self._role_name=e.role
