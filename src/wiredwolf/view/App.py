@@ -7,7 +7,7 @@ from wiredwolf.view.components import CallbackButton, MemoryTextField, VContaine
 from wiredwolf.view.constants import FontSize, Screens
 from functools import partial
 from wiredwolf.view.placeholder import ControllerPlaceholder
-from wiredwolf.view.view_constants import AUTO_SIZING, MEDIUM_BTN_HEIGHT, MEDIUM_PANEL, PANEL_X, PANEL_Y, SINGLE_ELEMENT_DIV, SMALL_BTN_WIDTH, MEDIUM_ELEMENT_DIV, LARGE_ELEMENT_DIV, LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, MEDIUM_BTN_WIDTH, BACKGROUND_COLOR, SMALL_ELEMENT_DIV, WIDE_PANEL
+from wiredwolf.view.view_constants import AUTO_SIZING, HORIZONTAL_SPACE_FOR_SCROLLBAR, MEDIUM_BTN_HEIGHT, MEDIUM_PANEL, SMALL_PANEL, PANEL_Y, SINGLE_ELEMENT_DIV, SMALL_BTN_WIDTH, MEDIUM_ELEMENT_DIV, LARGE_ELEMENT_DIV, LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, MEDIUM_BTN_WIDTH, BACKGROUND_COLOR, SMALL_ELEMENT_DIV, WIDE_PANEL
 from pygame_gui.core.interfaces import IUIElementInterface
 from pygame_gui.core import UIElement
 from tkinter import messagebox
@@ -351,7 +351,7 @@ class SearchLobbyScreen(AbstractScreen):
 
     def _create_lobby_panel(self)->None:
         """Creates the scrolling panel containing all lobbies buttons"""
-        self._starting_size=(PANEL_X, PANEL_Y) 
+        self._starting_size=(SMALL_PANEL, PANEL_Y) 
         self._increased_size=self._starting_size
         self._elements_before_scrollbar=int(PANEL_Y/(LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV))-1 #3 elements can fit without a scrollbar, 4th element needs it
         self._lobby_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(0,0, self._starting_size[0], self._starting_size[1]), anchors={'centerx':'centerx', 'centery':'centery'})
@@ -496,8 +496,8 @@ class WaitingLobbyScreen(AbstractScreen):
     
     def _create_users_panel(self)->None:
         """Creates the scrolling panel containing all player buttons"""
-        self._starting_size=(PANEL_X, PANEL_Y)  
-        self._increased_size=self._starting_size
+        self._starting_size=(SMALL_PANEL, PANEL_Y)  
+        self._increased_size=(SMALL_PANEL-HORIZONTAL_SPACE_FOR_SCROLLBAR, PANEL_Y) #The actual inside space is slightly smaller, due to the horizontal scrollbar
         self._elements_before_scrollbar=int(PANEL_Y/MEDIUM_BTN_HEIGHT) #How many elements fit into the inner panel, rounded to the lowest integer 
         self._user_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(20,0, self._starting_size[0], self._starting_size[1]), anchors={'left':'left', 'centery':'centery'}, allow_scroll_x=True)
         self._user_panel.set_scrollable_area_dimensions(self._starting_size)
@@ -651,7 +651,7 @@ class DayVotingScreen(AbstractScreen):
 
     def _create_voting_panel(self)->None:
         """Creates the scrolling panel containing all player buttons"""
-        self._starting_size=(PANEL_X, PANEL_Y)  
+        self._starting_size=(SMALL_PANEL, PANEL_Y)  
         self._increased_size=self._starting_size
         self._elements_before_scrollbar_players=int(PANEL_Y/(LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV))-1 #3 elements can fit without a scrollbar, 4th element needs it
         self._voting_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(20,0, self._starting_size[0], self._starting_size[1]), anchors={'left':'left', 'centery':'centery'})
@@ -660,7 +660,7 @@ class DayVotingScreen(AbstractScreen):
     def _create_chat_panel(self)->None:
         """Creates the chat panel"""
         self._starting_size_chat=(WIDE_PANEL, PANEL_Y)  
-        self._increased_size_chat=(WIDE_PANEL-20, PANEL_Y) #Inner panel is slightly smaller, has to account for scrollbars
+        self._increased_size_chat=(WIDE_PANEL-HORIZONTAL_SPACE_FOR_SCROLLBAR, PANEL_Y) #Inner panel is slightly smaller, has to account for scrollbars
         self._elements_before_scrollbar=int(PANEL_Y/MEDIUM_BTN_HEIGHT) #How many elements fit into the inner panel, rounded to the lowest integer 
         self._chat_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(-WIDE_PANEL ,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'centery':'centery'}, allow_scroll_x=True)
         #Positioning is negative because the anchor is right, same applies to bottom anchors
@@ -749,7 +749,7 @@ class DayExecutionScreen(AbstractScreen):
     def _create_chat_panel(self)->None:
         """Creates the chat panel"""
         self._starting_size_chat=(MEDIUM_PANEL, PANEL_Y)  
-        self._increased_size_chat=(MEDIUM_PANEL-20, PANEL_Y) #Inner panel is slightly smaller, has to account for scrollbars
+        self._increased_size_chat=(MEDIUM_PANEL-HORIZONTAL_SPACE_FOR_SCROLLBAR, PANEL_Y) #Inner panel is slightly smaller, has to account for scrollbars
         self._elements_before_scrollbar=int(PANEL_Y/MEDIUM_BTN_HEIGHT) #How many elements fit into the inner panel, rounded to the lowest integer 
         self._chat_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(-MEDIUM_PANEL,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'centery':'centery'}, allow_scroll_x=True)
         #Positioning is negative because the anchor is right, same applies to bottom anchors
@@ -905,7 +905,7 @@ class NightRoleScreen(AbstractScreen):
                               
     def _create_users_panel(self)->None:
         """Creates the scrolling panel containing all player buttons"""
-        self._starting_size=(PANEL_X, PANEL_Y) 
+        self._starting_size=(SMALL_PANEL, PANEL_Y) 
         self._increased_size=self._starting_size
         self._elements_before_scrollbar_players=int(PANEL_Y/(LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV))-1 #3 elements can fit without a scrollbar, 4th element needs it
         self._voting_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(0,0, self._starting_size[0], self._starting_size[1]), anchors={'centerx':'centerx', 'centery':'centery'})
@@ -914,7 +914,7 @@ class NightRoleScreen(AbstractScreen):
     def _create_chat_panel(self)->None:
         """Creates the chat panel"""
         self._starting_size_chat=(MEDIUM_PANEL, PANEL_Y)  
-        self._increased_size_chat=(MEDIUM_PANEL-20, PANEL_Y) #Inner panel is slightly smaller, has to account for scrollbars
+        self._increased_size_chat=(MEDIUM_PANEL-HORIZONTAL_SPACE_FOR_SCROLLBAR, PANEL_Y) #Inner panel is slightly smaller, has to account for scrollbars
         self._elements_before_scrollbar=int(PANEL_Y/MEDIUM_BTN_HEIGHT) #How many elements fit into the inner panel, rounded to the lowest integer 
         self._chat_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(-MEDIUM_PANEL,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'centery':'centery'}, allow_scroll_x=True, always_on=False)
         #Positioning is negative because the anchor is right, same applies to bottom anchors
