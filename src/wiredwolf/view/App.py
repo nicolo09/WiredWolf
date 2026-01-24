@@ -375,7 +375,6 @@ class WaitingLobbyScreen(AbstractScreen):
         self._counter=1
         self._users_list:list[pygame_gui.elements.UILabel]=[]
         self._create_users_panel()
-
         
     def run(self,event:pygame.event.Event)->None:
         """A simple waiting screen"""
@@ -429,7 +428,7 @@ class WaitingLobbyScreen(AbstractScreen):
         self._increased_size=(max(self._increased_size[0], label.rect[2]), self._increased_size[1]) # type: ignore
         #Vertical scrollbar
         if length>self._elements_before_scrollbar:
-            self._increased_size=(self._increased_size[0], self._increased_size[1]+MEDIUM_BTN_HEIGHT+10) #TODO: fix
+            self._increased_size=(self._increased_size[0], self._increased_size[1]+MEDIUM_BTN_HEIGHT+MEDIUM_ELEMENT_DIV) #Spacer to make the elements fit better
         self._user_panel.set_scrollable_area_dimensions(self._increased_size)
 
     def _delete_player(self, username:str)->None:
@@ -459,7 +458,13 @@ class WaitingLobbyScreen(AbstractScreen):
             self._text_number.text=str(self._counter) +" players connected..."
             self._waiting.update_on_next_draw()
             #Scrollbar updates to horizontally biggest element not deleted and height - deleted element height
-            self._increased_size=(min(self._increased_size[0], biggest_width_remaining), self._increased_size[1]-MEDIUM_BTN_HEIGHT-10)
+            self._increased_size=(min(self._increased_size[0], biggest_width_remaining), self._increased_size[1])
+            if len(self._users_list)>self._elements_before_scrollbar:
+                #Make inner area smaller, but number of elements necessitates a scrollbar
+                self._increased_size=self._increased_size[0], self._increased_size[1]-MEDIUM_BTN_HEIGHT-MEDIUM_ELEMENT_DIV
+            else:
+                #Smallest inner area possible, scrollbar disappears
+                self._increased_size=self._starting_size
             self._user_panel.set_scrollable_area_dimensions(self._increased_size)
     
     def reset_screen(self) -> None:
@@ -600,7 +605,12 @@ class DayVotingScreen(AbstractScreen):
             self._player_list.remove(element_to_remove)
             element_to_remove.kill()
             #Scrollbar updates to horizontally biggest element not deleted and height - deleted element height
-            self._increased_size=self._increased_size[0], self._increased_size[1]-LARGE_BTN_HEIGHT-MEDIUM_ELEMENT_DIV
+            if len(self._player_list)>self._elements_before_scrollbar_players:
+                #Make inner area smaller, but number of elements necessitates a scrollbar
+                self._increased_size=self._increased_size[0], self._increased_size[1]-LARGE_BTN_HEIGHT-MEDIUM_ELEMENT_DIV
+            else:
+                #Smallest inner area possible, scrollbar disappears
+                self._increased_size=self._starting_size
             self._voting_panel.set_scrollable_area_dimensions(self._increased_size)
 
     def _set_voted_player(self, username:str)->None:
@@ -997,7 +1007,6 @@ class RoleDisplayScreen(AbstractScreen):
         self._title_container.update_on_next_draw()
         self._description.text="Description"
         self._description_container.update_on_next_draw()
-        pass
 
 if __name__ == "__main__":
     my_app=View()
