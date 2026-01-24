@@ -131,10 +131,14 @@ class View:
         self._gui_manager=pygame_gui.UIManager(self._size, theme_path='resources/theme.json')
         self._panel_handler=PanelHandler(self._gui_manager)
         self._game_state_manager=GameStateManager(Screens.HOME, self._panel_handler)
+        #Sets custom event sender
+        self._event_sender=CustomEventSender()
+        global custom_event
+        custom_event=self._event_sender.custom_event
         self._start_screen=StartScreen(Screens.HOME, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler)
         self._new_lobby_screen=NewLobbyScreen(Screens.NEW_LOBBY, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler)
         self._search_lobby_screen=SearchLobbyScreen(Screens.SEARCH_LOBBY, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler)
-        self._waiting_lobby_screen=WaitingLobbyScreen(Screens.LOBBY_WAITING, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler)
+        self._waiting_lobby_screen=WaitingLobbyScreen(Screens.LOBBY_WAITING, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._event_sender) #TODO: is this ok?
         self._day_voting_screen=DayVotingScreen(Screens.DAY_VOTING, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler)
         self._day_execution_screen=DayExecutionScreen(Screens.DAY_EXECUTION, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler)
         self._night_villager_screen=NightVillagerScreen(Screens.NIGHT_VILLAGER, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler)
@@ -150,10 +154,6 @@ class View:
                           self._night_role_screen.screen: self._night_role_screen,
                           self._role_display_screen.screen: self._role_display_screen}
         self._clock = pygame.time.Clock()
-        #Sets custom event sender
-        self._event_sender=CustomEventSender()
-        global custom_event
-        custom_event=self._event_sender.custom_event
         #Activate panels of first screen
         self._panel_handler.show_screens(self._game_state_manager.current_state)
         self._controller=None
@@ -359,8 +359,9 @@ class SearchLobbyScreen(AbstractScreen):
 
 class WaitingLobbyScreen(AbstractScreen):
     """The waiting room after joining a lobby"""
-    def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler) -> None:
+    def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler, custom_event_sender:CustomEventSender) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler)
+        self._custom_event_sender=custom_event_sender
         global lobby_name
         self._local_lobby=lobby_name
         self._title=Text("Waiting for other players to join "+self._local_lobby+" lobby")
@@ -489,6 +490,8 @@ class WaitingLobbyScreen(AbstractScreen):
         if master==True: 
             self._game_state_manager.change_screen(Screens.DAY_VOTING)
             self.reset_screen() #resets current screen for next time this is used
+            #Sends message that says what day it is
+            self._custom_event_sender.day_message() #All other players receive the message when switching screens via event. The master won't receive this unless it sends a message to itself
         else:
             #error message
             tkinter.Tk().wm_withdraw() #to hide the main window
