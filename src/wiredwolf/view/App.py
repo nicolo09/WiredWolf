@@ -547,7 +547,6 @@ class DayVotingScreen(AbstractScreen):
             if isinstance(e, UsersType):
                 if e.action==UsersType.s_action_add:
                     #Add user
-                    self._counter=self._counter+1
                     self._add_player(e.username)
                 if e.action==UsersType.s_action_remove:
                     #Remove user
