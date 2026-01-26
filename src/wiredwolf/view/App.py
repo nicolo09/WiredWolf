@@ -320,6 +320,7 @@ class SearchLobbyScreen(AbstractScreen):
             #A pygame_gui button is pressed
             if event.ui_element in self._lobby_list:
                 #join the clicked lobby
+                global lobby_name
                 lobby_name=event.ui_element.text
                 self._game_state_manager.change_screen(Screens.LOBBY_WAITING)
 
@@ -492,6 +493,7 @@ class WaitingLobbyScreen(AbstractScreen):
             self.reset_screen() #resets current screen for next time this is used
             #Sends message that says what day it is
             self._custom_event_sender.day_message() #All other players receive the message when switching screens via event. The master won't receive this unless it sends a message to itself
+            #TODO: send message to controller that master started the game
         else:
             #error message
             tkinter.Tk().wm_withdraw() #to hide the main window
