@@ -46,10 +46,15 @@ class DiscoveredLobbyType(AbstractEventType):
     """An event of a new lobby name that has been discovered"""
     #static field name to standardize the dictionary key
     s_discovered_lobby="discovered_lobby"
+    s_action="action"
+    s_action_add="add"
+    s_action_remove="remove"
 
-    def __init__(self, discovered_lobby: str)->None:
+    def __init__(self, discovered_lobby: str, action:str)->None:
         self._event=EventType.DISCOVERED_LOBBY
         self._discovered_lobby=discovered_lobby
+        self._action=action
+        assert(action==self.s_action_add or  action==self.s_action_remove) #Only add or remove are legal actions
 
     @property
     def discovered_lobby(self)->str:
@@ -58,7 +63,7 @@ class DiscoveredLobbyType(AbstractEventType):
     
     def as_dictionary(self) -> dict[Any, Any]:
         """Returns all the fields of the event as a dictionary, used when creating the event in pygame.event.Event()"""
-        return {AbstractEventType.s_event:self._event, DiscoveredLobbyType.s_discovered_lobby:self._discovered_lobby}
+        return {AbstractEventType.s_event:self._event, DiscoveredLobbyType.s_discovered_lobby:self._discovered_lobby, DiscoveredLobbyType.s_action: self._action}
     
 class UsersType(AbstractEventType):
     """An event regarding a user, with a given username and an action"""
@@ -72,6 +77,7 @@ class UsersType(AbstractEventType):
         self._event=EventType.USERNAME
         self._username=username
         self._action=action
+        assert(action==self.s_action_add or  action==self.s_action_remove)
 
     @property
     def username(self)->str:
@@ -177,7 +183,9 @@ def create_discovered_lobby_type(dict: dict[Any, Any])->DiscoveredLobbyType:
     assert(event!=EventType.NONE and event!=None and event==EventType.DISCOVERED_LOBBY)
     discovered_lobby=dict.get(DiscoveredLobbyType.s_discovered_lobby)
     assert(discovered_lobby!=None)
-    return DiscoveredLobbyType(discovered_lobby)
+    action=dict.get(DiscoveredLobbyType.s_action)
+    assert(action!=None and (action==DiscoveredLobbyType.s_action_add or action==DiscoveredLobbyType.s_action_remove))
+    return DiscoveredLobbyType(discovered_lobby, action)
 
 def create_users_type(dict: dict[Any, Any])->UsersType:
     """Creates a users type from a correct dictionary"""
@@ -249,13 +257,23 @@ class EventSender(ABC):
     """Abstract interface to abstract the sending of events to the view"""
 
     @abstractmethod
-    def discovered_lobbies(self, lobbies_list:list[str])->None:
-        """The list of all discovered lobbies in the network"""
+    def new_discovered_lobby(self, lobby:str)->None:
+        """Add a new discovered lobby to the view"""
+        raise NotImplementedError("Please implement this method")
+    
+    @abstractmethod
+    def remove_discovered_lobby(self, lobby:str)->None:
+        """Remove a new discovered lobby to the view"""
         raise NotImplementedError("Please implement this method")
 
     @abstractmethod
-    def users_waiting_to_start_game(self, usernames_list:list[str])->None:
-        """The username of users in a lobby waiting for the game to start"""
+    def new_user_in_lobby(self, username:str)->None:
+        """The username of a user that joined a lobby waiting for the game to start"""
+        raise NotImplementedError("Please implement this method")
+    
+    @abstractmethod
+    def remove_user_in_lobby(self, username:str)->None:
+        """The username of a user that exited a lobby waiting for the game to start"""
         raise NotImplementedError("Please implement this method")
 
     @abstractmethod
@@ -285,7 +303,7 @@ class EventSender(ABC):
 
     @abstractmethod
     def display_chat_message(self, message:str)->None:
-        """Displays a chat message sent by another user"""
+        """Displays a chat message sent by a user"""
         raise NotImplementedError("Please implement this method")
 
     @abstractmethod
@@ -374,7 +392,11 @@ class CustomEventSender(EventSender):
     
     def send_event_discovered_new_lobby(self, lobby_name: str)->None:
         """Sends a custom event to add a new lobby"""
-        pygame.event.post(pygame.event.Event(self._custom_event, DiscoveredLobbyType(lobby_name).as_dictionary()))
+        pygame.event.post(pygame.event.Event(self._custom_event, DiscoveredLobbyType(lobby_name, DiscoveredLobbyType.s_action_add).as_dictionary()))
+
+    def send_event_removed_lobby(self, lobby_name: str)->None:
+        """Sends a custom event to remove a lobby"""
+        pygame.event.post(pygame.event.Event(self._custom_event, DiscoveredLobbyType(lobby_name, DiscoveredLobbyType.s_action_remove).as_dictionary()))
 
     def send_event_add_user(self, username:str)->None:
         """Sends a custom event to add a new user"""
@@ -409,13 +431,17 @@ class CustomEventSender(EventSender):
         """Returns the id of custom events"""
         return self._custom_event
 
-    def discovered_lobbies(self, lobbies_list: list[str]) -> None:
-        for elem in lobbies_list:
-            self.send_event_discovered_new_lobby(elem)
+    def new_discovered_lobby(self, lobby: str) -> None:
+        self.send_event_discovered_new_lobby(lobby)
 
-    def users_waiting_to_start_game(self, usernames_list:list[str]) -> None:
-        for elem in usernames_list:
-            self.send_event_add_user(elem)
+    def remove_discovered_lobby(self, lobby:str)->None:
+        self.send_event_removed_lobby(lobby)
+
+    def new_user_in_lobby(self, username:str) -> None:
+        self.send_event_add_user(username)
+
+    def remove_user_in_lobby(self, username:str) -> None:
+        self.send_event_remove_user(username)
 
     def game_started_by_master(self) -> None:
         self.send_event_to_screen(Screens.DAY_VOTING)
