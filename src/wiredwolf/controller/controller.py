@@ -10,6 +10,7 @@ from wiredwolf.controller.messages import (
     GameStartedMessage,
     NotAcknowledgeMessage,
     PhaseAdvanceMessage,
+    StartGameMessage,
     VoteBallotMessage,
     VotePlayerMessage,
 )
@@ -106,6 +107,15 @@ class GameController:
                 self._logger.warning("Unhandled message type: %s", type(message))
 
     @property
+    def my_self(self) -> Peer:
+        """Gets the local player peer.
+
+        Returns:
+            Peer: The local player peer.
+        """
+        return self._my_self
+
+    @property
     def lobby_browser(self) -> LobbyBrowser:
         """Gets the lobby browser.
         Returns:
@@ -160,6 +170,12 @@ class GameController:
         self._waiting_for_ack[message.id] = (asyncio.Event(), None)
         await self._client_connection_handler.send_obj(message)
         await self._wait_for_acknowledgment(message.id)
+
+    async def start_game(self):
+        """Sends a request to start the game. This method may be called only by the lobby owner."""
+        await self._send_message_and_wait_for_ack(
+            StartGameMessage(self._my_self)
+        )
 
     async def choose_player(self, player: Peer):
         """Votes a player in the lobby. This method may be called only during a voting phase.
