@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from wiredwolf.controller.commons import Peer
 from wiredwolf.controller.controller import GameController
 from wiredwolf.controller.lobbies import TcpMdnsLobbyBrowser
-from wiredwolf.view.custom_events import ChangeScreenType, ChatMessageType, CustomEventSender, DiscoveredLobbyType, EventSender, GameRoleType, TimeOutType, UsersType, create_custom_event_from_dict
+from wiredwolf.view.custom_events import ChangeScreenType, ChatMessageType, CustomEventSender, LobbyType, EventSender, GameRoleType, TimeOutType, UsersType, create_custom_event_from_dict
 from wiredwolf.view.components import CallbackButton, MemoryTextField, VContainer, HContainer, EnabledButton, Text, TextField, DrawableComponent
 from wiredwolf.view.constants import FontSize, Screens
 from functools import partial
@@ -330,19 +330,25 @@ class SearchLobbyScreen(AbstractScreen):
         if event.type==custom_event:
             #parse the custom event into an object
             e=create_custom_event_from_dict(event.dict)
-            if isinstance(e, DiscoveredLobbyType):
-                #This screen only interacts with Discovered Lobby Events)
-                length=len(self._lobby_list)
-                if length==0:
-                    #First element, absolute positioning inside the container
-                    self._lobby_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.discovered_lobby, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._lobby_panel))
+            if isinstance(e, LobbyType):
+                #This screen only interacts with Lobby Events
+                if e.action==LobbyType.s_action_add:
+                    #Add new lobby
+                    length=len(self._lobby_list)
+                    if length==0:
+                        #First element, absolute positioning inside the container
+                        self._lobby_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.lobby, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._lobby_panel))
+                    else:
+                        #Second element, relative positioning (below previous button)
+                        self._lobby_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.lobby, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._lobby_list[length-1]}, container=self._lobby_panel))
+                    if length>self._elements_before_scrollbar:
+                        #Increase scrollbar size, up to self._elements_before_scrollbar buttons can fit without a scrollbar
+                        self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
+                        self._lobby_panel.set_scrollable_area_dimensions(self._increased_size)
                 else:
-                    #Second element, relative positioning (below previous button)
-                    self._lobby_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.discovered_lobby, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._lobby_list[length-1]}, container=self._lobby_panel))
-                if length>self._elements_before_scrollbar:
-                    #Increase scrollbar size, up to self._elements_before_scrollbar buttons can fit without a scrollbar
-                    self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
-                    self._lobby_panel.set_scrollable_area_dimensions(self._increased_size)
+                    if e.action==LobbyType.s_action_remove:
+                        #TODO: remove lobby
+                        pass
 
         
     def reset_screen(self) -> None:
@@ -682,7 +688,6 @@ class DayVotingScreen(AbstractScreen):
         #Wait to vote 
         self._voted_text.text="Wait to vote..."
         #Delete all chat messages
-        #TODO: necessary?
         self._chat_messages.clear()
         #Already deleted panel
         self._create_chat_panel()
@@ -798,7 +803,6 @@ class DayExecutionScreen(AbstractScreen):
         self._spare_button.text="Vote to spare "
         self._button_container.update_on_next_draw()
         #Delete all chat messages
-        #TODO: necessary?
         self._chat_messages.clear()
         #Already deleted panel
         self._create_chat_panel()
@@ -968,7 +972,6 @@ class NightRoleScreen(AbstractScreen):
         #Wait for role 
         self._role_text.text="Use your power, "
         #Delete all chat messages
-        #TODO: necessary?
         self._chat_messages.clear()
         #Already deleted panel
         self._create_chat_panel()

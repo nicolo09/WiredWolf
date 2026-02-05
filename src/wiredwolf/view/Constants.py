@@ -14,7 +14,7 @@ class Screens(Enum):
 
 class EventType(Enum): #Used to easily identify the type of event sent
     CHANGE_SCREEN='change-screen'
-    DISCOVERED_LOBBY='discovered-lobby'
+    LOBBY='lobby'
     USERNAME='username'
     TIMEOUT='timeout'
     WAITING_ROOM='waiting-room'

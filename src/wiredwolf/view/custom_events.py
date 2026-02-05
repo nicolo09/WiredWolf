@@ -42,7 +42,7 @@ class ChangeScreenType(AbstractEventType):
         """Returns all the fields of the event as a dictionary, used when creating the event in pygame.event.Event()"""
         return {AbstractEventType.s_event:self._event, ChangeScreenType.s_next_screen:self._next_screen}
     
-class DiscoveredLobbyType(AbstractEventType):
+class LobbyType(AbstractEventType):
     """An event of a new lobby name that has been discovered"""
     #static field name to standardize the dictionary key
     s_discovered_lobby="discovered_lobby"
@@ -50,20 +50,25 @@ class DiscoveredLobbyType(AbstractEventType):
     s_action_add="add"
     s_action_remove="remove"
 
-    def __init__(self, discovered_lobby: str, action:str)->None:
-        self._event=EventType.DISCOVERED_LOBBY
-        self._discovered_lobby=discovered_lobby
+    def __init__(self, lobby: str, action:str)->None:
+        self._event=EventType.LOBBY
+        self._lobby=lobby
         self._action=action
         assert(action==self.s_action_add or  action==self.s_action_remove) #Only add or remove are legal actions
 
     @property
-    def discovered_lobby(self)->str:
+    def lobby(self)->str:
         """Returns the name of the discovered lobby the event contains"""
-        return self._discovered_lobby
+        return self._lobby
+    
+    @property
+    def action(self)->str:
+        """Returns the action connected to the lobby"""
+        return self._action
     
     def as_dictionary(self) -> dict[Any, Any]:
         """Returns all the fields of the event as a dictionary, used when creating the event in pygame.event.Event()"""
-        return {AbstractEventType.s_event:self._event, DiscoveredLobbyType.s_discovered_lobby:self._discovered_lobby, DiscoveredLobbyType.s_action: self._action}
+        return {AbstractEventType.s_event:self._event, LobbyType.s_discovered_lobby:self._lobby, LobbyType.s_action: self._action}
     
 class UsersType(AbstractEventType):
     """An event regarding a user, with a given username and an action"""
@@ -86,9 +91,8 @@ class UsersType(AbstractEventType):
     
     @property
     def action(self)->str:
-        """Returns the username contained in the event"""
+        """Returns the action connected to the username"""
         return self._action
-
     
     def as_dictionary(self) -> dict[Any, Any]:
         """Returns all the fields of the event as a dictionary, used when creating the event in pygame.event.Event()"""
@@ -177,15 +181,15 @@ def create_change_screen_type(dict: dict[Any, Any])->ChangeScreenType:
     assert(next_screen!=None)
     return ChangeScreenType(next_screen)
 
-def create_discovered_lobby_type(dict: dict[Any, Any])->DiscoveredLobbyType:
+def create_lobby_type(dict: dict[Any, Any])->LobbyType:
     """Creates a discovered lobby type from a correct dictionary"""
-    event=dict.get(DiscoveredLobbyType.s_event)
-    assert(event!=EventType.NONE and event!=None and event==EventType.DISCOVERED_LOBBY)
-    discovered_lobby=dict.get(DiscoveredLobbyType.s_discovered_lobby)
+    event=dict.get(LobbyType.s_event)
+    assert(event!=EventType.NONE and event!=None and event==EventType.LOBBY)
+    discovered_lobby=dict.get(LobbyType.s_discovered_lobby)
     assert(discovered_lobby!=None)
-    action=dict.get(DiscoveredLobbyType.s_action)
-    assert(action!=None and (action==DiscoveredLobbyType.s_action_add or action==DiscoveredLobbyType.s_action_remove))
-    return DiscoveredLobbyType(discovered_lobby, action)
+    action=dict.get(LobbyType.s_action)
+    assert(action!=None and (action==LobbyType.s_action_add or action==LobbyType.s_action_remove))
+    return LobbyType(discovered_lobby, action)
 
 def create_users_type(dict: dict[Any, Any])->UsersType:
     """Creates a users type from a correct dictionary"""
@@ -236,8 +240,8 @@ def create_custom_event_from_dict(dict:dict[Any, Any])->AbstractEventType:
         match event:
             case EventType.CHANGE_SCREEN:
                 return create_change_screen_type(dict)
-            case EventType.DISCOVERED_LOBBY:
-                return create_discovered_lobby_type(dict)
+            case EventType.LOBBY:
+                return create_lobby_type(dict)
             case EventType.USERNAME:
                 return create_users_type(dict)
             case EventType.TIMEOUT:
@@ -390,13 +394,13 @@ class CustomEventSender(EventSender):
         """Sends a custom event to change screen to the given screen"""
         pygame.event.post(pygame.event.Event(self._custom_event, ChangeScreenType(screen).as_dictionary()))
     
-    def send_event_discovered_new_lobby(self, lobby_name: str)->None:
+    def send_event_new_lobby(self, lobby_name: str)->None:
         """Sends a custom event to add a new lobby"""
-        pygame.event.post(pygame.event.Event(self._custom_event, DiscoveredLobbyType(lobby_name, DiscoveredLobbyType.s_action_add).as_dictionary()))
+        pygame.event.post(pygame.event.Event(self._custom_event, LobbyType(lobby_name, LobbyType.s_action_add).as_dictionary()))
 
     def send_event_removed_lobby(self, lobby_name: str)->None:
         """Sends a custom event to remove a lobby"""
-        pygame.event.post(pygame.event.Event(self._custom_event, DiscoveredLobbyType(lobby_name, DiscoveredLobbyType.s_action_remove).as_dictionary()))
+        pygame.event.post(pygame.event.Event(self._custom_event, LobbyType(lobby_name, LobbyType.s_action_remove).as_dictionary()))
 
     def send_event_add_user(self, username:str)->None:
         """Sends a custom event to add a new user"""
@@ -432,7 +436,7 @@ class CustomEventSender(EventSender):
         return self._custom_event
 
     def new_discovered_lobby(self, lobby: str) -> None:
-        self.send_event_discovered_new_lobby(lobby)
+        self.send_event_new_lobby(lobby)
 
     def remove_discovered_lobby(self, lobby:str)->None:
         self.send_event_removed_lobby(lobby)

@@ -11,7 +11,8 @@ class TestCustomEvents(unittest.TestCase):
         self.status_messages=StatusMessages()
         self.custom_event=self.event_sender.custom_event
         self.change_screen=ChangeScreenType(Screens.HOME)
-        self.discovered_lobby=DiscoveredLobbyType("lobby")
+        self.discovered_lobby_add=LobbyType("lobby", LobbyType.s_action_add)
+        self.discovered_lobby_remove=LobbyType("lobby 2", LobbyType.s_action_remove)
         self.username_add=UsersType("Mario", UsersType.s_action_add)
         self.username_remove=UsersType("Luigi", UsersType.s_action_remove)
         self.timeout=TimeOutType()
@@ -22,7 +23,8 @@ class TestCustomEvents(unittest.TestCase):
     def test_custom_event_serialization(self)->None:
         """A custom event serialized and deserialized should be the same"""
         self.assertEqual(self.change_screen, create_custom_event_from_dict(self.change_screen.as_dictionary()))
-        self.assertEqual(self.discovered_lobby, create_custom_event_from_dict(self.discovered_lobby.as_dictionary()))
+        self.assertEqual(self.discovered_lobby_add, create_custom_event_from_dict(self.discovered_lobby_add.as_dictionary()))
+        self.assertEqual(self.discovered_lobby_remove, create_custom_event_from_dict(self.discovered_lobby_remove.as_dictionary()))
         self.assertEqual(self.username_add, create_custom_event_from_dict(self.username_add.as_dictionary()))
         self.assertEqual(self.username_remove, create_custom_event_from_dict(self.username_remove.as_dictionary()))
         self.assertEqual(self.timeout, create_custom_event_from_dict(self.timeout.as_dictionary())) #Useless, no information is passed via dictionary other than type
@@ -33,9 +35,10 @@ class TestCustomEvents(unittest.TestCase):
     def test_custom_event_pygame(self)->None:
         """An event sent to the game loop should be parsed correctly"""
         events_received=0
-        total_events=8
+        total_events=9
         self.event_sender.send_event_to_screen(self.change_screen.next_screen)
-        self.event_sender.send_event_discovered_new_lobby(self.discovered_lobby.discovered_lobby)
+        self.event_sender.send_event_new_lobby(self.discovered_lobby_add.lobby)
+        self.event_sender.send_event_removed_lobby(self.discovered_lobby_remove.lobby)
         self.event_sender.send_event_add_user(self.username_add.username)
         self.event_sender.send_event_remove_user(self.username_remove.username)
         self.event_sender.send_event_timeout()
@@ -50,11 +53,17 @@ class TestCustomEvents(unittest.TestCase):
                     if isinstance(e, ChangeScreenType):
                         self.assertEqual(e, self.change_screen)
                         events_received=events_received+1
-                    if isinstance(e, DiscoveredLobbyType):
-                        self.assertEqual(e, self.discovered_lobby)
-                        events_received=events_received+1 
+                    if isinstance(e, LobbyType):
+                        if e.action==LobbyType.s_action_add:
+                            self.assertEqual(e, self.discovered_lobby_add)
+                            events_received=events_received+1
+                        else:
+                            if e.action==LobbyType.s_action_remove:
+                                self.assertEqual(e, self.discovered_lobby_remove)
+                                events_received=events_received+1
+                            else:
+                                raise ValueError("Lobby type can only be add or remove")
                     if isinstance(e, UsersType):
-                        print(e.action)
                         if e.action==UsersType.s_action_add:
                             self.assertEqual(e, self.username_add)
                             events_received=events_received+1
@@ -83,7 +92,8 @@ class TestCustomEvents(unittest.TestCase):
         """Test parsing a wrong dictionary should throw an error"""
         self.assertRaises(ValueError, create_custom_event_from_dict, {'test':'hello'}) #fails because dictionary doesn't have the expected key
         self.assertRaisesRegex(ValueError, 'EventType enums',create_custom_event_from_dict, {AbstractEventType.s_event: 'none'}) #fails because key isn't an EventType enum
-        self.assertRaises(AssertionError, create_custom_event_from_dict, UsersType("Test", "Wrong action").as_dictionary()) #fails because action can only be add or remove
+        self.assertRaises(TypeError, UsersType, ("Test", "Wrong action")) #fails because action can only be add or remove
+        self.assertRaises(TypeError, LobbyType, ("Lobby", "Wrong action")) #fails because action can only be add or remove
 
     def test_status_messages_consistency(self)->None:
         """Test checking if day and night messages are correctly constructed"""
