@@ -106,6 +106,15 @@ class GameController:
                 self._logger.warning("Unhandled message type: %s", type(message))
 
     @property
+    def my_self(self) -> Peer:
+        """Gets the local player peer.
+
+        Returns:
+            Peer: The local player peer.
+        """
+        return self._my_self
+
+    @property
     def lobby_browser(self) -> LobbyBrowser:
         """Gets the lobby browser.
         Returns:
