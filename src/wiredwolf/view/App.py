@@ -347,9 +347,7 @@ class SearchLobbyScreen(AbstractScreen):
                         self._lobby_panel.set_scrollable_area_dimensions(self._increased_size)
                 else:
                     if e.action==LobbyType.s_action_remove:
-                        #TODO: remove lobby
-                        pass
-
+                        self._remove_lobby(e.lobby)
         
     def reset_screen(self) -> None:
         #reset lobby list
@@ -357,6 +355,34 @@ class SearchLobbyScreen(AbstractScreen):
         #Delete current panels and creates them again
         self._panel_handler.delete_panels(self._screen_id)
         self._create_lobby_panel()
+    
+    def _remove_lobby(self, lobby:str)->None:
+        """Remove a lobby from the panel if present"""
+        element_to_remove=None
+        anchors=None
+        for elem in self._lobby_list:
+            if elem.text==lobby:
+                element_to_remove=elem
+                anchors=elem.anchors
+                #Save anchors
+            else:
+                if anchors!=None:
+                    #A match has been found, shift anchors (lower element gets upper element anchors)
+                    temp=elem.anchors
+                    elem.anchors=anchors
+                    anchors=temp
+                    
+        #Now delete element
+        if element_to_remove!=None:
+            self._lobby_list.remove(element_to_remove)
+            element_to_remove.kill()
+            if len(self._lobby_list)>self._elements_before_scrollbar:
+                #Make inner area smaller, but number of elements necessitates a scrollbar
+                self._increased_size=self._increased_size[0], self._increased_size[1]-LARGE_BTN_HEIGHT-MEDIUM_ELEMENT_DIV
+            else:
+                #Smallest inner area possible, scrollbar disappears
+                self._increased_size=self._starting_size
+            self._lobby_panel.set_scrollable_area_dimensions(self._increased_size)
 
     def _create_lobby_panel(self)->None:
         """Creates the scrolling panel containing all lobbies buttons"""
