@@ -2,11 +2,13 @@ import pygame
 import pygame_gui
 import tkinter
 from abc import ABC, abstractmethod
+from wiredwolf.controller.commons import Peer
+from wiredwolf.controller.controller import GameController
+from wiredwolf.controller.lobbies import TcpMdnsLobbyBrowser
 from wiredwolf.view.custom_events import ChangeScreenType, ChatMessageType, CustomEventSender, DiscoveredLobbyType, EventSender, GameRoleType, TimeOutType, UsersType, create_custom_event_from_dict
 from wiredwolf.view.components import CallbackButton, MemoryTextField, VContainer, HContainer, EnabledButton, Text, TextField, DrawableComponent
 from wiredwolf.view.constants import FontSize, Screens
 from functools import partial
-from wiredwolf.view.placeholder import ControllerPlaceholder
 from wiredwolf.view.view_constants import AUTO_SIZING, HORIZONTAL_SPACE_FOR_SCROLLBAR, MEDIUM_BTN_HEIGHT, MEDIUM_PANEL, SMALL_PANEL, PANEL_Y, SINGLE_ELEMENT_DIV, SMALL_BTN_WIDTH, MEDIUM_ELEMENT_DIV, LARGE_ELEMENT_DIV, LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, MEDIUM_BTN_WIDTH, BACKGROUND_COLOR, SMALL_ELEMENT_DIV, WIDE_PANEL
 from pygame_gui.core.interfaces import IUIElementInterface
 from pygame_gui.core import UIElement
@@ -98,7 +100,7 @@ class AbstractScreen(ABC):
         self._gui_manager=gui_manager
         self._panel_handler=panel_handler
         self._screen_id=screen
-        self._controller=None
+        self._controller: GameController 
     
     @property
     def screen(self)->Screens:
@@ -115,7 +117,7 @@ class AbstractScreen(ABC):
         """This is where your screen is displayed"""
         raise NotImplementedError("Please implement this method")
     
-    def set_controller(self, controller: ControllerPlaceholder)->None:
+    def set_controller(self, controller: GameController)->None:
         self._controller=controller
 
 class View:
@@ -205,7 +207,7 @@ class View:
         for event in pygame.event.get():
             self._on_event(event) #handles generated events 
 
-    def set_controller(self, controller:ControllerPlaceholder)->None:
+    def set_controller(self, controller:GameController)->None:
         """A function to connect the controller to the view"""
         self._controller=controller
         #Communicate controller to all screens
@@ -280,7 +282,7 @@ class NewLobbyScreen(AbstractScreen):
         if len(tmp)>0 and str.isspace(tmp)==False: #the lobby name field is filled by chars, not empty or only whitespaces
             lobby_name=self._field.text #save new lobby name in global variable
             self._create_lobby_button.is_enabled=True
-            #TODO: communicate lobby name to controller
+            self._controller.create_lobby(lobby_name, "") #TODO: add waiting for lobby to be created
         else:
             self._create_lobby_button.is_enabled=False
             lobby_name=""
@@ -1015,7 +1017,7 @@ class RoleDisplayScreen(AbstractScreen):
 
 if __name__ == "__main__":
     my_app=View()
-    controller=ControllerPlaceholder()
+    controller=GameController(TcpMdnsLobbyBrowser(), Peer("Peer"))
     my_app.set_controller(controller)
     while my_app.app_running:
         my_app.update_display()
