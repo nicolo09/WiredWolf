@@ -287,17 +287,12 @@ class EventSender(ABC):
 
     @abstractmethod
     def players_to_nominate_for_execution(self, players:list[str])->None:
-        """The list of players possible to choose from when nominating for execution"""
+        """The list of players possible to choose from when nominating for execution and starts voting"""
         raise NotImplementedError("Please implement this method")
 
     @abstractmethod
     def start_voting_for_nominations(self)->None:
         """Players can start nominating for execution"""
-        raise NotImplementedError("Please implement this method")
-
-    @abstractmethod
-    def start_voting_for_execution(self)->None:
-        """Players can start voting for execution"""
         raise NotImplementedError("Please implement this method")
     
     @abstractmethod
@@ -334,21 +329,12 @@ class EventSender(ABC):
     def villager_win(self)->None:
         """Tells the view that villagers won"""
         raise NotImplementedError("Please implement this method")
-    
-    @abstractmethod
-    def villager_loss(self)->None:
-        """Tells the view that villagers lost"""
-        raise NotImplementedError("Please implement this method")
 
     @abstractmethod
     def werewolf_win(self)->None:
         """Tells the view that werewolves won"""
         raise NotImplementedError("Please implement this method")
 
-    @abstractmethod
-    def werewolf_loss(self)->None:
-        """Tells the view that werewolves lost"""
-        raise NotImplementedError("Please implement this method")
 
 class StatusMessages():
     """A simple class that constructs messages sent by the server. It keeps count of days"""
@@ -455,6 +441,7 @@ class CustomEventSender(EventSender):
     def players_to_nominate_for_execution(self, players: list[str]) -> None:
         for elem in players:
             self.send_event_add_user(elem)
+        self.start_voting_for_execution()
 
     def start_voting_for_nominations(self) -> None:
         self.send_event_timeout()
@@ -491,18 +478,9 @@ class CustomEventSender(EventSender):
     def villager_win(self) -> None:
        self.send_event_chat_message(self._status_messages.villager_win())
 
-    def villager_loss(self) -> None:
-        #TODO: fix
-        #self.send_event_to_screen(Screens.VILLAGER_LOSS)
-        return
-
     def werewolf_win(self) -> None:
         self.send_event_chat_message(self._status_messages.wolf_win())
 
     def day_message(self)->None:
         self.send_event_chat_message(self._status_messages.message_day())
 
-    def werewolf_loss(self) -> None:
-        #TODO: fix
-        #self.send_event_to_screen(Screens.WOLF_LOSS)
-        return

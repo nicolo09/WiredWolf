@@ -411,6 +411,7 @@ class WaitingLobbyScreen(AbstractScreen):
         self._counter=1
         self._users_list:list[pygame_gui.elements.UILabel]=[]
         self._create_users_panel()
+        #TODO: Get initial state (users connected) of the lobby from controller
         
     def run(self,event:pygame.event.Event)->None:
         """A simple waiting screen"""
@@ -527,7 +528,8 @@ class WaitingLobbyScreen(AbstractScreen):
             self.reset_screen() #resets current screen for next time this is used
             #Sends message that says what day it is
             self._custom_event_sender.day_message() #All other players receive the message when switching screens via event. The master won't receive this unless it sends a message to itself
-            #TODO: send message to controller that master started the game
+            #Send message to controller that master started the game
+            self._controller.start_game() #TODO: make waiting for start game
         else:
             #error message
             tkinter.Tk().wm_withdraw() #to hide the main window
@@ -575,8 +577,7 @@ class DayVotingScreen(AbstractScreen):
                 #if the message is not the last message sent and it's not empty, then send the new message
                 self._text_box.reset_last_input() #clear internal memory
                 global username
-                #TODO: communicate with controller the message
-                self._send_message(username+":"+tmp)
+                self._controller.send_chat_message(username+":"+tmp) #TODO: start coroutine and ignore result. If it fails the controller will notify you
 
             self._gui_manager.process_events(event) #processes pygame_gui events
             if event.type == pygame_gui.UI_BUTTON_PRESSED:
@@ -756,7 +757,8 @@ class DayExecutionScreen(AbstractScreen):
                 #if the message is not the last message sent and it's not empty, then send the new message
                 self._text_box.reset_last_input() #clear internal memory
                 global username
-                self._send_message(username+":"+tmp) #TODO: communicate with controller the message
+                self._controller.send_chat_message(username+":"+tmp) #TODO: start coroutine and ignore result. If it fails the controller will notify you
+                
             self._gui_manager.process_events(event) #processes pygame_gui events
         if event.type==custom_event:
             #parse the custom event into an object
@@ -899,14 +901,15 @@ class NightRoleScreen(AbstractScreen):
                 global voted_player
                 voted_player=event.ui_element.text
                 #TODO: communicate to controller that user acted on given player
+                self._controller.choose_player(voted_player)
+                #TODO: MAKE PLAYER IS A PEER
                 self._voting_panel.disable() #Can only act once 
         if event.type==pygame_gui.UI_TEXT_ENTRY_FINISHED:
             #Enter is entered in the textbox
             if len(event.text)>0 and str.isspace(event.text)==False:
                 #Message isn't empty
-                self._send_message(username+":"+event.text)
+                self._controller.send_chat_message(username+":"+event.text) #TODO: start coroutine and ignore result. If it fails the controller will notify you
                 self._text_input.clear() #Remove message
-                #TODO: send message to controller, that sends it to other wolves
         if event.type==custom_event:
             #parse the custom event into an object
             e=create_custom_event_from_dict(event.dict)
@@ -933,7 +936,7 @@ class NightRoleScreen(AbstractScreen):
                 self._role_name=e.role
                 self._role_text.text="Use your power, "+self._role_name
                 self._role_container.update_on_next_draw()
-                #TODO: if role==werewolf
+                #TODO: if role==werewolf (role is already stored somewhere)
                 self._chat_panel.show()
                 self._input_panel.show()
                 #Otherwise panels stay hidden
