@@ -282,7 +282,7 @@ class NewLobbyScreen(AbstractScreen):
         if len(tmp)>0 and str.isspace(tmp)==False: #the lobby name field is filled by chars, not empty or only whitespaces
             lobby_name=self._field.text #save new lobby name in global variable
             self._create_lobby_button.is_enabled=True
-            self._controller.create_lobby(lobby_name, "") #TODO: add waiting for lobby to be created
+            result=self._controller.create_lobby(lobby_name, "") #TODO: add waiting for lobby to be created
         else:
             self._create_lobby_button.is_enabled=False
             lobby_name=""
@@ -529,7 +529,7 @@ class WaitingLobbyScreen(AbstractScreen):
             #Sends message that says what day it is
             self._custom_event_sender.day_message() #All other players receive the message when switching screens via event. The master won't receive this unless it sends a message to itself
             #Send message to controller that master started the game
-            self._controller.start_game() #TODO: make waiting for start game
+            result=self._controller.start_game() #TODO: make waiting for start game
         else:
             #error message
             tkinter.Tk().wm_withdraw() #to hide the main window
@@ -577,7 +577,7 @@ class DayVotingScreen(AbstractScreen):
                 #if the message is not the last message sent and it's not empty, then send the new message
                 self._text_box.reset_last_input() #clear internal memory
                 global username
-                self._controller.send_chat_message(username+":"+tmp) #TODO: start coroutine and ignore result. If it fails the controller will notify you
+                result=self._controller.send_chat_message(username+":"+tmp) #TODO: start coroutine and ignore result. If it fails the controller will notify you
 
             self._gui_manager.process_events(event) #processes pygame_gui events
             if event.type == pygame_gui.UI_BUTTON_PRESSED:
@@ -757,7 +757,7 @@ class DayExecutionScreen(AbstractScreen):
                 #if the message is not the last message sent and it's not empty, then send the new message
                 self._text_box.reset_last_input() #clear internal memory
                 global username
-                self._controller.send_chat_message(username+":"+tmp) #TODO: start coroutine and ignore result. If it fails the controller will notify you
+                result=self._controller.send_chat_message(username+":"+tmp) #TODO: start coroutine and ignore result. If it fails the controller will notify you
                 
             self._gui_manager.process_events(event) #processes pygame_gui events
         if event.type==custom_event:
@@ -901,14 +901,14 @@ class NightRoleScreen(AbstractScreen):
                 global voted_player
                 voted_player=event.ui_element.text
                 #TODO: communicate to controller that user acted on given player
-                self._controller.choose_player(voted_player)
+                result=self._controller.choose_player(voted_player)
                 #TODO: MAKE PLAYER IS A PEER
                 self._voting_panel.disable() #Can only act once 
         if event.type==pygame_gui.UI_TEXT_ENTRY_FINISHED:
             #Enter is entered in the textbox
             if len(event.text)>0 and str.isspace(event.text)==False:
                 #Message isn't empty
-                self._controller.send_chat_message(username+":"+event.text) #TODO: start coroutine and ignore result. If it fails the controller will notify you
+                result=self._controller.send_chat_message(username+":"+event.text) #TODO: start coroutine and ignore result. If it fails the controller will notify you
                 self._text_input.clear() #Remove message
         if event.type==custom_event:
             #parse the custom event into an object
