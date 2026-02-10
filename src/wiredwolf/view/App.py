@@ -314,6 +314,7 @@ class LoadingLobbyScreen(AbstractScreen):
         if self._current_progress>=100 or self._current_progress<=2:
             self._step=-self._step #Inverts progress
         self._loading_bar.set_current_progress(self._current_progress)
+        #TODO: when lobby is created, change screen to join lobby
 
     def reset_screen(self) -> None:
         #Delete panel and create it new
@@ -322,8 +323,9 @@ class LoadingLobbyScreen(AbstractScreen):
 
     def _create_loading_panel(self)->None:
         """Creates the panel containing the loading element"""
-        self._loading_container=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(0,0, 110, 100), anchors={'centerx':'centerx', 'centery': 'centery'})
-        self._loading_bar=pygame_gui.elements.UIProgressBar(pygame.rect.Rect(0,0, 100, 50), manager=self._gui_manager, container=self._loading_container)
+        self._loading_container=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(0,0, 200, 200), anchors={'centerx':'centerx', 'centery': 'centery'})
+        self._loading_text=pygame_gui.elements.UILabel(relative_rect=pygame.Rect((0, 0), (-1, -1)), text="Creating a new lobby...", manager=self._gui_manager, anchors={'centery': 'centery', 'centerx':'centerx'}, container=self._loading_container)
+        self._loading_bar=pygame_gui.elements.UIProgressBar(pygame.rect.Rect(0,10, 100, 50), manager=self._gui_manager, container=self._loading_container, anchors={'top_target': self._loading_text, 'centerx':'centerx'})
         #TODO: create a class to hide progressbar text
         self._current_progress=2
         self._step=1
