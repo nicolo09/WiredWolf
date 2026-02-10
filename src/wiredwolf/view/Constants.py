@@ -11,6 +11,7 @@ class Screens(Enum):
     NIGHT_VILLAGER='night'
     NIGHT_ROLE='night role'
     ROLE_DISPLAY='role display'
+    LOADING_LOBBY='loading lobby'
 
 class EventType(Enum): #Used to easily identify the type of event sent
     CHANGE_SCREEN='change-screen'

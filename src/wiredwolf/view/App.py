@@ -146,6 +146,7 @@ class View:
         self._night_villager_screen=NightVillagerScreen(Screens.NIGHT_VILLAGER, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler)
         self._night_role_screen=NightRoleScreen(Screens.NIGHT_ROLE, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler)
         self._role_display_screen=RoleDisplayScreen(Screens.ROLE_DISPLAY, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler)
+        self._loading_screen=LoadingLobbyScreen(Screens.LOADING_LOBBY, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler)
         self._dictionary:dict[Screens, AbstractScreen]={self._start_screen.screen: self._start_screen,
                           self._new_lobby_screen.screen:self._new_lobby_screen, 
                           self._search_lobby_screen.screen:self._search_lobby_screen, 
@@ -154,7 +155,8 @@ class View:
                           self._day_execution_screen.screen: self._day_execution_screen,
                           self._night_villager_screen.screen: self._night_villager_screen,
                           self._night_role_screen.screen: self._night_role_screen,
-                          self._role_display_screen.screen: self._role_display_screen}
+                          self._role_display_screen.screen: self._role_display_screen,
+                          self._loading_screen.screen: self._loading_screen}
         self._clock = pygame.time.Clock()
         #Activate panels of first screen
         self._panel_handler.show_screens(self._game_state_manager.current_state)
@@ -293,6 +295,37 @@ class NewLobbyScreen(AbstractScreen):
         self._field.text=""
         self._create_lobby_button.is_enabled=False
         pass
+
+class LoadingLobbyScreen(AbstractScreen):
+    """A simple loading screen shown when a lobby is being created"""
+    def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler) -> None:
+        super().__init__(screen, display, game_state_manager, gui_manager, panel_handler)
+        self._loading_container:pygame_gui.elements.UIPanel
+        self._loading_bar:pygame_gui.elements.UIProgressBar
+        self._current_progress=0
+        self._step=1
+        self._create_loading_panel()
+
+    def run(self, event:pygame.event.Event)->None:
+        self._display.fill(BACKGROUND_COLOR) #fills the background color for the application
+        self._gui_manager.draw_ui(self._display)
+        self._gui_manager.process_events(event) #processes pygame_gui events
+        self._current_progress=self._current_progress+self._step
+        if self._current_progress>=100 or self._current_progress<=0:
+            self._step=-self._step #Inverts progress
+        self._loading_bar.set_current_progress(self._current_progress)
+
+    def reset_screen(self) -> None:
+        #Delete panel and create it new
+        self._panel_handler.delete_panels(self._screen_id)
+        self._create_loading_panel()
+
+    def _create_loading_panel(self)->None:
+        """Creates the panel containing the loading element"""
+        self._loading_container=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(0,0, 100, 100), anchors={'centerx':'centerx', 'centery': 'centery'})
+        self._loading_bar=pygame_gui.elements.UIProgressBar(pygame.rect.Rect(0,0, 100, 50), manager=self._gui_manager, container=self._loading_container)
+        self._current_progress=0
+        self._step=1
 
 class SearchLobbyScreen(AbstractScreen):
     """A simple search lobby screen"""
