@@ -78,15 +78,16 @@ class EscortDecorator(GameInfoDecorator):
     The Escort can protect one player per night from werewolf attacks.
     """
 
-    # FIXME: When recreating from GameActionData, the player must be the same instance as in the players list
-    # even though it should be already set as protected in the player status
     def __init__(
-        self, wrapped: AbstractGameInfo, game_data: GameActionData | None = None
+        self, wrapped: AbstractGameInfo, game_data: GameActionData | None = None, players: list[Player] = []
     ) -> None:
         super().__init__(wrapped)
-        if game_data is not None and "protected_player" in game_data.data:
+        if game_data is not None and len(players) > 0 and "protected_player" in game_data.data:
             self._escort_acted: bool = True
-            self._protected_player: Player | None = game_data.data["protected_player"]
+            protected_id = game_data.data["protected_player"]
+            self._protected_player: Player | None = next(
+                (p for p in players if p.id == protected_id), None
+            )
         else:
             self._escort_acted: bool = False
             self._protected_player: Player | None = None
@@ -98,8 +99,10 @@ class EscortDecorator(GameInfoDecorator):
     def get_decorator_data(self) -> GameActionData:
         return GameActionData(
             {
-                "protected_player": self._protected_player,
+                "protected_player": self._protected_player.id,
             }
+            if self._protected_player is not None
+            else {}
         )
 
     def reset_actions(self) -> None:
@@ -231,10 +234,11 @@ class BasicGameInfoBuilder:
     """
 
     def __init__(
-        self, game_info: AbstractGameInfo, game_data: GameActionData | None = None
+        self, game_info: AbstractGameInfo, game_data: GameActionData | None = None, players: list[Player] = []
     ) -> None:
         self._game_info: AbstractGameInfo = game_info
         self._game_data: GameActionData | None = game_data
+        self._players: list[Player] = players
 
     @classmethod
     def default(cls) -> "BasicGameInfoBuilder":
@@ -247,7 +251,7 @@ class BasicGameInfoBuilder:
         return cls(SimpleGameInfo())
 
     @classmethod
-    def with_game_data(cls, game_data: GameActionData) -> "BasicGameInfoBuilder":
+    def with_game_data(cls, game_data: GameActionData, players: list[Player]) -> "BasicGameInfoBuilder":
         """
         Create a builder with a given game data which will be used to initialize the game.
 
@@ -257,7 +261,7 @@ class BasicGameInfoBuilder:
         Returns:
             BasicGameInfoBuilder: A new builder with the specified game data.
         """
-        return cls(SimpleGameInfo(game_data), game_data)
+        return cls(SimpleGameInfo(game_data), game_data, players)
 
     def with_clairvoyant(self) -> "BasicGameInfoBuilder":
         """
@@ -278,7 +282,7 @@ class BasicGameInfoBuilder:
             BasicGameInfoBuilder: This builder.
         """
         if Role.ESCORT not in self._game_info.get_all_handled_roles():
-            self._game_info = EscortDecorator(self._game_info, self._game_data)
+            self._game_info = EscortDecorator(self._game_info, self._game_data, self._players)
         return self
 
     def with_medium(self) -> "BasicGameInfoBuilder":

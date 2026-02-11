@@ -182,3 +182,22 @@ class GameStatusTest(unittest.TestCase):
 
         for status in [gs_werewolf_action, gs_escort_action, gs_clairvoyant_action]:
             self.assertNotEqual(self.game.get_game_status(), status)
+
+    def test_player_status_consistency(self):
+            self.game.advance_phase()
+            self.game.advance_phase() # Night phase
+            
+            self.game.perform_night_action("Bob", "Alice") # Werewolf targets Alice
+            self.game.perform_night_action("Charlie", "Alice") # Escort protects Alice
+            
+            status: GameStatus = self.game.get_game_status()
+            #TODO: if possible serialize and deserialize the game status to ensure that it is consistent even after serialization
+            new_game: Game = Game.from_game_status(status) # Previous game crashed, so recreate it
+            
+            new_game.advance_phase() # Day phase
+            
+            # Alice should be alive because she was protected by the Escort
+            self.assertEqual(
+                new_game.players[get_index_by_name(new_game.players, "Alice")].status,
+                Status.ALIVE,
+            )
