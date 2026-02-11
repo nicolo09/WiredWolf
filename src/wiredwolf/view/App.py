@@ -931,7 +931,6 @@ class NightRoleScreen(AbstractScreen):
         self._chat_messages:list[pygame_gui.elements.UILabel]=[]
         #Wolves chat input
         self._create_input_panel()
-        self._text_input=pygame_gui.elements.UITextEntryLine(relative_rect=(0,0,MEDIUM_BTN_WIDTH, AUTO_SIZING), manager=self._gui_manager, initial_text="",container=self._input_panel)
 
     def run(self,event:pygame.event.Event)->None:
         """A night non villager role screen"""
@@ -1014,6 +1013,7 @@ class NightRoleScreen(AbstractScreen):
         self._input_panel=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(-MEDIUM_PANEL,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'top_target': self._chat_panel}, always_on=False)
         #Positioning is: below chat panel, same distance from right side as chat panel
         #Panel default hidden unless werewolf role is set
+        self._text_input=pygame_gui.elements.UITextEntryLine(relative_rect=(0,0,MEDIUM_BTN_WIDTH, AUTO_SIZING), manager=self._gui_manager, initial_text="",container=self._input_panel)
 
     def _send_message(self, message:str)->None:
         """Function called to display a new message in chat"""
