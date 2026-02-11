@@ -35,22 +35,28 @@ class Status(Enum):
 
 
 class Player:
-    """Represents a player in the game with an ID, role, and status."""
+    """Represents a player in the game with an ID, name, role, and status."""
 
-    def __init__(self, id: str, role: Role):
-        """Initializes a new player with the given ID and role.
+    def __init__(self, id: str, name: str, role: Role):
+        """Initializes a new player with the given ID, name, and role.
            All players start with the status set to ALIVE.
         Args:
             id (str): The unique identifier for the player.
+            name (str): The name of the player.
             role (Role): The role assigned to the player.
         """
         self._id: str = id
+        self._name: str = name
         self._status: Status = Status.ALIVE
         self._role: Role = role
 
     @property
     def id(self) -> str:
         return self._id
+    
+    @property
+    def name(self) -> str:
+        return self._name
 
     @property
     def role(self) -> Role:
@@ -77,7 +83,7 @@ class Player:
         return self._role.alignment
 
     def __str__(self) -> str:
-        return f"Player(id={self._id}, role={self._role}, status={self._status})"
+        return f"Player(id={self._id}, name={self._name}, role={self._role}, status={self._status})"
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -86,26 +92,27 @@ class Player:
         if isinstance(other, Player):
             return (
                 self._id == other._id
+                and self._name == other._name
                 and self._role == other._role
                 and self._status == other._status
             )
         return False
 
     def __hash__(self) -> int:
-        return hash((self._id, self._role))
+        return hash((self._id, self._name, self._role))
 
 
-def create_players(ids: list[str], roles: set[Role]) -> list[Player]:
+def create_players(ids: dict[str, str], roles: set[Role]) -> list[Player]:
     """Creates a list of players with the given ids and assigns roles randomly.
     Args:
-        ids (list[str]): A list of player IDs.
-        special_roles (set[Role]): A set of special roles to assign to players.
+        ids (dict[str, str]): A dictionary mapping player IDs to player names.
+        roles (set[Role]): A set of roles to assign to players.
 
     Returns:
         list[Player]: A list of Player objects with assigned roles.
 
     Raises:
-        ValueError: If there are not enough players to assign the specified special roles and at least 2 werewolves.
+        ValueError: If there are not enough players to assign the specified roles and at least 2 werewolves.
 
     Note: villager and werewolf are handled by default
     """
@@ -122,9 +129,10 @@ def create_players(ids: list[str], roles: set[Role]) -> list[Player]:
             "Not enough players to assign the specified special roles and werewolves (minimum 2 werewolves required)."
         )
 
-    random.shuffle(ids)
+    id_list = list(ids.keys())
+    random.shuffle(id_list)
 
-    for id in ids:
+    for id in id_list:
         if special_roles:
             role = special_roles.pop()
         elif werewolves_number > 0:
@@ -132,6 +140,6 @@ def create_players(ids: list[str], roles: set[Role]) -> list[Player]:
             werewolves_number -= 1
         else:
             role = Role.VILLAGER
-        players.append(Player(id, role))
+        players.append(Player(id, ids[id], role))
 
     return players

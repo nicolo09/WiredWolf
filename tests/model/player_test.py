@@ -6,20 +6,20 @@ from wiredwolf.model.player import *
 class TestPlayer(unittest.TestCase):
 
     def setUp(self):
-        self.villager = Player("Alice", Role.VILLAGER)
-        self.werewolf = Player("Bob", Role.WEREWOLF)
+        self.villager = Player("01", "Alice", Role.VILLAGER)
+        self.werewolf = Player("02", "Bob", Role.WEREWOLF)
 
     def test_player_creation(self):
-        ids: list[str] = [
-            "Alice",
-            "Bob",
-            "Charlie",
-            "Diana",
-            "Eve",
-            "Frank",
-            "Grace",
-            "Hank",
-        ]
+        ids: dict[str, str] = {
+            "01": "Alice",
+            "02": "Bob",
+            "03": "Charlie",
+            "04": "Diana",
+            "05": "Eve",
+            "06": "Frank",
+            "07": "Grace",
+            "08": "Hank",
+        }
         special_roles: set[Role] = {
             Role.ESCORT,
             Role.CLAIRVOYANT,

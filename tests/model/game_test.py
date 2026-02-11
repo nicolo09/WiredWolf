@@ -12,30 +12,30 @@ from wiredwolf.model.player import Player, Role, Status
 
 def populate_players() -> list[Player]:
 
-    # For simplicity, the name of the players is used as their ID.
-    # In a real game, IDs would likely be more complex.
+    # For simplicity, we are using the same name as id,
+    # but in a real implementation these would be unique identifiers.
 
     return [
-        Player("Alice", Role.VILLAGER),
-        Player("Bob", Role.WEREWOLF),
-        Player("Charlie", Role.ESCORT),
-        Player("Diana", Role.CLAIRVOYANT),
-        Player("Eve", Role.MEDIUM),
-        Player("Frank", Role.WEREWOLF),
-        Player("Grace", Role.VILLAGER),
+        Player("Alice", "Alice", Role.VILLAGER),
+        Player("Bob", "Bob", Role.WEREWOLF),
+        Player("Charlie", "Charlie", Role.ESCORT),
+        Player("Diana", "Diana", Role.CLAIRVOYANT),
+        Player("Eve", "Eve", Role.MEDIUM),
+        Player("Frank", "Frank", Role.WEREWOLF),
+        Player("Grace", "Grace", Role.VILLAGER),
     ]
 
 
 def create_game_info() -> AbstractGameInfo:
     return create_standard_game()
 
-
+#FIXME: remove and make it better
 def get_index_by_name(players: list[Player], name: str) -> int:
     """
     Helper function to get the index of a player by their name.
     """
     for index, player in enumerate(players):
-        if player.id == name:
+        if player.name == name:
             return index
     raise ValueError(f"Player with name {name} not found.")
 
