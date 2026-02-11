@@ -48,7 +48,7 @@ class ClairvoyantDecorator(GameInfoDecorator):
                 raise InvalidActionError("Clairvoyant cannot target dead players.")
             self._clairvoyant_acted = True
             return NightActionResult(
-                f"Clairvoyant investigated {target.id}: {target.get_alignment()}."
+                f"Clairvoyant investigated {target.name}: {target.get_alignment()}."
             )
         return super()._handle_night_actions(actor, target)
     
@@ -125,7 +125,7 @@ class EscortDecorator(GameInfoDecorator):
             self._escort_acted = True
             target.status = Status.PROTECTED
             self._protected_player = target
-            return NightActionResult(message=f"Escort protected {target.id}.")
+            return NightActionResult(message=f"Escort protected {target.name}.")
         return super()._handle_night_actions(actor, target)
 
     def remove_player(self, player: Player, gamephase: GamePhase) -> None:
@@ -205,7 +205,7 @@ class MediumDecorator(GameInfoDecorator):
                 raise InvalidActionError("Medium cannot target alive players.")
             self._medium_acted = True
             return NightActionResult(
-                f"Medium communicated with {target.id}: {target.get_alignment()}."
+                f"Medium communicated with {target.name}: {target.get_alignment()}."
             )
         return super()._handle_night_actions(actor, target)
     

@@ -220,7 +220,7 @@ class SimpleGameInfo(AbstractGameInfo):
             if not target.is_alive():
                 raise InvalidActionError("Cannot vote for dead player.")
             self._werewolves_votes[actor] = target
-        return NightActionResult(message="Action processed.")
+        return NightActionResult(message=f"Werewolf {actor.name} voted for {target.name}.")
 
     def reset_actions(self) -> None:
         self._accusation_votes.clear()
