@@ -27,6 +27,7 @@
             "disabled_bg": "#727272",
             "normal_text": "#1A1A1A",
             "active_text":"#1A1A1A",
+            "disabled_text":"#1A1A1A",
             "hovered_text":"#1A1A1A"
          },
         
