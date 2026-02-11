@@ -1,10 +1,11 @@
+import asyncio
 import pygame
 import pygame_gui
 import tkinter
 from abc import ABC, abstractmethod
 from wiredwolf.controller.commons import Peer
 from wiredwolf.controller.controller import GameController
-from wiredwolf.controller.lobbies import TcpMdnsLobbyBrowser
+from wiredwolf.controller.lobbies import Lobby, TcpMdnsLobbyBrowser
 from wiredwolf.view.custom_events import ChangeScreenType, ChatMessageType, CustomEventSender, LobbyType, EventSender, GameRoleType, TimeOutType, UsersType, create_custom_event_from_dict
 from wiredwolf.view.components import CallbackButton, MemoryTextField, VContainer, HContainer, EnabledButton, Text, TextField, DrawableComponent
 from wiredwolf.view.constants import FontSize, Screens
@@ -13,6 +14,7 @@ from wiredwolf.view.view_constants import AUTO_SIZING, HORIZONTAL_SPACE_FOR_SCRO
 from pygame_gui.core.interfaces import IUIElementInterface
 from pygame_gui.core import UIElement
 from tkinter import messagebox
+from asyncio import Future, Task
 
 FPS=60
 username=""
@@ -263,8 +265,7 @@ class NewLobbyScreen(AbstractScreen):
         self._title=VContainer(SINGLE_ELEMENT_DIV,[Text("Create a new lobby")], self._display.get_size(), (50,20))
         lobby_name=Text("Insert the new lobby name", font=FontSize.H2)
         self._field=TextField(LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT)
-        create_lobby=partial(self._game_state_manager.change_screen, Screens.LOBBY_WAITING)
-        self._create_lobby_button=EnabledButton(create_lobby, 'Create the new lobby!', LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT,font=FontSize.H2)
+        self._create_lobby_button=EnabledButton(self.create_lobby, 'Create the new lobby!', LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT,font=FontSize.H2)
         go_home=partial(self._game_state_manager.change_screen, Screens.HOME)
         go_home_button=CallbackButton(go_home, 'Go back to start screen', LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT ,font=FontSize.H2)
         self._button_container=VContainer(MEDIUM_ELEMENT_DIV, [lobby_name, self._field, self._create_lobby_button], self._display.get_size())
@@ -284,7 +285,6 @@ class NewLobbyScreen(AbstractScreen):
         if len(tmp)>0 and str.isspace(tmp)==False: #the lobby name field is filled by chars, not empty or only whitespaces
             lobby_name=self._field.text #save new lobby name in global variable
             self._create_lobby_button.is_enabled=True
-            result=self._controller.create_lobby(lobby_name, "") #TODO: add waiting for lobby to be created
         else:
             self._create_lobby_button.is_enabled=False
             lobby_name=""
@@ -294,7 +294,19 @@ class NewLobbyScreen(AbstractScreen):
         #Reset lobby name
         self._field.text=""
         self._create_lobby_button.is_enabled=False
-        pass
+        
+
+    def create_lobby(self)->None:
+        """The function called when the lobby is actually created"""
+        lobby_created=asyncio.create_task(self._controller.create_lobby(lobby_name, ""))
+        lobby_created.add_done_callback(self._on_lobby_created) #TODO: fix RuntimeError: no running event loop 
+        #RuntimeWarning: coroutine 'GameController.create_lobby' was never awaited
+        self._game_state_manager.change_screen(Screens.LOADING_LOBBY)
+
+
+    def _on_lobby_created(self, future: Future[Lobby])->None:
+        print("TEST")
+        
 
 class LoadingLobbyScreen(AbstractScreen):
     """A simple loading screen shown when a lobby is being created"""
