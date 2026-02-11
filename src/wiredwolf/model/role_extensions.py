@@ -51,6 +51,11 @@ class ClairvoyantDecorator(GameInfoDecorator):
                 f"Clairvoyant investigated {target.id}: {target.get_alignment()}."
             )
         return super()._handle_night_actions(actor, target)
+    
+    def get_possible_targets(self, role: Role, players: list[Player]) -> list[Player]:
+        if role == Role.CLAIRVOYANT:
+            return [player for player in players if player.is_alive()]
+        return self._wrapped.get_possible_targets(role, players)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, AbstractGameInfo):
@@ -130,6 +135,11 @@ class EscortDecorator(GameInfoDecorator):
                 self._protected_player = None
                 self._escort_acted = False
         super().remove_player(player, gamephase)
+        
+    def get_possible_targets(self, role: Role, players: list[Player]) -> list[Player]:
+        if role == Role.ESCORT:
+            return [player for player in players if player.is_alive()]
+        return self._wrapped.get_possible_targets(role, players)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, AbstractGameInfo):
@@ -195,6 +205,11 @@ class MediumDecorator(GameInfoDecorator):
                 f"Medium communicated with {target.id}: {target.get_alignment()}."
             )
         return super()._handle_night_actions(actor, target)
+    
+    def get_possible_targets(self, role: Role, players: list[Player]) -> list[Player]:
+        if role == Role.MEDIUM:
+            return [player for player in players if not player.is_alive()]
+        return self._wrapped.get_possible_targets(role, players)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, AbstractGameInfo):

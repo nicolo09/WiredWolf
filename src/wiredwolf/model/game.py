@@ -59,7 +59,9 @@ class Game:
         """
         return cls(
             game_status.players,
-            BasicGameInfoBuilder.with_game_data(game_status.game_data)
+            BasicGameInfoBuilder.with_game_data(
+                game_status.game_data, game_status.players
+            )
             .with_roles(game_status.roles)
             .build(),
             game_status.phase,
@@ -320,3 +322,22 @@ class Game:
 
         # Return the player only if there's exactly one winner
         return most_voted_players[0] if len(most_voted_players) == 1 else None
+
+
+def can_perform_action_on(player: Player, game_status: GameStatus) -> list[Player]:
+    """Helper function to determine possible targets for a player's night action based on their role and the current game status.
+
+    Args:
+        player (Player): The player for whom to determine possible action targets.
+        game_status (GameStatus): The current status of the game.
+
+    Returns:
+        list[Player]: A list of players that the given player can target with their night action.
+    """
+
+    game_info: AbstractGameInfo = (
+        BasicGameInfoBuilder.with_game_data(game_status.game_data, game_status.players)
+        .with_roles(game_status.roles)
+        .build()
+    )
+    return game_info.get_possible_targets(player.role, game_status.players)
