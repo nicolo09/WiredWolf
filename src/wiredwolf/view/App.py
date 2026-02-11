@@ -263,50 +263,72 @@ class NewLobbyScreen(AbstractScreen):
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler)
         self._title=VContainer(SINGLE_ELEMENT_DIV,[Text("Create a new lobby")], self._display.get_size(), (50,20))
-        lobby_name=Text("Insert the new lobby name", font=FontSize.H2)
-        self._field=TextField(LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT)
-        self._create_lobby_button=EnabledButton(self.create_lobby, 'Create the new lobby!', LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT,font=FontSize.H2)
-        go_home=partial(self._game_state_manager.change_screen, Screens.HOME)
-        go_home_button=CallbackButton(go_home, 'Go back to start screen', LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT ,font=FontSize.H2)
-        self._button_container=VContainer(MEDIUM_ELEMENT_DIV, [lobby_name, self._field, self._create_lobby_button], self._display.get_size())
-        self._button_back=VContainer(SINGLE_ELEMENT_DIV, [go_home_button], self._display.get_size(), (50, 80))
+        self._panel:pygame_gui.elements.UIPanel
+        self._field:pygame_gui.elements.UITextEntryLine
+        self._password_field:pygame_gui.elements.UITextEntryLine
+        self._create_lobby_button:pygame_gui.elements.UIButton
+        self._go_home_button:pygame_gui.elements.UIButton
+        self._current_name:str
+        self._password=""
+        self._create_input_panel()
     
     def run(self,event:pygame.event.Event)->None:
         """The new lobby screen, to create a new lobby"""
         self._display.fill(BACKGROUND_COLOR)
         self._gui_manager.draw_ui(self._display)
         self._title.draw(self._display)
-        self._button_container.draw(self._display)
-        self._button_back.draw(self._display)
-        #Event handling
-        self._field.handle_event(event)
-        tmp=self._field.text
-        global lobby_name
-        if len(tmp)>0 and str.isspace(tmp)==False: #the lobby name field is filled by chars, not empty or only whitespaces
-            lobby_name=self._field.text #save new lobby name in global variable
-            self._create_lobby_button.is_enabled=True
-        else:
-            self._create_lobby_button.is_enabled=False
-            lobby_name=""
         self._gui_manager.process_events(event) #processes pygame_gui events
+        
+        #the lobby name field is filled by chars, not empty or only whitespaces
+        if self._field.text!=None and self._current_name!=self._field.text:
+            self._current_name=self._field.text
+            #Lobby field must be not empty otherwise the lobby can't be created
+            if len(self._current_name)>0 and str.isspace(self._current_name)==False:
+                self._create_lobby_button.enable()
+            else:
+                self._create_lobby_button.disable()
+
+        if event.type == pygame_gui.UI_BUTTON_PRESSED:
+            #A pygame_gui button is pressed
+            if event.ui_element==self._create_lobby_button:
+                #save lobby name
+                global lobby_name
+                lobby_name=self._current_name
+                self._password=self._password_field.text
+                self._create_lobby()
+                self._game_state_manager.change_screen(Screens.LOBBY_WAITING)
+                self.reset_screen()
+            if event.ui_element==self._go_home_button:
+                #go back to home screen
+                self._game_state_manager.change_screen(Screens.HOME)
+                self.reset_screen()    
             
     def reset_screen(self) -> None:
         #Reset lobby name
-        self._field.text=""
-        self._create_lobby_button.is_enabled=False
+        self._panel_handler.delete_panels(self._screen_id)
+        self._create_input_panel()
+        self._password=""
         
-
-    def create_lobby(self)->None:
+    def _create_lobby(self)->None:
         """The function called when the lobby is actually created"""
-        lobby_created=asyncio.create_task(self._controller.create_lobby(lobby_name, ""))
+        lobby_created=asyncio.create_task(self._controller.create_lobby(lobby_name, self._password))
         lobby_created.add_done_callback(self._on_lobby_created) #TODO: fix RuntimeError: no running event loop 
         #RuntimeWarning: coroutine 'GameController.create_lobby' was never awaited
         self._game_state_manager.change_screen(Screens.LOADING_LOBBY)
 
-
     def _on_lobby_created(self, future: Future[Lobby])->None:
         print("TEST")
-        
+
+    def _create_input_panel(self)->None:
+        self._panel=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(0,-100,LARGE_BTN_WIDTH,LARGE_BTN_WIDTH*6), anchors={'centerx':'centerx', 'centery': 'centery'})
+        lobby_name=pygame_gui.elements.UILabel(pygame.rect.Rect(0,0,-1,-1), text="Insert the new lobby name", manager=self._gui_manager, container=self._panel, anchors={'centerx':'centerx', 'centery': 'centery'})
+        self._field=pygame_gui.elements.UITextEntryLine(pygame.rect.Rect(0,MEDIUM_ELEMENT_DIV,LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT), manager=self._gui_manager, container=self._panel, placeholder_text="", anchors={'centerx':'centerx', 'top_target': lobby_name})
+        password_text=pygame_gui.elements.UILabel(pygame.rect.Rect(0,MEDIUM_ELEMENT_DIV,-1,-1), text="Insert a password (optional)", manager=self._gui_manager, container=self._panel, anchors={'centerx':'centerx', 'top_target': self._field})
+        self._password_field=pygame_gui.elements.UITextEntryLine(pygame.rect.Rect(0,MEDIUM_ELEMENT_DIV,LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT), manager=self._gui_manager, container=self._panel, placeholder_text="", anchors={'centerx':'centerx', 'top_target': password_text})
+        self._create_lobby_button=pygame_gui.elements.UIButton(pygame.rect.Rect(0,MEDIUM_ELEMENT_DIV,LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT), manager=self._gui_manager, container=self._panel, text="Create the new lobby!", anchors={'centerx':'centerx', 'top_target': self._password_field})
+        self._create_lobby_button.disable()
+        self._go_home_button=pygame_gui.elements.UIButton(pygame.rect.Rect(0,MEDIUM_ELEMENT_DIV,LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT), manager=self._gui_manager, container=self._panel, text="Go back to start screen", anchors={'centerx':'centerx', 'top_target': self._create_lobby_button})  
+        self._current_name=""
 
 class LoadingLobbyScreen(AbstractScreen):
     """A simple loading screen shown when a lobby is being created"""
