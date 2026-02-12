@@ -295,6 +295,8 @@ class EventSender(ABC):
         """Players can start nominating for execution"""
         raise NotImplementedError("Please implement this method")
     
+    #Evento inizia a votare a ballot (change screen type)
+    
     @abstractmethod
     def user_to_nominated_for_execution(self, username:str)->None:
         """The user nominated to be executed"""

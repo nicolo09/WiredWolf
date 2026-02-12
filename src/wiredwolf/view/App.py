@@ -310,12 +310,17 @@ class NewLobbyScreen(AbstractScreen):
     def _create_lobby(self)->None:
         """The function called when the lobby is actually created"""
         lobby_created=asyncio.create_task(self._controller.create_lobby(lobby_name, self._password))
-        lobby_created.add_done_callback(self._on_lobby_created) #TODO: fix RuntimeError: no running event loop 
-        #RuntimeWarning: coroutine 'GameController.create_lobby' was never awaited
+        lobby_created.add_done_callback(self._on_lobby_created)
+        self.reset_screen()
         self._game_state_manager.change_screen(Screens.LOADING_LOBBY)
 
     def _on_lobby_created(self, future: Future[Lobby])->None:
-        print("TEST")
+        if future.exception() is None:
+            #Lobby created ok
+            self._game_state_manager.change_screen(Screens.LOBBY_WAITING)
+        else:
+            #TODO: go to error screen
+            pass
 
     def _create_input_panel(self)->None:
         self._panel=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(0,-100,LARGE_BTN_WIDTH,LARGE_BTN_WIDTH*6), anchors={'centerx':'centerx', 'centery': 'centery'})
@@ -392,6 +397,8 @@ class SearchLobbyScreen(AbstractScreen):
                 #join the clicked lobby
                 global lobby_name
                 lobby_name=event.ui_element.text
+                #TODO: ask controller to join lobby
+                #TODO: ask for password (if needed)
                 self._game_state_manager.change_screen(Screens.LOBBY_WAITING)
 
         #Process received custom events
