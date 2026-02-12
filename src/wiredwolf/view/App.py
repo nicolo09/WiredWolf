@@ -18,9 +18,9 @@ from asyncio import Future
 
 FPS=60
 username=""
-lobby_name=""
 voted_user=""
 custom_event=0 #custom event id, to be set by event sender
+lobby:Lobby
 class PanelHandler():
     """A class to handle all panel creations and hiding/showing"""
 
@@ -142,7 +142,7 @@ class View:
         self._start_screen=StartScreen(Screens.HOME, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler)
         self._new_lobby_screen=NewLobbyScreen(Screens.NEW_LOBBY, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler)
         self._search_lobby_screen=SearchLobbyScreen(Screens.SEARCH_LOBBY, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler)
-        self._waiting_lobby_screen=WaitingLobbyScreen(Screens.LOBBY_WAITING, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._event_sender) #TODO: is this ok?
+        self._waiting_lobby_screen=WaitingLobbyScreen(Screens.LOBBY_WAITING, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._event_sender)
         self._day_voting_screen=DayVotingScreen(Screens.DAY_VOTING, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler)
         self._day_execution_screen=DayExecutionScreen(Screens.DAY_EXECUTION, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler)
         self._night_villager_screen=NightVillagerScreen(Screens.NIGHT_VILLAGER, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler)
@@ -291,9 +291,6 @@ class NewLobbyScreen(AbstractScreen):
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
             #A pygame_gui button is pressed
             if event.ui_element==self._create_lobby_button:
-                #save lobby name
-                global lobby_name
-                lobby_name=self._current_name
                 self._password=str(self._password_field.text) # type: ignore
                 self._create_lobby()
             if event.ui_element==self._go_home_button:
@@ -309,15 +306,22 @@ class NewLobbyScreen(AbstractScreen):
         
     def _create_lobby(self)->None:
         """The function called when the lobby is actually created"""
-        lobby_created=asyncio.create_task(self._controller.create_lobby(lobby_name, self._password))
+        psw=None
+        if self._password is not "":
+            #If no password is entered, password field is set to None (so controller creates a passwordless lobby)
+            psw=self._password
+        lobby_created=asyncio.create_task(self._controller.create_lobby(self._current_name, psw))
         lobby_created.add_done_callback(self._on_lobby_created)
         self.reset_screen()
         self._game_state_manager.change_screen(Screens.LOADING_LOBBY)
 
     def _on_lobby_created(self, future: Future[Lobby])->None:
+        """The callback function called when the controller has actually created the lobby"""
         if future.exception() is None:
             #Lobby created ok
             self._game_state_manager.change_screen(Screens.LOBBY_WAITING)
+            global lobby
+            lobby=future.result()
         else:
             #TODO: go to error screen
             pass
@@ -351,7 +355,7 @@ class LoadingLobbyScreen(AbstractScreen):
         if self._current_progress>=100 or self._current_progress<=2:
             self._step=-self._step #Inverts progress
         self._loading_bar.set_current_progress(self._current_progress)
-        #TODO: when lobby is created, change screen to join lobby
+        #When lobby is created, screen changes to join lobby
 
     def reset_screen(self) -> None:
         #Delete panel and create it new
@@ -378,6 +382,8 @@ class SearchLobbyScreen(AbstractScreen):
         self._create_lobby_panel()
         #This is a list to store the buttons corresponding to the lobbies
         self._lobby_list:list[pygame_gui.elements.UIButton]=[]
+        self._lobby_to_join=""
+        self._password=""
 
     def run(self,event:pygame.event.Event)->None:
         """The search lobby screen, to search for existing lobbies"""
@@ -385,7 +391,6 @@ class SearchLobbyScreen(AbstractScreen):
         self._gui_manager.draw_ui(self._display)
         self._title.draw(self._display)
         self._buttons.draw(self._display)
-        global lobby_name
 
         #Event handling
         #process pygame_events
@@ -395,8 +400,7 @@ class SearchLobbyScreen(AbstractScreen):
             #A pygame_gui button is pressed
             if event.ui_element in self._lobby_list:
                 #join the clicked lobby
-                global lobby_name
-                lobby_name=event.ui_element.text
+                self._lobby_to_join=str(event.ui_element.text)
                 #TODO: ask controller to join lobby
                 #TODO: ask for password (if needed)
                 self._game_state_manager.change_screen(Screens.LOBBY_WAITING)
@@ -430,6 +434,8 @@ class SearchLobbyScreen(AbstractScreen):
         #Delete current panels and creates them again
         self._panel_handler.delete_panels(self._screen_id)
         self._create_lobby_panel()
+        self._lobby_to_join=""
+        self._password=""
     
     def _remove_lobby(self, lobby:str)->None:
         """Remove a lobby from the panel if present"""
@@ -472,9 +478,9 @@ class WaitingLobbyScreen(AbstractScreen):
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler, custom_event_sender:CustomEventSender) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler)
         self._custom_event_sender=custom_event_sender
-        global lobby_name
-        self._local_lobby=lobby_name
-        self._title=Text("Waiting for other players to join "+self._local_lobby+" lobby")
+        global lobby
+        self._local_lobby=lobby
+        self._title=Text("Waiting for other players to join "+self._local_lobby.name+" lobby")
         self._title_container=VContainer(SINGLE_ELEMENT_DIV, [self._title], self._display.get_size(), (50,20))
         self._text_number=Text("1 player connected...", font=FontSize.H2) #Updated count via custom events
         self._waiting=VContainer(SINGLE_ELEMENT_DIV,[self._text_number], self._display.get_size())
@@ -490,11 +496,12 @@ class WaitingLobbyScreen(AbstractScreen):
         
     def run(self,event:pygame.event.Event)->None:
         """A simple waiting screen"""
-        global lobby_name
-        if lobby_name!=self._local_lobby:
+        global lobby
+        self._local_lobby=lobby
+        if lobby!=self._local_lobby:
             #Since this screen is started before the lobby is chosen, this updates the display
-            self._local_lobby=lobby_name
-            self._title.text="Waiting for other players to join "+self._local_lobby+" lobby"
+            self._local_lobby=lobby
+            self._title.text="Waiting for other players to join "+self._local_lobby.name+" lobby"
             self._title_container.update_on_next_draw() #Once this component is drawn the size of the text box has yet to change, so a manual update after draw is needed
         self._display.fill(BACKGROUND_COLOR) #fills the background color for the application
         self._gui_manager.draw_ui(self._display)
