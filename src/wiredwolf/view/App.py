@@ -14,7 +14,7 @@ from wiredwolf.view.view_constants import AUTO_SIZING, HORIZONTAL_SPACE_FOR_SCRO
 from pygame_gui.core.interfaces import IUIElementInterface
 from pygame_gui.core import UIElement
 from tkinter import messagebox
-from asyncio import Future, Task
+from asyncio import Future
 
 FPS=60
 username=""
@@ -280,10 +280,10 @@ class NewLobbyScreen(AbstractScreen):
         self._gui_manager.process_events(event) #processes pygame_gui events
         
         #the lobby name field is filled by chars, not empty or only whitespaces
-        if self._field.text!=None and self._current_name!=self._field.text:
+        if self._field.text is not None and self._current_name is not self._field.text: 
             self._current_name=self._field.text
             #Lobby field must be not empty otherwise the lobby can't be created
-            if len(self._current_name)>0 and str.isspace(self._current_name)==False:
+            if len(self._current_name)>0 and not str.isspace(self._current_name):
                 self._create_lobby_button.enable()
             else:
                 self._create_lobby_button.disable()
@@ -296,8 +296,6 @@ class NewLobbyScreen(AbstractScreen):
                 lobby_name=self._current_name
                 self._password=self._password_field.text
                 self._create_lobby()
-                self._game_state_manager.change_screen(Screens.LOBBY_WAITING)
-                self.reset_screen()
             if event.ui_element==self._go_home_button:
                 #go back to home screen
                 self._game_state_manager.change_screen(Screens.HOME)
