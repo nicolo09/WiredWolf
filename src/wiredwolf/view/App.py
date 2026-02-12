@@ -1117,7 +1117,15 @@ class RoleDisplayScreen(AbstractScreen):
 
 if __name__ == "__main__":
     my_app=View()
+    async def update():
+        my_app.update_display()
+        asyncio.create_task(update())
+
     controller=GameController(TcpMdnsLobbyBrowser(), Peer("Peer"))
     my_app.set_controller(controller)
-    while my_app.app_running:
-        my_app.update_display()
+    loop = asyncio.get_event_loop()
+    loop.create_task(update())
+    loop.run_forever()
+
+
+
