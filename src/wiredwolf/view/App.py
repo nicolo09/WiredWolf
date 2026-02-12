@@ -280,8 +280,8 @@ class NewLobbyScreen(AbstractScreen):
         self._gui_manager.process_events(event) #processes pygame_gui events
         
         #the lobby name field is filled by chars, not empty or only whitespaces
-        if self._field.text is not None and self._current_name is not self._field.text: 
-            self._current_name=self._field.text
+        if self._field.text is not None and self._current_name is not str(self._field.text):  # type: ignore
+            self._current_name=str(self._field.text) # type: ignore
             #Lobby field must be not empty otherwise the lobby can't be created
             if len(self._current_name)>0 and not str.isspace(self._current_name):
                 self._create_lobby_button.enable()
@@ -294,7 +294,7 @@ class NewLobbyScreen(AbstractScreen):
                 #save lobby name
                 global lobby_name
                 lobby_name=self._current_name
-                self._password=self._password_field.text
+                self._password=str(self._password_field.text) # type: ignore
                 self._create_lobby()
             if event.ui_element==self._go_home_button:
                 #go back to home screen
