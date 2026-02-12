@@ -1,4 +1,5 @@
 import asyncio
+from tkinter import simpledialog
 import pygame
 import pygame_gui
 import tkinter
@@ -307,7 +308,7 @@ class NewLobbyScreen(AbstractScreen):
     def _create_lobby(self)->None:
         """The function called when the lobby is actually created"""
         psw=None
-        if self._password is not "":
+        if self._password != "":
             #If no password is entered, password field is set to None (so controller creates a passwordless lobby)
             psw=self._password
         lobby_created=asyncio.create_task(self._controller.create_lobby(self._current_name, psw))
@@ -401,9 +402,7 @@ class SearchLobbyScreen(AbstractScreen):
             if event.ui_element in self._lobby_list:
                 #join the clicked lobby
                 self._lobby_to_join=str(event.ui_element.text)
-                #TODO: ask controller to join lobby
-                #TODO: ask for password (if needed)
-                self._game_state_manager.change_screen(Screens.LOBBY_WAITING)
+                self._try_to_join_lobby()
 
         #Process received custom events
         if event.type==custom_event:
@@ -465,6 +464,33 @@ class SearchLobbyScreen(AbstractScreen):
                 self._increased_size=self._starting_size
             self._lobby_panel.set_scrollable_area_dimensions(self._increased_size)
 
+    def _try_to_join_lobby(self)->None:
+        """The function called when the lobby is actually created"""
+        self._password=simpledialog.askstring(title="Insert password",prompt="Insert password (or leave empty for no password:")
+        psw=None
+        if self._password != "":
+            #If no password is entered, password field is set to None (so controller creates a passwordless lobby)
+            psw=self._password
+        lobby_created=asyncio.create_task(self._controller.join_lobby(self._lobby_to_join, psw))
+        lobby_created.add_done_callback(self._on_lobby_joined)
+        self.reset_screen()
+        self._game_state_manager.change_screen(Screens.LOADING_LOBBY)
+
+    def _on_lobby_joined(self, future: Future[Lobby])->None:
+        """The callback function called when the controller has actually created the lobby"""
+        e=future.exception()
+        if e is None:
+            #Lobby joined ok
+            self._game_state_manager.change_screen(Screens.LOBBY_WAITING)
+            global lobby
+            lobby=future.result()
+        else:
+            if e is ValueError():
+                messagebox.showwarning('Password error', str(e))
+            else:
+                #TODO: go to error screen
+                pass
+
     def _create_lobby_panel(self)->None:
         """Creates the scrolling panel containing all lobbies buttons"""
         self._starting_size=(SMALL_PANEL, PANEL_Y) 
@@ -479,8 +505,8 @@ class WaitingLobbyScreen(AbstractScreen):
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler)
         self._custom_event_sender=custom_event_sender
         global lobby
-        self._local_lobby=lobby
-        self._title=Text("Waiting for other players to join "+self._local_lobby.name+" lobby")
+        self._local_lobby:Lobby
+        self._title=Text("Waiting for other players to join "+" lobby")
         self._title_container=VContainer(SINGLE_ELEMENT_DIV, [self._title], self._display.get_size(), (50,20))
         self._text_number=Text("1 player connected...", font=FontSize.H2) #Updated count via custom events
         self._waiting=VContainer(SINGLE_ELEMENT_DIV,[self._text_number], self._display.get_size())
@@ -588,7 +614,7 @@ class WaitingLobbyScreen(AbstractScreen):
     
     def reset_screen(self) -> None:
         #Reset lobby name
-        self._local_lobby=""
+        self._local_lobby:Lobby
         self._title.text="Waiting for other players to join lobby"
         self._title_container.update_on_next_draw()
         #Reset number of connected players
