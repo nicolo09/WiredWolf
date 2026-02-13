@@ -505,7 +505,7 @@ class WaitingLobbyScreen(AbstractScreen):
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler)
         self._custom_event_sender=custom_event_sender
         global lobby
-        self._local_lobby:Lobby
+        self._local_lobby:Lobby=Lobby(Peer(""), "Lobby Test")
         self._title=Text("Waiting for other players to join "+" lobby")
         self._title_container=VContainer(SINGLE_ELEMENT_DIV, [self._title], self._display.get_size(), (50,20))
         self._text_number=Text("1 player connected...", font=FontSize.H2) #Updated count via custom events
@@ -516,14 +516,14 @@ class WaitingLobbyScreen(AbstractScreen):
         self._button_container=HContainer(SMALL_ELEMENT_DIV, [self._button, self._back_button], self._display.get_size(), (50, 85))
         #Count and display which users are connected to the lobby
         self._counter=1
-        self._users_list:list[pygame_gui.elements.UILabel]=[]
+        self._users_list:list[tuple[pygame_gui.elements.UILabel, Peer]]=[]
         self._create_users_panel()
         #TODO: Get initial state (users connected) of the lobby from controller
+        #lobby.peers
         
     def run(self,event:pygame.event.Event)->None:
         """A simple waiting screen"""
         global lobby
-        self._local_lobby=lobby
         if lobby!=self._local_lobby:
             #Since this screen is started before the lobby is chosen, this updates the display
             self._local_lobby=lobby
@@ -552,22 +552,22 @@ class WaitingLobbyScreen(AbstractScreen):
                     self._counter=self._counter+1
                     self._text_number.text=str(self._counter) +" players connected..."
                     self._waiting.update_on_next_draw()
-                    self._add_player(e.username)
+                    self._add_player(Peer(e.username)) #TODO: fix users type to send peers
                 if e.action==UsersType.s_action_remove:
                     #Remove user
-                    self._delete_player(e.username)        
+                    self._delete_player(Peer(e.username))#TODO: fix users type to send peers 
                     
-    def _add_player(self, username:str)->None:
+    def _add_player(self, user:Peer)->None:
         """Add a connected player username to the panel"""
         length=len(self._users_list)
         label=None
         if length==0:
             #First element, absolute positioning inside the container
-            label=pygame_gui.elements.UILabel(relative_rect=pygame.Rect((0, 0), (-1, MEDIUM_BTN_HEIGHT)), text=username, manager=self._gui_manager, anchors={}, container=self._user_panel)
+            label=pygame_gui.elements.UILabel(relative_rect=pygame.Rect((0, 0), (-1, MEDIUM_BTN_HEIGHT)), text=user.name, manager=self._gui_manager, anchors={}, container=self._user_panel)
         else:
             #Second element, relative positioning (below previous label)
-            label=pygame_gui.elements.UILabel(relative_rect=pygame.Rect((0, 0), (-1, MEDIUM_BTN_HEIGHT)), text=username, manager=self._gui_manager, anchors={'top_target': self._users_list[length-1]}, container=self._user_panel)
-        self._users_list.insert(length, label)
+            label=pygame_gui.elements.UILabel(relative_rect=pygame.Rect((0, 0), (-1, MEDIUM_BTN_HEIGHT)), text=user.name, manager=self._gui_manager, anchors={'top_target': self._users_list[length-1][0]}, container=self._user_panel)
+        self._users_list.insert(length, (label, user))
         #To calculate the horizontal width of the internal container
         #The horizontal scrollbar appears if the width of text inserted is bigger than the current size
         self._increased_size=(max(self._increased_size[0], label.rect[2]), self._increased_size[1]) # type: ignore
@@ -576,29 +576,29 @@ class WaitingLobbyScreen(AbstractScreen):
             self._increased_size=(self._increased_size[0], self._increased_size[1]+MEDIUM_BTN_HEIGHT+MEDIUM_ELEMENT_DIV) #Spacer to make the elements fit better
         self._user_panel.set_scrollable_area_dimensions(self._increased_size)
 
-    def _delete_player(self, username:str)->None:
+    def _delete_player(self, user:Peer)->None:
         """Remove a player username to the panel if present"""
         element_to_remove=None
         anchors=None
         biggest_width_remaining=0
         for elem in self._users_list:
-            if elem.text==username:
+            if elem[1]==user:
                 element_to_remove=elem
-                anchors=elem.anchors
+                anchors=elem[0].anchors
                 #Save anchors
             else:
                 #Get biggest width of any non-deleted element
                 biggest_width_remaining=max(biggest_width_remaining, elem.rect[2]) # type: ignore
                 if anchors!=None:
                     #A match has been found, shift anchors (lower element gets upper element anchors)
-                    temp=elem.anchors
-                    elem.anchors=anchors
+                    temp=elem[0].anchors
+                    elem[0].anchors=anchors
                     anchors=temp
                     
         #Now delete element
         if element_to_remove!=None:
             self._users_list.remove(element_to_remove)
-            element_to_remove.kill()
+            element_to_remove[0].kill() #Delete button
             self._counter=self._counter-1
             self._text_number.text=str(self._counter) +" players connected..."
             self._waiting.update_on_next_draw()
