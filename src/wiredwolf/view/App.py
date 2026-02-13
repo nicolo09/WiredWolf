@@ -19,7 +19,6 @@ from asyncio import Future
 
 FPS=60
 username=""
-voted_user:Peer|None=None
 custom_event=0 #custom event id, to be set by event sender
 lobby:Lobby
 class PanelHandler():
@@ -660,6 +659,7 @@ class DayVotingScreen(AbstractScreen):
         self._container_text=VContainer(SINGLE_ELEMENT_DIV, [self._text_box], self._display.get_size(), (70,90))
         self._last_message=""
         self._create_voting_panel()
+        self._voted_user:Peer|None = None
         #This is a list to store the buttons corresponding to the users
         self._player_list:list[tuple[pygame_gui.elements.UIButton, Peer]]=[]
         self._voted_text=Text("Wait to vote...", font=FontSize.H3)
@@ -691,7 +691,7 @@ class DayVotingScreen(AbstractScreen):
             if event.type == pygame_gui.UI_BUTTON_PRESSED:
                 #A pygame_gui button is pressed
                 for element in self._player_list:
-                    if event.ui_element ==element[0]:
+                    if event.ui_element == element[0]:
                         #vote for selected player (via peer unique identifier)
                         self._set_voted_player(element[1])
         if event.type==custom_event:
@@ -763,13 +763,12 @@ class DayVotingScreen(AbstractScreen):
 
     def _set_voted_player(self, user:Peer)->None:
         """Function called when the user chooses who to nominate for execution"""
-        global voted_user
         if len(user.name)>0:
             #can only vote a player if one is selected
-            voted_user=user
-            self._voted_text.text="You voted for "+voted_user.name
+            self._voted_user=user
+            self._voted_text.text="You voted for "+user.name
         else:
-            voted_user=None #deselects player voted to be executed
+            self._voted_user=user #deselects player voted to be executed
             self._voted_text.text="You haven't voted"
         #TODO: send controller the ballot
         
