@@ -987,7 +987,7 @@ class NightRoleScreen(AbstractScreen):
         #TODO: customize this further? ex werewolves kill this player, ...
         self._create_users_panel()
         #This is a list to store the buttons corresponding to the users
-        self._players_list:list[pygame_gui.elements.UIButton]=[]
+        self._players_list:list[tuple[pygame_gui.elements.UIButton, Peer]]=[]
         #Wolves chat panel
         self._create_chat_panel()
         self._chat_messages:list[pygame_gui.elements.UILabel]=[]
@@ -1005,14 +1005,12 @@ class NightRoleScreen(AbstractScreen):
         self._gui_manager.process_events(event) #processes pygame_gui events
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
             #A pygame_gui button is pressed
-            if event.ui_element in self._players_list:
-                #vote for selected player
-                global voted_player
-                voted_player=event.ui_element.text
-                #TODO: communicate to controller that user acted on given player
-                result=self._controller.choose_player(voted_player)
-                #TODO: MAKE PLAYER IS A PEER
-                self._voting_panel.disable() #Can only act once 
+            for element in self._players_list:
+                    if event.ui_element == element[0]:
+                        #vote for selected player (via peer unique identifier)
+                        #TODO: communicate to controller that user acted on given player
+                        result=self._controller.choose_player(element[1])
+                        self._voting_panel.disable() #Can only act once
         if event.type==pygame_gui.UI_TEXT_ENTRY_FINISHED:
             #Enter is entered in the textbox
             if len(event.text)>0 and str.isspace(event.text)==False:
@@ -1032,10 +1030,10 @@ class NightRoleScreen(AbstractScreen):
                     length=len(self._players_list)
                     if length==0:
                         #First element, absolute positioning inside the container
-                        self._players_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.username, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._voting_panel))
+                        self._players_list.insert(length, (pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.user.name, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._voting_panel), e.user))
                     else:
                         #Second element, relative positioning (below previous button)
-                        self._players_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.username, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._players_list[length-1]}, container=self._voting_panel))
+                        self._players_list.insert(length, (pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.user.name, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._players_list[length-1][0]}, container=self._voting_panel), e.user))
                     if length>self._elements_before_scrollbar_players:
                         #Increase scrollbar size, up to 2 buttons can fit without a scrollbar
                         self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
