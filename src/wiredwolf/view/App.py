@@ -19,7 +19,7 @@ from asyncio import Future
 
 FPS=60
 username=""
-voted_user=""
+voted_user:Peer|None=None
 custom_event=0 #custom event id, to be set by event sender
 lobby:Lobby
 class PanelHandler():
@@ -661,7 +661,7 @@ class DayVotingScreen(AbstractScreen):
         self._last_message=""
         self._create_voting_panel()
         #This is a list to store the buttons corresponding to the users
-        self._player_list:list[pygame_gui.elements.UIButton]=[]
+        self._player_list:list[tuple[pygame_gui.elements.UIButton, Peer]]=[]
         self._voted_text=Text("Wait to vote...", font=FontSize.H3)
         self._voted_container=HContainer(SINGLE_ELEMENT_DIV, [self._voted_text], self._display.get_size(), (15, 80))
         #Chat panel
@@ -690,20 +690,20 @@ class DayVotingScreen(AbstractScreen):
             self._gui_manager.process_events(event) #processes pygame_gui events
             if event.type == pygame_gui.UI_BUTTON_PRESSED:
                 #A pygame_gui button is pressed
-                if event.ui_element in self._player_list:
-                    #vote for selected player
-                    voted_player=event.ui_element.text
-                    self._set_voted_player(voted_player)
+                for element in self._player_list:
+                    if event.ui_element ==element[0]:
+                        #vote for selected player (via peer unique identifier)
+                        self._set_voted_player(element[1])
         if event.type==custom_event:
             #parse the custom event into an object
             e=create_custom_event_from_dict(event.dict)
             if isinstance(e, UsersType):
                 if e.action==UsersType.s_action_add:
                     #Add user
-                    self._add_player(e.username)
+                    self._add_player(e.user)
                 if e.action==UsersType.s_action_remove:
                     #Remove user
-                    self._delete_player(e.username)
+                    self._delete_player(e.user)
             if isinstance(e, TimeOutType):
                 #Starts voting
                 self._voting_panel.enable()
@@ -716,42 +716,42 @@ class DayVotingScreen(AbstractScreen):
                 #Messages received from other users
                 self._send_message(e.message)
 
-    def _add_player(self, username:str)->None:
+    def _add_player(self, user:Peer)->None:
         """Adds a new button username to the panel"""
         #Add new button username
         length=len(self._player_list)
         if length==0:
             #First element, absolute positioning inside the container
-            self._player_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=username, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._voting_panel))
+            self._player_list.insert(length, (pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=user.name, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._voting_panel), user))
         else:
             #Second element, relative positioning (below previous button)
-            self._player_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=username, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._player_list[length-1]}, container=self._voting_panel))
+            self._player_list.insert(length, (pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=user.name, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._player_list[length-1][0]}, container=self._voting_panel), user))
         if length>self._elements_before_scrollbar_players:
             #Increase scrollbar size, up to 2 buttons can fit without a scrollbar
             self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
             self._voting_panel.set_scrollable_area_dimensions(self._increased_size)
-        self._voting_panel.disable()#All buttons start as disabled
+        self._voting_panel.disable() #All buttons start as disabled
 
-    def _delete_player(self, username:str)->None:
+    def _delete_player(self, user:Peer)->None:
         """Remove a player username to the panel if present"""
         element_to_remove=None
         anchors=None
         for elem in self._player_list:
-            if elem.text==username:
+            if elem[1]==user:
                 element_to_remove=elem
-                anchors=elem.anchors
+                anchors=elem[0].anchors
                 #Save anchors
             else:
                 if anchors!=None:
                     #A match has been found, shift anchors (lower element gets upper element anchors)
-                    temp=elem.anchors
-                    elem.anchors=anchors
+                    temp=elem[0].anchors
+                    elem[0].anchors=anchors
                     anchors=temp
                     
         #Now delete element
         if element_to_remove!=None:
             self._player_list.remove(element_to_remove)
-            element_to_remove.kill()
+            element_to_remove[0].kill()
             #Scrollbar updates to horizontally biggest element not deleted and height - deleted element height
             if len(self._player_list)>self._elements_before_scrollbar_players:
                 #Make inner area smaller, but number of elements necessitates a scrollbar
@@ -761,16 +761,17 @@ class DayVotingScreen(AbstractScreen):
                 self._increased_size=self._starting_size
             self._voting_panel.set_scrollable_area_dimensions(self._increased_size)
 
-    def _set_voted_player(self, username:str)->None:
+    def _set_voted_player(self, user:Peer)->None:
         """Function called when the user chooses who to nominate for execution"""
         global voted_user
-        if len(username)>0:
+        if len(user.name)>0:
             #can only vote a player if one is selected
-            voted_user=username
-            self._voted_text.text="You voted for "+voted_user
+            voted_user=user
+            self._voted_text.text="You voted for "+voted_user.name
         else:
-            voted_user="" #deselects player voted to be executed
+            voted_user=None #deselects player voted to be executed
             self._voted_text.text="You haven't voted"
+        #TODO: send controller the ballot
         
     def _send_message(self, message:str)->None:
         """Function called to display a new message in chat"""
