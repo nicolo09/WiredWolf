@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any
+from wiredwolf.controller.commons import Peer
 from wiredwolf.view.constants import EventType, Screens
 import pygame
 from dataclasses import dataclass
@@ -73,21 +74,22 @@ class LobbyType(AbstractEventType):
 class UsersType(AbstractEventType):
     """An event regarding a user, with a given username and an action"""
     #static field name to standardize the dictionary key
-    s_username="username"
+    s_user_name="user_name"
+    s_user_id="user_id"
     s_action="action"
     s_action_add="add"
     s_action_remove="remove"
 
-    def __init__(self, username: str, action:str)->None:
+    def __init__(self, user: Peer, action:str)->None:
         self._event=EventType.USERNAME
-        self._username=username
+        self._user=user
         self._action=action
         assert(action==self.s_action_add or  action==self.s_action_remove)
 
     @property
-    def username(self)->str:
-        """Returns the username contained in the event"""
-        return self._username
+    def user(self)->Peer:
+        """Returns the user contained in the event"""
+        return self._user
     
     @property
     def action(self)->str:
@@ -96,7 +98,7 @@ class UsersType(AbstractEventType):
     
     def as_dictionary(self) -> dict[Any, Any]:
         """Returns all the fields of the event as a dictionary, used when creating the event in pygame.event.Event()"""
-        return {AbstractEventType.s_event:self._event, UsersType.s_username:self._username, UsersType.s_action: self._action}
+        return {AbstractEventType.s_event:self._event, UsersType.s_user_name:self._user.name, UsersType.s_user_id:self._user.uuid, UsersType.s_action: self._action}
     
 class TimeOutType(AbstractEventType):
     """An event triggered after some time has passed"""
@@ -195,11 +197,13 @@ def create_users_type(dict: dict[Any, Any])->UsersType:
     """Creates a users type from a correct dictionary"""
     event=dict.get(UsersType.s_event)
     assert(event!=EventType.NONE and event!=None and event==EventType.USERNAME)
-    username=dict.get(UsersType.s_username)
+    username=dict.get(UsersType.s_user_name)
     assert(username!=None)
+    user_id=dict.get(UsersType.s_user_id)
+    assert(user_id!=None)
     action=dict.get(UsersType.s_action)
     assert(action!=None and (action==UsersType.s_action_add or action==UsersType.s_action_remove))
-    return UsersType(username, action)
+    return UsersType(Peer(username, user_id), action)
 
 def create_timeout_type(dict:dict[Any, Any])->TimeOutType:
     """Creates a timeout type from a correct dictionary"""
@@ -271,12 +275,12 @@ class EventSender(ABC):
         raise NotImplementedError("Please implement this method")
 
     @abstractmethod
-    def new_user_in_lobby(self, username:str)->None:
+    def new_user_in_lobby(self, user:Peer)->None:
         """The username of a user that joined a lobby waiting for the game to start"""
         raise NotImplementedError("Please implement this method")
     
     @abstractmethod
-    def remove_user_in_lobby(self, username:str)->None:
+    def remove_user_in_lobby(self, user:Peer)->None:
         """The username of a user that exited a lobby waiting for the game to start"""
         raise NotImplementedError("Please implement this method")
 
@@ -286,7 +290,7 @@ class EventSender(ABC):
         raise NotImplementedError("Please implement this method")
 
     @abstractmethod
-    def players_to_nominate_for_execution(self, players:list[str])->None:
+    def players_to_nominate_for_execution(self, players:list[Peer])->None:
         """The list of players possible to choose from when nominating for execution and starts voting"""
         raise NotImplementedError("Please implement this method")
 
@@ -298,7 +302,7 @@ class EventSender(ABC):
     #Evento inizia a votare a ballot (change screen type)
     
     @abstractmethod
-    def user_to_nominated_for_execution(self, username:str)->None:
+    def user_to_nominated_for_execution(self, user:Peer)->None:
         """The user nominated to be executed"""
         raise NotImplementedError("Please implement this method")
 
@@ -323,7 +327,7 @@ class EventSender(ABC):
         raise NotImplementedError("Please implement this method")
 
     @abstractmethod
-    def can_use_powers_on(self, player_list:str)->None:
+    def can_use_powers_on(self, player_list:list[Peer])->None:
         """The list of users the player can use their powers on (ex: werewolves can't kill other werewolves)"""
         raise NotImplementedError("Please implement this method")
 
@@ -390,17 +394,17 @@ class CustomEventSender(EventSender):
         """Sends a custom event to remove a lobby"""
         pygame.event.post(pygame.event.Event(self._custom_event, LobbyType(lobby_name, LobbyType.s_action_remove).as_dictionary()))
 
-    def send_event_add_user(self, username:str)->None:
+    def send_event_add_user(self, user:Peer)->None:
         """Sends a custom event to add a new user"""
-        pygame.event.post(pygame.event.Event(self._custom_event, UsersType(username, UsersType.s_action_add).as_dictionary()))
+        pygame.event.post(pygame.event.Event(self._custom_event, UsersType(user, UsersType.s_action_add).as_dictionary()))
 
-    def send_event_execute_or_spare_user(self, username:str)->None:
+    def send_event_execute_or_spare_user(self, user:Peer)->None:
         """Sends a custom event to notify gui which player is to be spared or executed"""
-        pygame.event.post(pygame.event.Event(self._custom_event, UsersType(username, UsersType.s_action_add).as_dictionary()))
+        pygame.event.post(pygame.event.Event(self._custom_event, UsersType(user, UsersType.s_action_add).as_dictionary()))
     
-    def send_event_remove_user(self, username:str)->None:
+    def send_event_remove_user(self, user:Peer)->None:
         """Sends a custom event to remove a user"""
-        pygame.event.post(pygame.event.Event(self._custom_event, UsersType(username, UsersType.s_action_remove).as_dictionary()))
+        pygame.event.post(pygame.event.Event(self._custom_event, UsersType(user, UsersType.s_action_remove).as_dictionary()))
 
     def send_event_timeout(self)->None:
         """Sends a custom event to say that some time has passed"""
@@ -429,18 +433,18 @@ class CustomEventSender(EventSender):
     def remove_discovered_lobby(self, lobby:str)->None:
         self.send_event_removed_lobby(lobby)
 
-    def new_user_in_lobby(self, username:str) -> None:
-        self.send_event_add_user(username)
+    def new_user_in_lobby(self, user:Peer) -> None:
+        self.send_event_add_user(user)
 
-    def remove_user_in_lobby(self, username:str) -> None:
-        self.send_event_remove_user(username)
+    def remove_user_in_lobby(self, user:Peer) -> None:
+        self.send_event_remove_user(user)
 
     def game_started_by_master(self) -> None:
         self.send_event_to_screen(Screens.DAY_VOTING)
         #Send message that it's the first day
         self.day_message()
 
-    def players_to_nominate_for_execution(self, players: list[str]) -> None:
+    def players_to_nominate_for_execution(self, players: list[Peer]) -> None:
         for elem in players:
             self.send_event_add_user(elem)
         self.start_voting_for_execution()
@@ -452,8 +456,8 @@ class CustomEventSender(EventSender):
     def start_voting_for_execution(self) -> None:
         self.send_event_to_screen(Screens.DAY_EXECUTION)
 
-    def user_to_nominated_for_execution(self, username: str) -> None:
-        self.send_event_add_user(username)
+    def user_to_nominated_for_execution(self, user:Peer) -> None:
+        self.send_event_add_user(user)
 
     def display_chat_message(self, message: str) -> None:
         self.send_event_chat_message(message)
@@ -473,7 +477,7 @@ class CustomEventSender(EventSender):
     def user_role(self, role_name: str, role_description: str) -> None:
         self.send_event_game_role(role_name, role_description)
 
-    def can_use_powers_on(self, player_list: str) -> None:
+    def can_use_powers_on(self, player_list: list[Peer]) -> None:
         for elem in player_list:
             self.send_event_add_user(elem)
 

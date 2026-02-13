@@ -552,10 +552,10 @@ class WaitingLobbyScreen(AbstractScreen):
                     self._counter=self._counter+1
                     self._text_number.text=str(self._counter) +" players connected..."
                     self._waiting.update_on_next_draw()
-                    self._add_player(Peer(e.username)) #TODO: fix users type to send peers
+                    self._add_player(e.user)
                 if e.action==UsersType.s_action_remove:
                     #Remove user
-                    self._delete_player(Peer(e.username))#TODO: fix users type to send peers 
+                    self._delete_player(e.user)
                     
     def _add_player(self, user:Peer)->None:
         """Add a connected player username to the panel"""
