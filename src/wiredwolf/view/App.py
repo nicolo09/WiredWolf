@@ -839,11 +839,11 @@ class DayExecutionScreen(AbstractScreen):
         self._container_text=VContainer(SINGLE_ELEMENT_DIV, [self._text_box], self._display.get_size(), (70,90))
         self._last_message=""
         self._vote_to_execute=None #Saved outcome of user voting, if None->not voted, True->executed, False->Spared
-        self._executed_user="" #Gets username via custom event
+        self._executed_user:Peer #Gets username via custom event
         executed=partial(self._spare_or_execute, True)
         spared=partial(self._spare_or_execute, False)
-        self._execute_button=EnabledButton(executed, "Vote to execute "+self._executed_user, MEDIUM_BTN_WIDTH, LARGE_BTN_HEIGHT, enabled=True)
-        self._spare_button=EnabledButton(spared, "Vote to spare "+self._executed_user, MEDIUM_BTN_WIDTH, LARGE_BTN_HEIGHT, enabled=True)
+        self._execute_button=EnabledButton(executed, "Vote to execute ", MEDIUM_BTN_WIDTH, LARGE_BTN_HEIGHT, enabled=True)
+        self._spare_button=EnabledButton(spared, "Vote to spare ", MEDIUM_BTN_WIDTH, LARGE_BTN_HEIGHT, enabled=True)
         self._button_container=VContainer(LARGE_ELEMENT_DIV, [self._execute_button, self._spare_button], self._display.get_size(), (20, 50))
         #Chat panel
         self._create_chat_panel()
@@ -881,9 +881,9 @@ class DayExecutionScreen(AbstractScreen):
             if isinstance(e, UsersType):
                 if e.action==UsersType.s_action_add:
                     #Username of player to execute
-                    self._executed_user=e.username
-                    self._execute_button.text="Vote to execute "+self._executed_user
-                    self._spare_button.text="Vote to spare "+self._executed_user
+                    self._executed_user=e.user
+                    self._execute_button.text="Vote to execute "+self._executed_user.name
+                    self._spare_button.text="Vote to spare "+self._executed_user.name
                     #Updating the button text requires an update on the container
                     self._button_container.update_on_next_draw()
     
@@ -893,6 +893,8 @@ class DayExecutionScreen(AbstractScreen):
         self._execute_button.is_enabled=False
         self._spare_button.is_enabled=False
         self._vote_to_execute=outcome
+        #TODO: send message to controller
+        result=self._controller.vote_guilty()
 
     def _create_chat_panel(self)->None:
         """Creates the chat panel"""
