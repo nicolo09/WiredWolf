@@ -381,8 +381,8 @@ class SearchLobbyScreen(AbstractScreen):
         #The lobbies discovered are stored in a lobby panel
         self._create_lobby_panel()
         #This is a list to store the buttons corresponding to the lobbies
-        self._lobby_list:list[pygame_gui.elements.UIButton]=[]
-        self._lobby_to_join=""
+        self._lobby_list:list[tuple[pygame_gui.elements.UIButton, Lobby]]=[]
+        self._lobby_to_join:Lobby|None=None
         self._password=""
 
     def run(self,event:pygame.event.Event)->None:
@@ -398,11 +398,11 @@ class SearchLobbyScreen(AbstractScreen):
         self._gui_manager.process_events(event)
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
             #A pygame_gui button is pressed
-            if event.ui_element in self._lobby_list:
-                #join the clicked lobby
-                self._lobby_to_join=str(event.ui_element.text)
-                self._try_to_join_lobby()
-
+            for element in self._lobby_list:
+                    if event.ui_element == element[0]:
+                        #join the clicked lobby
+                        self._lobby_to_join=element[1]
+                        self._try_to_join_lobby()
         #Process received custom events
         if event.type==custom_event:
             #parse the custom event into an object
@@ -414,10 +414,10 @@ class SearchLobbyScreen(AbstractScreen):
                     length=len(self._lobby_list)
                     if length==0:
                         #First element, absolute positioning inside the container
-                        self._lobby_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.lobby, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._lobby_panel))
+                        self._lobby_list.insert(length, (pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.lobby.name, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._lobby_panel), e.lobby))
                     else:
                         #Second element, relative positioning (below previous button)
-                        self._lobby_list.insert(length, pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.lobby, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._lobby_list[length-1]}, container=self._lobby_panel))
+                        self._lobby_list.insert(length, (pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.lobby.name, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._lobby_list[length-1][0]}, container=self._lobby_panel), e.lobby))
                     if length>self._elements_before_scrollbar:
                         #Increase scrollbar size, up to self._elements_before_scrollbar buttons can fit without a scrollbar
                         self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
@@ -432,29 +432,29 @@ class SearchLobbyScreen(AbstractScreen):
         #Delete current panels and creates them again
         self._panel_handler.delete_panels(self._screen_id)
         self._create_lobby_panel()
-        self._lobby_to_join=""
+        self._lobby_to_join=None
         self._password=""
     
-    def _remove_lobby(self, lobby:str)->None:
+    def _remove_lobby(self, lobby:Lobby)->None:
         """Remove a lobby from the panel if present"""
         element_to_remove=None
         anchors=None
         for elem in self._lobby_list:
-            if elem.text==lobby:
+            if elem[1]==lobby:
                 element_to_remove=elem
-                anchors=elem.anchors
+                anchors=elem[0].anchors
                 #Save anchors
             else:
                 if anchors!=None:
                     #A match has been found, shift anchors (lower element gets upper element anchors)
-                    temp=elem.anchors
-                    elem.anchors=anchors
+                    temp=elem[0].anchors
+                    elem[0].anchors=anchors
                     anchors=temp
                     
         #Now delete element
         if element_to_remove!=None:
             self._lobby_list.remove(element_to_remove)
-            element_to_remove.kill()
+            element_to_remove[0].kill()
             if len(self._lobby_list)>self._elements_before_scrollbar:
                 #Make inner area smaller, but number of elements necessitates a scrollbar
                 self._increased_size=self._increased_size[0], self._increased_size[1]-LARGE_BTN_HEIGHT-MEDIUM_ELEMENT_DIV
