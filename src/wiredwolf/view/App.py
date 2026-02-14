@@ -128,7 +128,7 @@ class GlobalState:
     @lobby.setter
     def lobby(self, lobby:Lobby)->None:
         """Returns the lobby joined"""
-        self.lobby=lobby
+        self._lobby=lobby
 
     @property
     def is_master(self)->bool:
