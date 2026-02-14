@@ -11,8 +11,10 @@ class TestCustomEvents(unittest.TestCase):
         self.status_messages=StatusMessages()
         self.custom_event=self.event_sender.custom_event
         self.change_screen=ChangeScreenType(Screens.HOME)
-        self.discovered_lobby_add=LobbyType("lobby", LobbyType.s_action_add)
-        self.discovered_lobby_remove=LobbyType("lobby 2", LobbyType.s_action_remove)
+        self.lobby_without_peers=Lobby(Peer("Owner"), "Lobby 1", password="password")
+        self.lobby_without_password=Lobby(Peer("Owner2"), "Lobby 2", peers=[Peer("Mario"), Peer("Luigi")])
+        self.discovered_lobby_add=LobbyType(self.lobby_without_peers, LobbyType.s_action_add)
+        self.discovered_lobby_remove=LobbyType(self.lobby_without_password, LobbyType.s_action_remove)
         self.username_add=UsersType(Peer("Mario"), UsersType.s_action_add)
         self.username_remove=UsersType(Peer("Luigi"), UsersType.s_action_remove)
         self.timeout=TimeOutType()
@@ -56,10 +58,12 @@ class TestCustomEvents(unittest.TestCase):
                     if isinstance(e, LobbyType):
                         if e.action==LobbyType.s_action_add:
                             self.assertEqual(e, self.discovered_lobby_add)
+                            self.assertEqual(e.lobby, self.lobby_without_peers)
                             events_received=events_received+1
                         else:
                             if e.action==LobbyType.s_action_remove:
                                 self.assertEqual(e, self.discovered_lobby_remove)
+                                self.assertEqual(e.lobby, self.lobby_without_password)
                                 events_received=events_received+1
                             else:
                                 raise ValueError("Lobby type can only be add or remove")
