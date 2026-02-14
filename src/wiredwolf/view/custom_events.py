@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any
 from wiredwolf.controller.commons import Peer
+from wiredwolf.controller.lobbies import Lobby
 from wiredwolf.view.constants import EventType, Screens
 import pygame
 from dataclasses import dataclass
@@ -43,22 +44,52 @@ class ChangeScreenType(AbstractEventType):
         """Returns all the fields of the event as a dictionary, used when creating the event in pygame.event.Event()"""
         return {AbstractEventType.s_event:self._event, ChangeScreenType.s_next_screen:self._next_screen}
     
+
+def create_peer_dict(peers:list[Peer])->dict[str, str]:
+    """Creates a dictionary of all peers joined into a lobby, with keys peer_joined_name_N: name and peer_joined_uuid_N : uuid"""
+    peer_dictionary:dict[str, str]={}
+    i=0
+    for elem in peers:
+        tmp=LobbyType.s_peer_joined_name+str(i)
+        peer_dictionary[tmp]=elem.name
+        tmp=LobbyType.s_peer_joined_uuid+str(i)
+        peer_dictionary[tmp]=elem.uuid
+        i=i+1
+    return peer_dictionary
+
+def create_peer_list(peers:dict[str, str], size:int)->list[Peer]:
+    """Creates a list of all peers joined into a lobby, from a dictionary formatted with keys peer_joined_name_N: name and peer_joined_uuid_N : uuid"""
+    peer_list:list[Peer]=[]
+    for i in range(0, size):
+        tmp=LobbyType.s_peer_joined_name+str(i)
+        name=peers[tmp]
+        tmp=LobbyType.s_peer_joined_uuid+str(i)
+        uuid=peers[tmp]
+        peer_list.append(Peer(name, uuid))
+    return peer_list
+
 class LobbyType(AbstractEventType):
     """An event of a new lobby name that has been discovered"""
     #static field name to standardize the dictionary key
-    s_discovered_lobby="discovered_lobby"
+    s_lobby_name="lobby_name"
+    s_owner_name="owner_name"
+    s_owner_uuid="owner_uuid"
+    s_password="password"
+    s_number_of_peers="n_peers"
+    s_peer_joined_name="peer_joined_name_"
+    s_peer_joined_uuid="peer_joined_uuid_"
     s_action="action"
     s_action_add="add"
     s_action_remove="remove"
 
-    def __init__(self, lobby: str, action:str)->None:
+    def __init__(self, lobby: Lobby, action:str)->None:
         self._event=EventType.LOBBY
         self._lobby=lobby
         self._action=action
         assert(action==self.s_action_add or  action==self.s_action_remove) #Only add or remove are legal actions
 
     @property
-    def lobby(self)->str:
+    def lobby(self)->Lobby:
         """Returns the name of the discovered lobby the event contains"""
         return self._lobby
     
@@ -69,7 +100,23 @@ class LobbyType(AbstractEventType):
     
     def as_dictionary(self) -> dict[Any, Any]:
         """Returns all the fields of the event as a dictionary, used when creating the event in pygame.event.Event()"""
-        return {AbstractEventType.s_event:self._event, LobbyType.s_discovered_lobby:self._lobby, LobbyType.s_action: self._action}
+        n=len(self.lobby.peers)
+        dictionary:dict[Any,Any]={AbstractEventType.s_event:self._event, LobbyType.s_lobby_name:self._lobby.name, 
+                LobbyType.s_owner_name: self._lobby.owner.name, LobbyType.s_owner_uuid: self._lobby.owner.uuid,
+                LobbyType.s_number_of_peers:str(n), 
+                LobbyType.s_action: self._action}
+        if n!=0:
+            #If there are peers in the lobby
+            peer_dict=create_peer_dict(self.lobby.peers)
+            #Add peers to dictionary
+            dictionary.update(peer_dict)
+        if self._lobby.password!=None:
+            #Password is set
+            dictionary.update({LobbyType.s_password:self._lobby.password})
+        else:
+            dictionary.update({LobbyType.s_password:""})
+        return dictionary
+   
     
 class UsersType(AbstractEventType):
     """An event regarding a user, with a given username and an action"""
@@ -187,11 +234,27 @@ def create_lobby_type(dict: dict[Any, Any])->LobbyType:
     """Creates a discovered lobby type from a correct dictionary"""
     event=dict.get(LobbyType.s_event)
     assert(event!=EventType.NONE and event!=None and event==EventType.LOBBY)
-    discovered_lobby=dict.get(LobbyType.s_discovered_lobby)
-    assert(discovered_lobby!=None)
+    name_lobby=dict.get(LobbyType.s_lobby_name)
+    assert(name_lobby!=None)
     action=dict.get(LobbyType.s_action)
     assert(action!=None and (action==LobbyType.s_action_add or action==LobbyType.s_action_remove))
-    return LobbyType(discovered_lobby, action)
+    owner_name=dict.get(LobbyType.s_owner_name)
+    assert(owner_name!=None)
+    owner_uuid=dict.get(LobbyType.s_owner_uuid)
+    assert(owner_uuid!=None)
+    peer_n=dict.get(LobbyType.s_number_of_peers)
+    assert(peer_n!=None)
+    peer_n=int(peer_n)
+    peer_list=[] #List of peers
+    if peer_n>0:
+        peer_list=create_peer_list(dict, peer_n)
+    assert(len(peer_list)==peer_n) #The new list of peers must be the same size of the original list
+    password=dict.get(LobbyType.s_password)
+    assert(password!=None)
+    if password=="":
+        #If no password is set, password field is set to None
+        password=None
+    return LobbyType(Lobby(owner=Peer(owner_name, owner_uuid), password=password, name=name_lobby, peers=peer_list), action)
 
 def create_users_type(dict: dict[Any, Any])->UsersType:
     """Creates a users type from a correct dictionary"""
@@ -265,12 +328,12 @@ class EventSender(ABC):
     """Abstract interface to abstract the sending of events to the view"""
 
     @abstractmethod
-    def new_discovered_lobby(self, lobby:str)->None:
+    def new_discovered_lobby(self, lobby:Lobby)->None:
         """Add a new discovered lobby to the view"""
         raise NotImplementedError("Please implement this method")
     
     @abstractmethod
-    def remove_discovered_lobby(self, lobby:str)->None:
+    def remove_discovered_lobby(self, lobby:Lobby)->None:
         """Remove a new discovered lobby to the view"""
         raise NotImplementedError("Please implement this method")
 
@@ -386,13 +449,13 @@ class CustomEventSender(EventSender):
         """Sends a custom event to change screen to the given screen"""
         pygame.event.post(pygame.event.Event(self._custom_event, ChangeScreenType(screen).as_dictionary()))
     
-    def send_event_new_lobby(self, lobby_name: str)->None:
+    def send_event_new_lobby(self, lobby: Lobby)->None:
         """Sends a custom event to add a new lobby"""
-        pygame.event.post(pygame.event.Event(self._custom_event, LobbyType(lobby_name, LobbyType.s_action_add).as_dictionary()))
+        pygame.event.post(pygame.event.Event(self._custom_event, LobbyType(lobby, LobbyType.s_action_add).as_dictionary()))
 
-    def send_event_removed_lobby(self, lobby_name: str)->None:
+    def send_event_removed_lobby(self, lobby: Lobby)->None:
         """Sends a custom event to remove a lobby"""
-        pygame.event.post(pygame.event.Event(self._custom_event, LobbyType(lobby_name, LobbyType.s_action_remove).as_dictionary()))
+        pygame.event.post(pygame.event.Event(self._custom_event, LobbyType(lobby, LobbyType.s_action_remove).as_dictionary()))
 
     def send_event_add_user(self, user:Peer)->None:
         """Sends a custom event to add a new user"""
@@ -427,10 +490,10 @@ class CustomEventSender(EventSender):
         """Returns the id of custom events"""
         return self._custom_event
 
-    def new_discovered_lobby(self, lobby: str) -> None:
+    def new_discovered_lobby(self, lobby: Lobby) -> None:
         self.send_event_new_lobby(lobby)
 
-    def remove_discovered_lobby(self, lobby:str)->None:
+    def remove_discovered_lobby(self, lobby:Lobby)->None:
         self.send_event_removed_lobby(lobby)
 
     def new_user_in_lobby(self, user:Peer) -> None:
