@@ -201,7 +201,7 @@ class View:
         self._running = True
         self._gui_manager=pygame_gui.UIManager(self._size, theme_path='resources/theme.json')
         self._panel_handler=PanelHandler(self._gui_manager)
-        self._game_state_manager=GameStateManager(Screens.SEARCH_LOBBY, self._panel_handler)
+        self._game_state_manager=GameStateManager(Screens.HOME, self._panel_handler)
         self._global_state=GlobalState()
         #Sets custom event sender
         self._event_sender=CustomEventSender()
@@ -579,11 +579,9 @@ class WaitingLobbyScreen(AbstractScreen):
         self._back_button=CallbackButton(self._go_home, "Exit lobby, go to home",LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT)
         self._button_container=HContainer(SMALL_ELEMENT_DIV, [self._button, self._back_button], self._display.get_size(), (50, 85))
         #Count and display which users are connected to the lobby
-        self._counter=1
+        self._counter=0
         self._users_list:list[tuple[pygame_gui.elements.UILabel, Peer]]=[]
         self._create_users_panel()
-        #TODO: Get initial state (users connected) of the lobby from controller
-        #lobby.peers
         
     def run(self,event:pygame.event.Event)->None:
         """A simple waiting screen"""
@@ -592,6 +590,10 @@ class WaitingLobbyScreen(AbstractScreen):
             self._local_lobby=self._global_state.lobby
             self._title.text="Waiting for other players to join "+self._local_lobby.name+" lobby"
             self._title_container.update_on_next_draw() #Once this component is drawn the size of the text box has yet to change, so a manual update after draw is needed
+            for elem in self._global_state.lobby.peers:
+                #Add players connected initially to the display
+                print(elem)
+                self._add_player(elem)
         self._display.fill(BACKGROUND_COLOR) #fills the background color for the application
         self._gui_manager.draw_ui(self._display)
         self._title_container.draw(self._display)
@@ -612,9 +614,6 @@ class WaitingLobbyScreen(AbstractScreen):
                 #Updates the number of players in the waiting room
                 if e.action==UsersType.s_action_add:
                     #Add user
-                    self._counter=self._counter+1
-                    self._text_number.text=str(self._counter) +" players connected..."
-                    self._waiting.update_on_next_draw()
                     self._add_player(e.user)
                 if e.action==UsersType.s_action_remove:
                     #Remove user
@@ -623,6 +622,9 @@ class WaitingLobbyScreen(AbstractScreen):
     def _add_player(self, user:Peer)->None:
         """Add a connected player username to the panel"""
         length=len(self._users_list)
+        self._counter=self._counter+1
+        self._text_number.text=str(self._counter) +" players connected..."
+        self._waiting.update_on_next_draw()
         label=None
         if length==0:
             #First element, absolute positioning inside the container
@@ -681,7 +683,7 @@ class WaitingLobbyScreen(AbstractScreen):
         self._title.text="Waiting for other players to join lobby"
         self._title_container.update_on_next_draw()
         #Reset number of connected players
-        self._text_number.text="1 player connected..."
+        self._text_number.text="0 player connected..."
         self._waiting.update_on_next_draw()
         #Deleted panels
         self._panel_handler.delete_panels(self._screen_id)
