@@ -704,8 +704,6 @@ class WaitingLobbyScreen(AbstractScreen):
         if self._global_state.is_master==True: #Player is master if they created the lobby
             self._game_state_manager.change_screen(Screens.DAY_VOTING)
             self.reset_screen() #resets current screen for next time this is used
-            #Sends message that says what day it is
-            self._custom_event_sender.day_message() #All other players receive the message when switching screens via event. The master won't receive this unless it sends a message to itself
             #Send message to controller that master started the game
             game_started=asyncio.create_task(self._controller.start_game())
             game_started.add_done_callback(self._on_game_started)
@@ -734,6 +732,8 @@ class WaitingLobbyScreen(AbstractScreen):
         if future.exception() is None:
             #Game started ok
             self._game_state_manager.change_screen(Screens.DAY_VOTING)
+            #Sends message that says what day it is
+            self._custom_event_sender.day_message() #All other players receive the message when switching screens via event. The master won't receive this unless it sends a message to itself
         else:
             #TODO: go to error screen
             pass
