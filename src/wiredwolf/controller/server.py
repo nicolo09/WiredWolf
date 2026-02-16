@@ -207,7 +207,7 @@ class GameServer:
             game_info_builder = game_info_builder.with_escort()
         game_info = game_info_builder.build()
         players = create_players(
-            [peer.uuid for peer in self._lobby.peers],
+            {peer.uuid : peer.name for peer in self._lobby.peers},
             game_info.get_all_handled_roles()
         )
         self._game = Game(players, game_info)

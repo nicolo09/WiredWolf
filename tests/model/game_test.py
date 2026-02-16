@@ -12,30 +12,30 @@ from wiredwolf.model.player import Player, Role, Status
 
 def populate_players() -> list[Player]:
 
-    # For simplicity, the name of the players is used as their ID.
-    # In a real game, IDs would likely be more complex.
+    # For simplicity, we are using the same name as id,
+    # but in a real implementation these would be unique identifiers.
 
     return [
-        Player("Alice", Role.VILLAGER),
-        Player("Bob", Role.WEREWOLF),
-        Player("Charlie", Role.ESCORT),
-        Player("Diana", Role.CLAIRVOYANT),
-        Player("Eve", Role.MEDIUM),
-        Player("Frank", Role.WEREWOLF),
-        Player("Grace", Role.VILLAGER),
+        Player("Alice", "Alice", Role.VILLAGER),
+        Player("Bob", "Bob", Role.WEREWOLF),
+        Player("Charlie", "Charlie", Role.ESCORT),
+        Player("Diana", "Diana", Role.CLAIRVOYANT),
+        Player("Eve", "Eve", Role.MEDIUM),
+        Player("Frank", "Frank", Role.WEREWOLF),
+        Player("Grace", "Grace", Role.VILLAGER),
     ]
 
 
 def create_game_info() -> AbstractGameInfo:
     return create_standard_game()
 
-
+#FIXME: remove and make it better
 def get_index_by_name(players: list[Player], name: str) -> int:
     """
     Helper function to get the index of a player by their name.
     """
     for index, player in enumerate(players):
-        if player.id == name:
+        if player.name == name:
             return index
     raise ValueError(f"Player with name {name} not found.")
 
@@ -182,3 +182,22 @@ class GameStatusTest(unittest.TestCase):
 
         for status in [gs_werewolf_action, gs_escort_action, gs_clairvoyant_action]:
             self.assertNotEqual(self.game.get_game_status(), status)
+
+    def test_player_status_consistency(self):
+            self.game.advance_phase()
+            self.game.advance_phase() # Night phase
+            
+            self.game.perform_night_action("Bob", "Alice") # Werewolf targets Alice
+            self.game.perform_night_action("Charlie", "Alice") # Escort protects Alice
+            
+            status: GameStatus = self.game.get_game_status()
+            #TODO: if possible serialize and deserialize the game status to ensure that it is consistent even after serialization
+            new_game: Game = Game.from_game_status(status) # Previous game crashed, so recreate it
+            
+            new_game.advance_phase() # Day phase
+            
+            # Alice should be alive because she was protected by the Escort
+            self.assertEqual(
+                new_game.players[get_index_by_name(new_game.players, "Alice")].status,
+                Status.ALIVE,
+            )

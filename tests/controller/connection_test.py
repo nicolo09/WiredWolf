@@ -1,6 +1,7 @@
 from asyncio import StreamReader, StreamWriter, timeout
 import asyncio
 from typing import Any
+import uuid
 import pytest
 import pytest_asyncio
 from wiredwolf.controller.commons import DEFAULT_SERVER_PORT, Peer
@@ -9,7 +10,6 @@ from wiredwolf.controller.lobbies import Lobby, TcpMdnsLobbyBrowser
 from wiredwolf.controller.messages import BaseMessage, ChatMessage
 from wiredwolf.controller.server import GameServer, GameServerFactory
 from wiredwolf.controller.server_plugins import ChatPlugin, GameLifecyclePlugin
-
 
 @pytest_asyncio.fixture
 async def server_conn_handler():
@@ -30,6 +30,12 @@ async def browser():
     lobby_browser = TcpMdnsLobbyBrowser()
     yield lobby_browser
 
+def test_peer_equality():
+    peer1 = Peer("Alice")
+    peer2 = Peer("Bob")
+    assert peer1 != peer2, "Peers with different names should not be equal"
+    peer3 = Peer("Alice")
+    assert peer1 != peer3, "Peers with the same name but different UUIDs should not be equal"
 
 def test_too_long_data_raises():
     handler = connections.AsyncTCPMessageHandler(connections.PickleSerializer())

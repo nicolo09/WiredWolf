@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import uuid
 
 DEFAULT_SERVER_PORT = 12233
@@ -20,7 +20,7 @@ class Peer:
     """Represents a peer in the network."""
 
     name: str
-    uuid: str = str(uuid.uuid4())
+    uuid: str = field(default_factory=lambda: str(uuid.uuid4())) #TODO: Possible UUID collision will have to be handled in server code
 
 
 @dataclass(frozen=False)
@@ -28,4 +28,4 @@ class PasswordRequest:
     """Represents a password request message."""
 
     password: str | None = None
-    id: str = str(uuid.uuid4())
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))

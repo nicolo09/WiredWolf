@@ -105,6 +105,10 @@ class AbstractGameInfo(ABC):
     @abstractmethod
     def get_all_handled_roles(self) -> set[Role]:
         """Returns a set of roles handled by this game."""
+        
+    @abstractmethod
+    def get_possible_targets(self, role: Role, players: list[Player]) -> list[Player]:
+        """Returns a list of possible targets for a given role."""
 
     def _find_decorator(
         self, decorator_type: Type[T], game_info: "AbstractGameInfo"
@@ -216,7 +220,7 @@ class SimpleGameInfo(AbstractGameInfo):
             if not target.is_alive():
                 raise InvalidActionError("Cannot vote for dead player.")
             self._werewolves_votes[actor] = target
-        return NightActionResult(message="Action processed.")
+        return NightActionResult(message=f"Werewolf {actor.name} voted for {target.name}.")
 
     def reset_actions(self) -> None:
         self._accusation_votes.clear()
@@ -261,7 +265,11 @@ class SimpleGameInfo(AbstractGameInfo):
 
     def get_all_handled_roles(self) -> set[Role]:
         return {Role.VILLAGER, Role.WEREWOLF}
-
+    
+    def get_possible_targets(self, role: Role, players: list[Player]) -> list[Player]:
+        if role == Role.WEREWOLF:
+            return [player for player in players if player.is_alive() and player.role != Role.WEREWOLF]
+        return []
 
 class GameInfoDecorator(AbstractGameInfo):
     """
