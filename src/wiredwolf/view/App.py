@@ -807,8 +807,8 @@ class DayVotingScreen(AbstractScreen):
             if len(tmp)>0 and str.isspace(tmp)==False:
                 #if the message is not the last message sent and it's not empty, then send the new message
                 self._text_box.reset_last_input() #clear internal memory
-                result=self._controller.send_chat_message(self._global_state.username+":"+tmp) #TODO: start coroutine and ignore result. If it fails the controller will notify you
-
+                message_sent=asyncio.create_task(self._controller.send_chat_message(self._global_state.username+":"+tmp))
+                message_sent.add_done_callback(self._chek_if_message_ok)
             self._gui_manager.process_events(event) #processes pygame_gui events
             if event.type == pygame_gui.UI_BUTTON_PRESSED:
                 #A pygame_gui button is pressed
@@ -919,6 +919,12 @@ class DayVotingScreen(AbstractScreen):
             #Lowest message = newest message
             scroll_bar.set_scroll_from_start_percentage(1.0)
 
+    def _chek_if_message_ok(self, future: Future[None])->None:
+        """The callback function called when the message is sent"""
+        if future.exception() is not None:
+            #TODO: go to error screen
+            pass
+
     def _create_voting_panel(self)->None:
         """Creates the scrolling panel containing all player buttons"""
         self._starting_size=(SMALL_PANEL, PANEL_Y)  
@@ -986,7 +992,8 @@ class DayExecutionScreen(AbstractScreen):
             if len(tmp)>0 and str.isspace(tmp)==False:
                 #if the message is not the last message sent and it's not empty, then send the new message
                 self._text_box.reset_last_input() #clear internal memory
-                result=self._controller.send_chat_message(self._global_state.username+":"+tmp) #TODO: start coroutine and ignore result. If it fails the controller will notify you
+                message_sent=asyncio.create_task(self._controller.send_chat_message(self._global_state.username+":"+tmp))
+                message_sent.add_done_callback(self._chek_if_message_ok)
                 
             self._gui_manager.process_events(event) #processes pygame_gui events
         if event.type==self._global_state.custom_event:
@@ -1050,6 +1057,12 @@ class DayExecutionScreen(AbstractScreen):
             #If there's a scroll bar, it should show the bottom of the internal panel
             #Lowest message = newest message
             scroll_bar.set_scroll_from_start_percentage(1.0)
+
+    def _chek_if_message_ok(self, future: Future[None])->None:
+        """The callback function called when the message is sent"""
+        if future.exception() is not None:
+            #TODO: go to error screen
+            pass
         
     def reset_screen(self) -> None:
         #Enable buttons to execute
@@ -1136,8 +1149,9 @@ class NightRoleScreen(AbstractScreen):
             #Enter is entered in the textbox
             if len(event.text)>0 and str.isspace(event.text)==False:
                 #Message isn't empty
-                result=self._controller.send_chat_message(self._global_state.username+":"+event.text) #TODO: start coroutine and ignore result. If it fails the controller will notify you
                 self._text_input.clear() #Remove message
+                message_sent=asyncio.create_task(self._controller.send_chat_message(self._global_state.username+":"+event.text))
+                message_sent.add_done_callback(self._chek_if_message_ok)
         if event.type==self._global_state.custom_event:
             #parse the custom event into an object
             e=create_custom_event_from_dict(event.dict)
@@ -1220,6 +1234,11 @@ class NightRoleScreen(AbstractScreen):
             #If there's a scroll bar, it should show the bottom of the internal panel
             #Lowest message = newest message
             scroll_bar.set_scroll_from_start_percentage(1.0)
+    def _chek_if_message_ok(self, future: Future[None])->None:
+        """The callback function called when the message is sent"""
+        if future.exception() is not None:
+            #TODO: go to error screen
+            pass
 
     def reset_screen(self) -> None:
         #reset player list
