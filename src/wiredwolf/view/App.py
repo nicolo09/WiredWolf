@@ -133,12 +133,12 @@ class GlobalState:
     @property
     def is_master(self)->bool:
         """Returns if the player is master (a player is master when it is the lobby owner)"""
-        return self.is_master
+        return self._is_master
     
     @is_master.setter
     def is_master(self, is_master:bool)->None:
         """Sets if the player is master (a player is master when it is the lobby owner)"""
-        self.is_master=is_master
+        self._is_master=is_master
 
     @property
     def role_name(self)->str:
@@ -158,7 +158,7 @@ class GlobalState:
     @role_description.setter
     def role_description(self, role_description:str)->None:
         """Sets the role description"""
-        self.role_description=role_description
+        self._role_description=role_description
 class AbstractScreen(ABC):
     """A screen abstraction, handling the base work of any screen implementation"""
 
@@ -592,7 +592,6 @@ class WaitingLobbyScreen(AbstractScreen):
             self._title_container.update_on_next_draw() #Once this component is drawn the size of the text box has yet to change, so a manual update after draw is needed
             for elem in self._global_state.lobby.peers:
                 #Add players connected initially to the display
-                print(elem)
                 self._add_player(elem)
         self._display.fill(BACKGROUND_COLOR) #fills the background color for the application
         self._gui_manager.draw_ui(self._display)
@@ -653,7 +652,7 @@ class WaitingLobbyScreen(AbstractScreen):
                 #Save anchors
             else:
                 #Get biggest width of any non-deleted element
-                biggest_width_remaining=max(biggest_width_remaining, elem.rect[2]) # type: ignore
+                biggest_width_remaining=max(biggest_width_remaining, elem[0].rect[2]) # type: ignore
                 if anchors!=None:
                     #A match has been found, shift anchors (lower element gets upper element anchors)
                     temp=elem[0].anchors
