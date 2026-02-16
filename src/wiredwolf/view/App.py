@@ -216,6 +216,7 @@ class View:
         self._night_role_screen=NightRoleScreen(Screens.NIGHT_ROLE, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
         self._role_display_screen=RoleDisplayScreen(Screens.ROLE_DISPLAY, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
         self._loading_screen=LoadingLobbyScreen(Screens.LOADING_LOBBY, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
+        self._starting_game_screen=LoadingGameScreen(Screens.LOADING_GAME, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
         self._dictionary:dict[Screens, AbstractScreen]={self._start_screen.screen: self._start_screen,
                           self._new_lobby_screen.screen:self._new_lobby_screen, 
                           self._search_lobby_screen.screen:self._search_lobby_screen, 
@@ -225,7 +226,8 @@ class View:
                           self._night_villager_screen.screen: self._night_villager_screen,
                           self._night_role_screen.screen: self._night_role_screen,
                           self._role_display_screen.screen: self._role_display_screen,
-                          self._loading_screen.screen: self._loading_screen}
+                          self._loading_screen.screen: self._loading_screen,
+                          self._starting_game_screen.screen: self._starting_game_screen}
         self._clock = pygame.time.Clock()
         #Activate panels of first screen
         self._panel_handler.show_screens(self._game_state_manager.current_state)
@@ -705,7 +707,10 @@ class WaitingLobbyScreen(AbstractScreen):
             #Sends message that says what day it is
             self._custom_event_sender.day_message() #All other players receive the message when switching screens via event. The master won't receive this unless it sends a message to itself
             #Send message to controller that master started the game
-            result=self._controller.start_game() #TODO: make waiting for start game
+            game_started=asyncio.create_task(self._controller.start_game())
+            game_started.add_done_callback(self._on_game_started)
+            self.reset_screen()
+            self._game_state_manager.change_screen(Screens.LOADING_GAME)
         else:
             #error message
             tkinter.Tk().wm_withdraw() #to hide the main window
@@ -723,7 +728,51 @@ class WaitingLobbyScreen(AbstractScreen):
         """Function called by go home lobby"""
         self._game_state_manager.change_screen(Screens.HOME)
         self._global_state.is_master=False
-        
+
+    def _on_game_started(self, future: Future[None])->None:
+        """The callback function called when the controller has actually started the game"""
+        if future.exception() is None:
+            #Game started ok
+            self._game_state_manager.change_screen(Screens.DAY_VOTING)
+        else:
+            #TODO: go to error screen
+            pass
+
+class LoadingGameScreen(AbstractScreen):
+    """A simple loading screen shown when a game is being started"""
+    def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler, global_state:GlobalState) -> None:
+        super().__init__(screen, display, game_state_manager, gui_manager, panel_handler, global_state)
+        self._loading_container:pygame_gui.elements.UIPanel
+        self._loading_bar:pygame_gui.elements.UIProgressBar
+        self._current_progress=0
+        self._step=1
+        self._create_loading_panel()
+
+    def run(self, event:pygame.event.Event)->None:
+        self._display.fill(BACKGROUND_COLOR) #fills the background color for the application
+        self._gui_manager.draw_ui(self._display)
+        self._gui_manager.process_events(event) #processes pygame_gui events
+        self._current_progress=self._current_progress+self._step
+        if self._current_progress>=100 or self._current_progress<=2:
+            self._step=-self._step #Inverts progress
+        self._loading_bar.set_current_progress(self._current_progress)
+        #When game is started, screen changes to day voting
+
+    def reset_screen(self) -> None:
+        #Delete panel and create it new
+        self._panel_handler.delete_panels(self._screen_id)
+        self._create_loading_panel()
+
+    def _create_loading_panel(self)->None:
+        """Creates the panel containing the loading element"""
+        self._loading_container=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(0,0, 200, 200), anchors={'centerx':'centerx', 'centery': 'centery'})
+        self._loading_text=pygame_gui.elements.UILabel(relative_rect=pygame.Rect((0, 0), (-1, -1)), text="Starting the game...", manager=self._gui_manager, anchors={'centery': 'centery', 'centerx':'centerx'}, container=self._loading_container)
+        self._loading_bar=pygame_gui.elements.UIProgressBar(pygame.rect.Rect(0,10, 100, 50), manager=self._gui_manager, container=self._loading_container, anchors={'top_target': self._loading_text, 'centerx':'centerx'})
+        #TODO: create a class to hide progressbar text
+        self._current_progress=2
+        self._step=1
+
+
 class DayVotingScreen(AbstractScreen):
     """The screens where users chat and choose which players to nominate for an execution"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler, global_state:GlobalState) -> None:
