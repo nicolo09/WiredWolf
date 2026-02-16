@@ -575,7 +575,7 @@ class WaitingLobbyScreen(AbstractScreen):
         self._title_container=VContainer(SINGLE_ELEMENT_DIV, [self._title], self._display.get_size(), (50,20))
         self._text_number=Text("1 player connected...", font=FontSize.H2) #Updated count via custom events
         self._waiting=VContainer(SINGLE_ELEMENT_DIV,[self._text_number], self._display.get_size())
-        self._button=CallbackButton(self._if_master_start, "Start the game!", LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT)
+        self._button=EnabledButton(self._if_master_start, "Start the game!", LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, enabled=True)
         self._back_button=CallbackButton(self._go_home, "Exit lobby, go to home",LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT)
         self._button_container=HContainer(SMALL_ELEMENT_DIV, [self._button, self._back_button], self._display.get_size(), (50, 85))
         #Count and display which users are connected to the lobby
@@ -593,6 +593,12 @@ class WaitingLobbyScreen(AbstractScreen):
             for elem in self._global_state.lobby.peers:
                 #Add players connected initially to the display
                 self._add_player(elem)
+            if self._global_state.is_master:
+                #Player is master, so it can start the game
+                self._button.is_enabled=True
+            else:
+                #Player isn't master, it can't start the game
+                self._button.is_enabled=False
         self._display.fill(BACKGROUND_COLOR) #fills the background color for the application
         self._gui_manager.draw_ui(self._display)
         self._title_container.draw(self._display)
