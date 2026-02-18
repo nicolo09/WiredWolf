@@ -18,6 +18,33 @@ from tkinter import messagebox
 from asyncio import Future
 
 FPS=60
+class RolePanel():
+    """A class to handle role panel creation and hiding/showing"""
+
+    def __init__(self, gui_manager:pygame_gui.UIManager)->None:
+        self._gui_manager=gui_manager
+        self._role_panel=pygame_gui.elements.UIPanel(relative_rect=(-110,0,100,100), starting_height=10, manager=self._gui_manager, anchors={"right":"right"})
+        self._title=pygame_gui.elements.UILabel(relative_rect=(0,0,100,-1), text="", manager=self._gui_manager, anchors={}, container=self._role_panel)
+        self._text=pygame_gui.elements.UILabel(relative_rect=(0,10,100,-1), text="", manager=self._gui_manager, anchors={}, container=self._role_panel)
+
+    def set_content(self, title:str, text:str)->None:
+        """Sets a title and text for the role display"""
+        self._title.text=title
+        self._text.text=text
+
+    def reset(self)->None:
+        """Resets the shown text on the role display"""
+        self._title.text=""
+        self._text.text=""
+
+    def show(self)->None:
+        """Shows the role display"""
+        self._role_panel.show()
+    
+    def hide(self)->None:
+        """Hides the role display"""
+        self._role_panel.hide()
+    
 class PanelHandler():
     """A class to handle all panel creations and hiding/showing"""
 
@@ -26,6 +53,7 @@ class PanelHandler():
         self._panel_dictionary:dict[Screens,list[tuple[UIElement, bool]]]={} #Can store both UiPanels and UiScrollingContainers
         #this dictionary stores all existing panels connected to the screen they are shown on
         #list of (panels, always_on)->if always_on==true, panel is always displayed when screen is shown. Otherwise it stays hidden
+        self._role_panel=RolePanel(self._gui_manager)
 
     def create_panel(self, screen:Screens, relative_rect:pygame.Rect, anchors:dict[str, str | IUIElementInterface], starting_height:int=10,always_on:bool=True)->pygame_gui.elements.UIPanel:
         """Creates a hidden pygame_gui UIPanel with the given parameters. Saves a reference to the panel together with the screen it's shown on for future use"""
@@ -72,6 +100,10 @@ class PanelHandler():
                 element[0].kill()
             self._panel_dictionary[screen]=[]
 
+    @property
+    def role_panel(self)->RolePanel:
+        """Returns the role panel object"""
+        return self._role_panel
 class GameStateManager:
     """The game state manager internally stores which scene is displayed"""
 
@@ -1290,6 +1322,8 @@ class RoleDisplayScreen(AbstractScreen):
                 self._description_container.update_on_next_draw()
                 self._global_state.role_name=e.role
                 self._global_state.role_description=e.role_description
+                self._panel_handler.role_panel.set_content(e.role, e.role_description)
+                self._panel_handler.role_panel.show()
         
     def reset_screen(self) -> None:
         #Reset values that were sent via custom event
