@@ -929,10 +929,10 @@ class DayVotingScreen(AbstractScreen):
             #can only vote a player if one is selected
             self._voted_user=user
             self._voted_text.text="You voted for "+user.name
-        else:
-            self._voted_user=user #deselects player voted to be executed
-            self._voted_text.text="You haven't voted"
-        #TODO: send controller the ballot
+            self._voting_panel.disable()
+            #Communicate to controller who player voted for
+            voted_player=asyncio.create_task(self._controller.choose_player(user))
+            voted_player.add_done_callback(self._check_voted_player)
         
     def _send_message(self, message:str)->None:
         """Function called to display a new message in chat"""
@@ -961,6 +961,12 @@ class DayVotingScreen(AbstractScreen):
 
     def _check_if_message_ok(self, future: Future[None])->None:
         """The callback function called when the message is sent"""
+        if future.exception() is not None:
+            #TODO: go to error screen
+            pass
+    
+    def _check_voted_player(self, future: Future[None])->None:
+        """The callback function called when the player is voted"""
         if future.exception() is not None:
             #TODO: go to error screen
             pass
