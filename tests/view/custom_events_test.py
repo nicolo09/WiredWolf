@@ -12,7 +12,9 @@ class TestCustomEvents(unittest.TestCase):
         self.custom_event=self.event_sender.custom_event
         self.change_screen=ChangeScreenType(Screens.HOME)
         self.lobby_without_peers=Lobby(Peer("Owner"), "Lobby 1", password="password")
-        self.lobby_without_password=Lobby(Peer("Owner2"), "Lobby 2", peers=[Peer("Mario"), Peer("Luigi")])
+        self.lobby_without_password=Lobby(Peer("Owner2"), "Lobby 2")
+        self.lobby_without_password.peers.add(Peer("Mario"))
+        self.lobby_without_password.peers.add(Peer("Luigi"))
         self.discovered_lobby_add=LobbyType(self.lobby_without_peers, LobbyType.s_action_add)
         self.discovered_lobby_remove=LobbyType(self.lobby_without_password, LobbyType.s_action_remove)
         self.username_add=UsersType(Peer("Mario"), UsersType.s_action_add)

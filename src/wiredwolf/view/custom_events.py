@@ -45,7 +45,7 @@ class ChangeScreenType(AbstractEventType):
         return {AbstractEventType.s_event:self._event, ChangeScreenType.s_next_screen:self._next_screen}
     
 
-def create_peer_dict(peers:list[Peer])->dict[str, str]:
+def create_peer_dict(peers:set[Peer])->dict[str, str]:
     """Creates a dictionary of all peers joined into a lobby, with keys peer_joined_name_N: name and peer_joined_uuid_N : uuid"""
     peer_dictionary:dict[str, str]={}
     i=0
@@ -57,16 +57,16 @@ def create_peer_dict(peers:list[Peer])->dict[str, str]:
         i=i+1
     return peer_dictionary
 
-def create_peer_list(peers:dict[str, str], size:int)->list[Peer]:
+def create_peer_set(peers:dict[str, str], size:int)->set[Peer]:
     """Creates a list of all peers joined into a lobby, from a dictionary formatted with keys peer_joined_name_N: name and peer_joined_uuid_N : uuid"""
-    peer_list:list[Peer]=[]
+    peer_set:set[Peer]=set()
     for i in range(0, size):
         tmp=LobbyType.s_peer_joined_name+str(i)
         name=peers[tmp]
         tmp=LobbyType.s_peer_joined_uuid+str(i)
         uuid=peers[tmp]
-        peer_list.append(Peer(name, uuid))
-    return peer_list
+        peer_set.add(Peer(name, uuid))
+    return peer_set
 
 class LobbyType(AbstractEventType):
     """An event of a new lobby name that has been discovered"""
@@ -245,16 +245,20 @@ def create_lobby_type(dict: dict[Any, Any])->LobbyType:
     peer_n=dict.get(LobbyType.s_number_of_peers)
     assert(peer_n!=None)
     peer_n=int(peer_n)
-    peer_list=[] #List of peers
+    peer_set:set[Peer]=set() #List of peers
     if peer_n>0:
-        peer_list=create_peer_list(dict, peer_n)
-    assert(len(peer_list)==peer_n) #The new list of peers must be the same size of the original list
+        peer_set=create_peer_set(dict, peer_n)
+    assert(len(peer_set)==peer_n) #The new list of peers must be the same size of the original list
     password=dict.get(LobbyType.s_password)
     assert(password!=None)
     if password=="":
         #If no password is set, password field is set to None
         password=None
-    return LobbyType(Lobby(owner=Peer(owner_name, owner_uuid), password=password, name=name_lobby, peers=peer_list), action)
+    lobby=Lobby(owner=Peer(owner_name, owner_uuid), password=password, name=name_lobby)
+    for elem in peer_set:
+        #Add peers to lobby
+        lobby.peers.add(elem)
+    return LobbyType(lobby, action)
 
 def create_users_type(dict: dict[Any, Any])->UsersType:
     """Creates a users type from a correct dictionary"""
