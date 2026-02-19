@@ -86,7 +86,14 @@ class PanelHandler():
                 if element[1]==True:
                     #If always on->true then display
                     element[0].show()
-    
+        
+        if screen in [Screens.HOME,Screens.SEARCH_LOBBY,Screens.LOBBY_WAITING, Screens.LOADING_LOBBY, Screens.LOADING_GAME]:
+            #In these screens, role panel should be hidden
+            self.role_panel.hide()
+        else:
+            #Otherwise, show role panel
+            self.role_panel.show()
+
     def hide_screens(self, screen:Screens)->None:
         """Hides all panels of a given screen"""
         if screen in self._panel_dictionary:
