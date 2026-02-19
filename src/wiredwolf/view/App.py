@@ -29,13 +29,13 @@ class RolePanel():
 
     def set_content(self, title:str, text:str)->None:
         """Sets a title and text for the role display"""
-        self._title.text=title
-        self._text.text=text
+        self._title.set_text(title)
+        self._text.set_text(text)
 
     def reset(self)->None:
         """Resets the shown text on the role display"""
-        self._title.text=""
-        self._text.text=""
+        self._title.set_text("")
+        self._text.set_text("")
 
     def show(self)->None:
         """Shows the role display"""
