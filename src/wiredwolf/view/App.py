@@ -1067,8 +1067,21 @@ class DayExecutionScreen(AbstractScreen):
         self._execute_button.is_enabled=False
         self._spare_button.is_enabled=False
         self._vote_to_execute=outcome
-        #TODO: send message to controller
-        result=self._controller.vote_guilty()
+        if outcome==True:
+            #Executed
+            on_voted=asyncio.create_task(self._controller.vote_guilty())
+            on_voted.add_done_callback(self._on_executed_or_spared)
+        else:
+            #Spared
+            on_voted=asyncio.create_task(self._controller.vote_innocent())
+            on_voted.add_done_callback(self._on_executed_or_spared)
+
+        
+    def _on_executed_or_spared(self, future: Future[None])->None:
+        """The callback function called when the user is executed or spared"""
+        if future.exception() is not None:
+            #TODO: go to error screen
+            pass
 
     def _create_chat_panel(self)->None:
         """Creates the chat panel"""
