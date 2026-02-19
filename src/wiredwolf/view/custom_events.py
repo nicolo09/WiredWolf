@@ -440,6 +440,14 @@ class StatusMessages():
     def villager_win(self)->str:
         """Returns the message that villagers have won"""
         return self._msg_sender+": Villagers won!"
+    
+    def user_executed(self, username:str)->str:
+        """Returns the message that a user was executed"""
+        return self._msg_sender+": "+username+" was executed and killed"
+    
+    def user_killed_during_night(self, username:str)->str:
+        """Returns the message that a user was killed during the night"""
+        return self._msg_sender+": "+username+" was killed during the night"
 
     @property
     def day_count(self)->int:
@@ -562,4 +570,10 @@ class CustomEventSender(EventSender):
 
     def day_message(self)->None:
         self.send_event_chat_message(self._status_messages.message_day())
+        
+    def message_player_executed(self, user:str)->None:
+        self.send_event_chat_message(self._status_messages.user_executed(user))
+    
+    def message_player_killed_during_night(self, user:str)->None:
+        self.send_event_chat_message(self._status_messages.user_killed_during_night(user))
 
