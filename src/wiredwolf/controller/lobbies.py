@@ -25,11 +25,11 @@ class Lobby:
     owner: Peer
     name: str
     password: str | None = None
-    peers: list[Peer] = dataclasses.field(default_factory=list[Peer])
+    peers: set[Peer] = dataclasses.field(init=False, default_factory=set[Peer])
 
     def __post_init__(self):
         """Initializes the lobby by adding the owner to the peers list."""
-        self.peers.append(self.owner)
+        self.peers.add(self.owner)
 
     def check_password(self, passwd: str) -> bool:
         """Checks if the provided password matches the lobby's password."""
