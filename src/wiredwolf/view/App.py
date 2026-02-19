@@ -848,7 +848,7 @@ class DayVotingScreen(AbstractScreen):
                 #if the message is not the last message sent and it's not empty, then send the new message
                 self._text_box.reset_last_input() #clear internal memory
                 message_sent=asyncio.create_task(self._controller.send_chat_message(self._global_state.username+":"+tmp))
-                message_sent.add_done_callback(self._chek_if_message_ok)
+                message_sent.add_done_callback(self._check_if_message_ok)
             self._gui_manager.process_events(event) #processes pygame_gui events
             if event.type == pygame_gui.UI_BUTTON_PRESSED:
                 #A pygame_gui button is pressed
@@ -959,7 +959,7 @@ class DayVotingScreen(AbstractScreen):
             #Lowest message = newest message
             scroll_bar.set_scroll_from_start_percentage(1.0)
 
-    def _chek_if_message_ok(self, future: Future[None])->None:
+    def _check_if_message_ok(self, future: Future[None])->None:
         """The callback function called when the message is sent"""
         if future.exception() is not None:
             #TODO: go to error screen
@@ -1033,7 +1033,7 @@ class DayExecutionScreen(AbstractScreen):
                 #if the message is not the last message sent and it's not empty, then send the new message
                 self._text_box.reset_last_input() #clear internal memory
                 message_sent=asyncio.create_task(self._controller.send_chat_message(self._global_state.username+":"+tmp))
-                message_sent.add_done_callback(self._chek_if_message_ok)
+                message_sent.add_done_callback(self._check_if_message_ok)
                 
             self._gui_manager.process_events(event) #processes pygame_gui events
         if event.type==self._global_state.custom_event:
@@ -1098,7 +1098,7 @@ class DayExecutionScreen(AbstractScreen):
             #Lowest message = newest message
             scroll_bar.set_scroll_from_start_percentage(1.0)
 
-    def _chek_if_message_ok(self, future: Future[None])->None:
+    def _check_if_message_ok(self, future: Future[None])->None:
         """The callback function called when the message is sent"""
         if future.exception() is not None:
             #TODO: go to error screen
@@ -1191,7 +1191,7 @@ class NightRoleScreen(AbstractScreen):
                 #Message isn't empty
                 self._text_input.clear() #Remove message
                 message_sent=asyncio.create_task(self._controller.send_chat_message(self._global_state.username+":"+event.text))
-                message_sent.add_done_callback(self._chek_if_message_ok)
+                message_sent.add_done_callback(self._check_if_message_ok)
         if event.type==self._global_state.custom_event:
             #parse the custom event into an object
             e=create_custom_event_from_dict(event.dict)
@@ -1274,7 +1274,7 @@ class NightRoleScreen(AbstractScreen):
             #If there's a scroll bar, it should show the bottom of the internal panel
             #Lowest message = newest message
             scroll_bar.set_scroll_from_start_percentage(1.0)
-    def _chek_if_message_ok(self, future: Future[None])->None:
+    def _check_if_message_ok(self, future: Future[None])->None:
         """The callback function called when the message is sent"""
         if future.exception() is not None:
             #TODO: go to error screen
