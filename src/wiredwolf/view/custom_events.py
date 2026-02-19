@@ -403,6 +403,16 @@ class EventSender(ABC):
     def werewolf_win(self)->None:
         """Tells the view that werewolves won"""
         raise NotImplementedError("Please implement this method")
+    
+    @abstractmethod
+    def message_player_executed(self, user:str)->None:
+        """Sends a message to the view telling the players that user was executed"""
+        raise NotImplementedError("Please implement this method")
+    
+    @abstractmethod
+    def message_player_killed_during_night(self, user:str)->None:
+        """Sends a message to the view telling the players that user was killed during the night"""
+        raise NotImplementedError("Please implement this method")
 
 
 class StatusMessages():

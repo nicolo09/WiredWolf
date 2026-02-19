@@ -111,3 +111,6 @@ class TestCustomEvents(unittest.TestCase):
         """Test checking if winning messages are correctly constructed"""
         self.assertTrue("Villagers won" in self.status_messages.villager_win())
         self.assertTrue("Werewolves won" in self.status_messages.wolf_win())
+        user="Cesare"
+        self.assertTrue(user+" was executed" in self.status_messages.user_executed(user))
+        self.assertTrue(user+" was killed" in self.status_messages.user_killed_during_night(user))
