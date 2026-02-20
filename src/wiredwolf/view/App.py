@@ -1192,6 +1192,15 @@ class NightRoleScreen(AbstractScreen):
         self._gui_manager.draw_ui(self._display)
         self._title.draw(self._display)
         self._role_container.draw(self._display)
+        if self._global_state.role_name!=self._role_name:
+            #Global role is set, set it locally
+            self._role_name=self._global_state.role_name
+            self._role_text.text="Use your power, "+self._role_name
+            self._role_container.update_on_next_draw()
+            if self._role_name=="Werewolf": #TODO: enum role
+                #Show panels to chat with other werewolves
+                self._chat_panel.show()
+                self._input_panel.show()
         
         #Event handling
         self._gui_manager.process_events(event) #processes pygame_gui events
@@ -1231,15 +1240,6 @@ class NightRoleScreen(AbstractScreen):
                         #Increase scrollbar size, up to 2 buttons can fit without a scrollbar
                         self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
                         self._voting_panel.set_scrollable_area_dimensions(self._increased_size)
-            if isinstance(e, GameRoleType):
-                #Personalizes screen with player role
-                self._role_name=e.role
-                self._role_text.text="Use your power, "+self._role_name
-                self._role_container.update_on_next_draw()
-                #TODO: if role==werewolf (role is already stored somewhere)
-                self._chat_panel.show()
-                self._input_panel.show()
-                #Otherwise panels stay hidden
             if isinstance(e, ChatMessageType):
                 self._send_message(e.message)
                               
