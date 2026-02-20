@@ -11,7 +11,7 @@ from wiredwolf.view.custom_events import ChangeScreenType, ChatMessageType, Cust
 from wiredwolf.view.components import CallbackButton, MemoryTextField, VContainer, HContainer, EnabledButton, Text, TextField, DrawableComponent
 from wiredwolf.view.constants import FontSize, Screens
 from functools import partial
-from wiredwolf.view.view_constants import AUTO_SIZING, HORIZONTAL_SPACE_FOR_SCROLLBAR, MEDIUM_BTN_HEIGHT, MEDIUM_PANEL, SMALL_PANEL, PANEL_Y, SINGLE_ELEMENT_DIV, SMALL_BTN_WIDTH, MEDIUM_ELEMENT_DIV, LARGE_ELEMENT_DIV, LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, MEDIUM_BTN_WIDTH, BACKGROUND_COLOR, SMALL_ELEMENT_DIV, WIDE_PANEL
+from wiredwolf.view.view_constants import AUTO_SIZING, HORIZONTAL_SPACE_FOR_SCROLLBAR, MEDIUM_BTN_HEIGHT, MEDIUM_PANEL, ROLE_PANEL_X, ROLE_PANEL_Y, SMALL_PANEL, PANEL_Y, SINGLE_ELEMENT_DIV, SMALL_BTN_WIDTH, MEDIUM_ELEMENT_DIV, LARGE_ELEMENT_DIV, LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, MEDIUM_BTN_WIDTH, BACKGROUND_COLOR, SMALL_ELEMENT_DIV
 from pygame_gui.core.interfaces import IUIElementInterface
 from pygame_gui.core import UIElement
 from tkinter import messagebox
@@ -23,9 +23,9 @@ class RolePanel():
 
     def __init__(self, gui_manager:pygame_gui.UIManager)->None:
         self._gui_manager=gui_manager
-        self._role_panel=pygame_gui.elements.UIPanel(relative_rect=(-110,0,100,100), starting_height=10, manager=self._gui_manager, anchors={"right":"right"})
-        self._title=pygame_gui.elements.UILabel(relative_rect=(0,0,100,-1), text="", manager=self._gui_manager, anchors={}, container=self._role_panel)
-        self._text=pygame_gui.elements.UILabel(relative_rect=(0,10,100,-1), text="", manager=self._gui_manager, anchors={}, container=self._role_panel)
+        self._role_panel=pygame_gui.elements.UIPanel(relative_rect=(-ROLE_PANEL_X-MEDIUM_ELEMENT_DIV,0,ROLE_PANEL_X,ROLE_PANEL_Y), starting_height=10, manager=self._gui_manager, anchors={"right":"right"})
+        self._title=pygame_gui.elements.UILabel(relative_rect=(0,0,ROLE_PANEL_X,AUTO_SIZING), text="", manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._role_panel)
+        self._text=pygame_gui.elements.UILabel(relative_rect=(0,MEDIUM_ELEMENT_DIV,ROLE_PANEL_X,AUTO_SIZING), text="", manager=self._gui_manager, anchors={'top_target':self._title, "centerx":"centerx"}, container=self._role_panel)
 
     def set_content(self, title:str, text:str)->None:
         """Sets a title and text for the role display"""
@@ -981,10 +981,10 @@ class DayVotingScreen(AbstractScreen):
     
     def _create_chat_panel(self)->None:
         """Creates the chat panel"""
-        self._starting_size_chat=(WIDE_PANEL, PANEL_Y)  
-        self._increased_size_chat=(WIDE_PANEL-HORIZONTAL_SPACE_FOR_SCROLLBAR, PANEL_Y) #Inner panel is slightly smaller, has to account for scrollbars
+        self._starting_size_chat=(MEDIUM_PANEL, PANEL_Y)  
+        self._increased_size_chat=(MEDIUM_PANEL-HORIZONTAL_SPACE_FOR_SCROLLBAR, PANEL_Y) #Inner panel is slightly smaller, has to account for scrollbars
         self._elements_before_scrollbar=int(PANEL_Y/MEDIUM_BTN_HEIGHT) #How many elements fit into the inner panel, rounded to the lowest integer 
-        self._chat_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(-WIDE_PANEL ,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'centery':'centery'}, allow_scroll_x=True)
+        self._chat_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(-MEDIUM_PANEL ,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'centery':'centery'}, allow_scroll_x=True)
         #Positioning is negative because the anchor is right, same applies to bottom anchors
         self._chat_panel.set_scrollable_area_dimensions(self._increased_size_chat)
         
@@ -1075,7 +1075,6 @@ class DayExecutionScreen(AbstractScreen):
             #Spared
             on_voted=asyncio.create_task(self._controller.vote_innocent())
             on_voted.add_done_callback(self._on_executed_or_spared)
-
         
     def _on_executed_or_spared(self, future: Future[None])->None:
         """The callback function called when the user is executed or spared"""
@@ -1173,10 +1172,10 @@ class NightRoleScreen(AbstractScreen):
     """The screen where non villager role users act during the night"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler, global_state:GlobalState) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler, global_state)
-        self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Night")], self._display.get_size(), (50, 5))
+        self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Night")], self._display.get_size(), (30, 5))
         self._role_name=""
         self._role_text=Text("Use your power, "+self._role_name)
-        self._role_container=VContainer(SINGLE_ELEMENT_DIV, [self._role_text], self._display.get_size(),(50, 10)) 
+        self._role_container=VContainer(SINGLE_ELEMENT_DIV, [self._role_text], self._display.get_size(),(30, 10)) 
         #TODO: customize this further? ex werewolves kill this player, ...
         self._create_users_panel()
         #This is a list to store the buttons corresponding to the users
@@ -1249,7 +1248,7 @@ class NightRoleScreen(AbstractScreen):
         self._starting_size=(SMALL_PANEL, PANEL_Y) 
         self._increased_size=self._starting_size
         self._elements_before_scrollbar_players=int(PANEL_Y/(LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV))-1 #3 elements can fit without a scrollbar, 4th element needs it
-        self._voting_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(0,0, self._starting_size[0], self._starting_size[1]), anchors={'centerx':'centerx', 'centery':'centery'})
+        self._voting_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(-100,0, self._starting_size[0], self._starting_size[1]), anchors={'centerx':'centerx', 'centery':'centery'})
         self._voting_panel.set_scrollable_area_dimensions(self._starting_size)
 
     def _create_chat_panel(self)->None:
@@ -1306,6 +1305,7 @@ class NightRoleScreen(AbstractScreen):
         self._panel_handler.delete_panels(self._screen_id)
         self._create_users_panel()
         #Wait for role 
+        self._role_name=""
         self._role_text.text="Use your power, "
         #Delete all chat messages
         self._chat_messages.clear()
