@@ -13,6 +13,7 @@ class Screens(Enum):
     ROLE_DISPLAY='role display'
     LOADING_LOBBY='loading lobby'
     LOADING_GAME='loading game'
+    ERROR_SCREEN='error'
 
 class EventType(Enum): #Used to easily identify the type of event sent
     CHANGE_SCREEN='change-screen'

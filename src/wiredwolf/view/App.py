@@ -44,6 +44,28 @@ class RolePanel():
     def hide(self)->None:
         """Hides the role display"""
         self._role_panel.hide()
+
+class ErrorScreenHandler():
+    """A class to handle screen changes due to controller errors"""
+
+    def __init__(self)->None:
+        self._error_title=""
+        self._error_message=""
+        self._last_screen:Screens
+
+    def set_error(self, error_title:str, error_message:str)->None:
+        """Set error title and error message displayed in error screen"""
+        self._error_title=error_title
+        self._error_message=error_message
+    
+    def reset_error(self)->None:
+        """Reset error title and error message displayed in error screen"""
+        self._error_title=""
+        self._error_message=""
+
+    def save_previuos_screen(self, prev:Screens)->None:
+        """When changing to the error screen, save the previous screen id"""
+        self._last_screen=prev
     
 class PanelHandler():
     """A class to handle all panel creations and hiding/showing"""
@@ -117,6 +139,7 @@ class GameStateManager:
     def __init__(self, start_screen:Screens, panel_handler:PanelHandler) -> None:
         self._current_state=start_screen
         self._panel_handler=panel_handler
+        self._error_screen_handler=ErrorScreenHandler()
 
     @property
     def current_state(self)->Screens:
@@ -240,7 +263,7 @@ class View:
         self._running = True
         self._gui_manager=pygame_gui.UIManager(self._size, theme_path='resources/theme.json')
         self._panel_handler=PanelHandler(self._gui_manager)
-        self._game_state_manager=GameStateManager(Screens.HOME, self._panel_handler)
+        self._game_state_manager=GameStateManager(Screens.ERROR_SCREEN, self._panel_handler)
         self._global_state=GlobalState()
         #Sets custom event sender
         self._event_sender=CustomEventSender()
@@ -256,6 +279,7 @@ class View:
         self._role_display_screen=RoleDisplayScreen(Screens.ROLE_DISPLAY, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
         self._loading_screen=LoadingLobbyScreen(Screens.LOADING_LOBBY, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
         self._starting_game_screen=LoadingGameScreen(Screens.LOADING_GAME, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
+        self._error_screen=ErrorMessageScreen(Screens.ERROR_SCREEN, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
         self._dictionary:dict[Screens, AbstractScreen]={self._start_screen.screen: self._start_screen,
                           self._new_lobby_screen.screen:self._new_lobby_screen, 
                           self._search_lobby_screen.screen:self._search_lobby_screen, 
@@ -266,7 +290,8 @@ class View:
                           self._night_role_screen.screen: self._night_role_screen,
                           self._role_display_screen.screen: self._role_display_screen,
                           self._loading_screen.screen: self._loading_screen,
-                          self._starting_game_screen.screen: self._starting_game_screen}
+                          self._starting_game_screen.screen: self._starting_game_screen,
+                          self._error_screen.screen: self._error_screen}
         self._clock = pygame.time.Clock()
         #Activate panels of first screen
         self._panel_handler.show_screens(self._game_state_manager.current_state)
@@ -1292,6 +1317,7 @@ class NightRoleScreen(AbstractScreen):
             #If there's a scroll bar, it should show the bottom of the internal panel
             #Lowest message = newest message
             scroll_bar.set_scroll_from_start_percentage(1.0)
+        
     def _check_if_message_ok(self, future: Future[None])->None:
         """The callback function called when the message is sent"""
         if future.exception() is not None:
@@ -1357,6 +1383,28 @@ class RoleDisplayScreen(AbstractScreen):
         self._title_container.update_on_next_draw()
         self._description.text="Description"
         self._description_container.update_on_next_draw()
+
+
+class ErrorMessageScreen(AbstractScreen):
+    """The screen displaying an error message"""
+    def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler, global_state:GlobalState) -> None:
+        super().__init__(screen, display, game_state_manager, gui_manager, panel_handler, global_state)
+        self._panel=pygame_gui.elements.UIPanel(relative_rect=(0,0,MEDIUM_PANEL,PANEL_Y), starting_height=10, manager=self._gui_manager, anchors={"centerx":"centerx", "centery":"centery"})
+        self._title=pygame_gui.elements.UILabel(relative_rect=(0,0,MEDIUM_PANEL,AUTO_SIZING), text="title", manager=self._gui_manager, anchors={"centerx":"centerx", "centery":"centery"}, container=self._panel)
+        self._text=pygame_gui.elements.UILabel(relative_rect=(0,MEDIUM_ELEMENT_DIV,MEDIUM_PANEL,AUTO_SIZING), text="text", manager=self._gui_manager, anchors={'top_target':self._title, "centerx":"centerx"}, container=self._panel)
+    
+    def run(self, event:pygame.event.Event)->None:
+        """A role screen for users"""
+        self._display.fill(BACKGROUND_COLOR)
+        self._gui_manager.draw_ui(self._display)
+        
+        #Event handling
+        self._gui_manager.process_events(event) #processes pygame_gui events
+        
+    def reset_screen(self) -> None:
+        #Reset values that were sent via custom event
+        self._title.set_text("")
+        self._text.set_text("")
 
 if __name__ == "__main__":
     my_app=View()
