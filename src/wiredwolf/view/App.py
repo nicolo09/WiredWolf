@@ -337,12 +337,13 @@ class View:
 
     def update_display(self)->None:
         """Called inside the event loop, handles framerate limiting, event handling and scene switching"""
-        pygame.display.update() #necessary or the screen won't draw at all
         #gui manager needs to know how much time has passed since the last update in milliseconds
         tick=self._clock.tick(FPS)
         self._gui_manager.update(tick/1000.0)
         for event in pygame.event.get():
             self._on_event(event) #handles generated events 
+        pygame.display.update() #necessary or the screen won't draw at all
+        self._dictionary[self._game_state_manager.current_state].run(pygame.event.Event(pygame.USEREVENT)) #By using this event as a "keep alive", the gui updates more frequently
 
     def set_controller(self, controller:GameController)->None:
         """A function to connect the controller to the view"""
