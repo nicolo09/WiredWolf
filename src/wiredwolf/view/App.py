@@ -1390,7 +1390,7 @@ class ErrorMessageScreen(AbstractScreen):
     """The screen displaying an error message"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler, global_state:GlobalState) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler, global_state)
-        self._panel=pygame_gui.elements.UIPanel(relative_rect=(0,0,MEDIUM_PANEL,PANEL_Y), starting_height=10, manager=self._gui_manager, anchors={"centerx":"centerx", "centery":"centery"})
+        self._panel=self._panel_handler.create_panel(self._screen_id, relative_rect=pygame.rect.Rect(0,0,MEDIUM_PANEL,PANEL_Y), anchors={"centerx":"centerx", "centery":"centery"})
         self._title=pygame_gui.elements.UILabel(relative_rect=(0,0,MEDIUM_PANEL,AUTO_SIZING), text="title", manager=self._gui_manager, anchors={"centerx":"centerx", "centery":"centery"}, container=self._panel)
         self._text=pygame_gui.elements.UILabel(relative_rect=(0,MEDIUM_ELEMENT_DIV,MEDIUM_PANEL,AUTO_SIZING), text="text", manager=self._gui_manager, anchors={'top_target':self._title, "centerx":"centerx"}, container=self._panel)
     
