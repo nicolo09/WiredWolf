@@ -23,6 +23,8 @@ class EventType(Enum): #Used to easily identify the type of event sent
     WAITING_ROOM='waiting-room'
     CHAT_MESSAGE='chat-message'
     GAME_ROLE='game-role'
+    ERROR="error"
+    END_ERROR="end-error"
     NONE=""
 
 def h1Font()->pygame.font.Font:

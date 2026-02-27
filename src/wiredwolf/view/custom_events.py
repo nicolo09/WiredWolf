@@ -177,6 +177,42 @@ class WaitingRoomType(AbstractEventType):
         """Returns all the fields of the event as a dictionary, used when creating the event in pygame.event.Event()"""
         return {AbstractEventType.s_event:self._event, WaitingRoomType.s_number:self._number}
     
+class ErrorType(AbstractEventType):
+    """An event sent to go to the error screen"""
+
+    #static field name to standardize the dictionary key
+    s_title="title"
+    s_message="message"
+
+    def __init__(self, title:str, message:str)->None:
+        self._event=EventType.ERROR
+        self._title=title
+        self._message=message
+
+    @property
+    def title(self)->str:
+        """Returns the title of the error contained in the event"""
+        return self._title
+    
+    @property
+    def message(self)->str:
+        """Returns the message of the error contained in the event"""
+        return self._message
+    
+    def as_dictionary(self) -> dict[Any, Any]:
+        """Returns all the fields of the event as a dictionary, used when creating the event in pygame.event.Event()"""
+        return {AbstractEventType.s_event:self._event, ErrorType.s_title:self._title, ErrorType.s_message:self._message}
+     
+class EndErrorType(AbstractEventType):
+    """An event sent to exit the error screen"""
+
+    def __init__(self)->None:
+        self._event=EventType.END_ERROR
+    
+    def as_dictionary(self) -> dict[Any, Any]:
+        """Returns all the fields of the event as a dictionary, used when creating the event in pygame.event.Event()"""
+        return {AbstractEventType.s_event:self._event}
+
 class ChatMessageType(AbstractEventType):
     """An event sent containing a chat message"""
 
@@ -304,6 +340,22 @@ def create_game_role_type(dict:dict[Any, Any])->GameRoleType:
     assert(desc!=None)
     return GameRoleType(role, desc)
 
+def create_error_type(dict:dict[Any, Any])->ErrorType:
+    """Creates a error type from a correct dictionary"""
+    event=dict.get(ErrorType.s_event)
+    assert(event!=EventType.NONE and event!=None and event==EventType.ERROR)
+    title=dict.get(ErrorType.s_title)
+    assert(title!=None)
+    message=dict.get(ErrorType.s_message)
+    assert(message!=None)
+    return ErrorType(title, message)
+
+def create_end_error_type(dict:dict[Any, Any])->EndErrorType:
+    """Creates a end error type from a correct dictionary"""
+    event=dict.get(EndErrorType.s_event)
+    assert(event!=EventType.NONE and event!=None and event==EventType.END_ERROR)
+    return EndErrorType()
+
 def create_custom_event_from_dict(dict:dict[Any, Any])->AbstractEventType:
     """Creates an event type from a dictionary by parsing the event field. If the event field doesn't match a Value error is thrown"""
     event=dict.get(AbstractEventType.s_event)
@@ -323,6 +375,10 @@ def create_custom_event_from_dict(dict:dict[Any, Any])->AbstractEventType:
                 return create_chat_message_type(dict)
             case EventType.GAME_ROLE:
                 return create_game_role_type(dict)
+            case EventType.ERROR:
+                return create_error_type(dict)
+            case EventType.END_ERROR:
+                return create_end_error_type(dict)
             case _: #default case, no matches
                 raise ValueError("Dictionary event must be one of the EventType enums")         
     else:
@@ -366,7 +422,7 @@ class EventSender(ABC):
         """Players can start nominating for execution"""
         raise NotImplementedError("Please implement this method")
     
-    #Evento inizia a votare a ballot (change screen type)
+    #TODO: Evento inizia a votare a ballot (change screen type)
     
     @abstractmethod
     def user_to_nominated_for_execution(self, user:Peer)->None:
@@ -416,6 +472,16 @@ class EventSender(ABC):
     @abstractmethod
     def message_player_killed_during_night(self, user:str)->None:
         """Sends a message to the view telling the players that user was killed during the night"""
+        raise NotImplementedError("Please implement this method")
+    
+    @abstractmethod
+    def error_occurred(self, title:str, message:str)->None:
+        """Sends the error to the view"""
+        raise NotImplementedError("Please implement this method")
+    
+    @abstractmethod
+    def error_ended(self)->None:
+        """Sends the end of error to the view"""
         raise NotImplementedError("Please implement this method")
 
 
@@ -506,6 +572,15 @@ class CustomEventSender(EventSender):
     def send_event_game_role(self, role:str, description:str)->None:
         """Sends a custom event containing the game role"""
         pygame.event.post(pygame.event.Event(self._custom_event, GameRoleType(role, description).as_dictionary()))
+    
+    def send_event_error(self, title:str, message:str)->None:
+        """Sends a custom event containing the error message"""
+        pygame.event.post(pygame.event.Event(self._custom_event, ErrorType(title, message).as_dictionary()))
+
+    def send_event_end_error(self)->None:
+        """Sends a custom event containing the end of the error"""
+        pygame.event.post(pygame.event.Event(self._custom_event, EndErrorType().as_dictionary()))
+        
 
     @property
     def custom_event(self)->int:
@@ -580,4 +655,10 @@ class CustomEventSender(EventSender):
     
     def message_player_killed_during_night(self, user:str)->None:
         self.send_event_chat_message(self._status_messages.user_killed_during_night(user))
+
+    def error_occurred(self, title:str, message:str)->None:
+        self.send_event_error(title, message)
+    
+    def error_ended(self)->None:
+        self.send_event_end_error()
 
