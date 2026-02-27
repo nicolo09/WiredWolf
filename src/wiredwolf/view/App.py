@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from wiredwolf.controller.commons import Peer
 from wiredwolf.controller.controller import GameController
 from wiredwolf.controller.lobbies import Lobby, TcpMdnsLobbyBrowser
-from wiredwolf.view.custom_events import ChangeScreenType, ChatMessageType, CustomEventSender, LobbyType, EventSender, GameRoleType, TimeOutType, UsersType, create_custom_event_from_dict
+from wiredwolf.view.custom_events import ChangeScreenType, ChatMessageType, CustomEventSender, EndErrorType, ErrorType, LobbyType, EventSender, GameRoleType, TimeOutType, UsersType, create_custom_event_from_dict
 from wiredwolf.view.components import CallbackButton, MemoryTextField, VContainer, HContainer, EnabledButton, Text, TextField, DrawableComponent
 from wiredwolf.view.constants import FontSize, Screens
 from functools import partial
@@ -63,12 +63,20 @@ class ErrorScreenHandler():
         self._error_title=""
         self._error_message=""
 
-    def save_previuos_screen(self, prev:Screens)->None:
+    def save_previous_screen(self, prev:Screens)->None:
         """When changing to the error screen, save the previous screen id"""
         self._last_screen=prev
+
+    def get_previous_screen(self)->Screens:
+        """Returns the previous screen id"""
+        return self._last_screen
     
+    def reset_previous_screen(self)->None:
+        """Resets previous screen id"""
+        self._last_screen=Screens.NONE
+        
     def get_error(self)->tuple[str, str]:
-        """Retuns the saved error, as (title, message)"""
+        """Returns the saved error, as (title, message)"""
         return (self._error_title, self._error_message)
     
     def get_error_title(self)->str:
@@ -121,7 +129,7 @@ class PanelHandler():
                     #If always on->true then display
                     element[0].show()
         
-        if screen in [Screens.HOME, Screens.NEW_LOBBY, Screens.SEARCH_LOBBY, Screens.LOBBY_WAITING, Screens.LOADING_LOBBY, Screens.LOADING_GAME, Screens.ROLE_DISPLAY]:
+        if screen in [Screens.HOME, Screens.NEW_LOBBY, Screens.SEARCH_LOBBY, Screens.LOBBY_WAITING, Screens.LOADING_LOBBY, Screens.LOADING_GAME, Screens.ROLE_DISPLAY, Screens.ERROR_SCREEN, Screens.NONE]:
             #In these screens, role panel should be hidden
             self.role_panel.hide()
         else:
@@ -169,8 +177,16 @@ class GameStateManager:
         self._current_state=target_screen
         self._panel_handler.show_screens(target_screen) #shows new screen panels
 
+    def go_back_screen(self)->None:
+        """A function called when the error screen is closed, using the saved previous screen id, it goes back to the previous screen"""
+        self.change_screen(self._error_screen_handler.get_previous_screen())
+        #Reset error data
+        self._error_screen_handler.reset_error()
+        self._error_screen_handler.reset_previous_screen()
+        
+
 class GlobalState:
-    """A gloabal application state, for saving data across screens easily"""
+    """A global application state, for saving data across screens easily"""
     def __init__(self) -> None:
         self._username:str=""
         self._custom_event:int=0
@@ -402,6 +418,15 @@ class StartScreen(AbstractScreen):
             self._new_lobby_button.is_enabled=False
             self._search_lobby_button.is_enabled=False
         self._gui_manager.process_events(event) #processes pygame_gui events
+        #If received custom event
+        if event.type==self._global_state.custom_event:
+            #parse the custom event into an object
+            e=create_custom_event_from_dict(event.dict)
+            if isinstance(e, ErrorType):
+                #If it's an error event, show error message
+                self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
+                self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
+                self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
     
     def reset_screen(self) -> None:
         #Reset field text
@@ -920,6 +945,11 @@ class DayVotingScreen(AbstractScreen):
             if isinstance(e, ChatMessageType):
                 #Messages received from other users
                 self._send_message(e.message)
+            if isinstance(e, ErrorType):
+                #If it's an error event, show error message
+                self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
+                self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
+                self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
 
     def _add_player(self, user:Peer)->None:
         """Adds a new button username to the panel"""
@@ -1428,6 +1458,13 @@ class ErrorMessageScreen(AbstractScreen):
         
         #Event handling
         self._gui_manager.process_events(event) #processes pygame_gui events
+        if event.type==self._global_state.custom_event:
+            #Custom event
+            e=create_custom_event_from_dict(event.dict)
+            if isinstance(e, EndErrorType):
+                #Go back to previous screen
+                self.reset_screen() #Reset error screen
+                self._game_state_manager.go_back_screen()
         
     def reset_screen(self) -> None:
         #Reset values that were sent via custom event
