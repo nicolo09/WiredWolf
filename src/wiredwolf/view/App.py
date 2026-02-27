@@ -67,6 +67,18 @@ class ErrorScreenHandler():
         """When changing to the error screen, save the previous screen id"""
         self._last_screen=prev
     
+    def get_error(self)->tuple[str, str]:
+        """Retuns the saved error, as (title, message)"""
+        return (self._error_title, self._error_message)
+    
+    def get_error_title(self)->str:
+        """Returns the error title"""
+        return self._error_title
+    
+    def get_error_message(self)->str:
+        """Returns the error message"""
+        return self._error_message
+    
 class PanelHandler():
     """A class to handle all panel creations and hiding/showing"""
 
@@ -145,6 +157,11 @@ class GameStateManager:
     def current_state(self)->Screens:
         """Returns the screen the app game is on"""
         return self._current_state
+    
+    @property
+    def error_screen_handler(self)->ErrorScreenHandler:
+        """Returns the error screen handler object"""
+        return self._error_screen_handler
 
     def change_screen(self, target_screen:Screens)->None:
         """A function to change the application screen to the given one"""
@@ -263,7 +280,7 @@ class View:
         self._running = True
         self._gui_manager=pygame_gui.UIManager(self._size, theme_path='resources/theme.json')
         self._panel_handler=PanelHandler(self._gui_manager)
-        self._game_state_manager=GameStateManager(Screens.ERROR_SCREEN, self._panel_handler)
+        self._game_state_manager=GameStateManager(Screens.HOME, self._panel_handler)
         self._global_state=GlobalState()
         #Sets custom event sender
         self._event_sender=CustomEventSender()
@@ -1391,21 +1408,33 @@ class ErrorMessageScreen(AbstractScreen):
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler, global_state:GlobalState) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler, global_state)
         self._panel=self._panel_handler.create_panel(self._screen_id, relative_rect=pygame.rect.Rect(0,0,MEDIUM_PANEL,PANEL_Y), anchors={"centerx":"centerx", "centery":"centery"})
-        self._title=pygame_gui.elements.UILabel(relative_rect=(0,0,MEDIUM_PANEL,AUTO_SIZING), text="title", manager=self._gui_manager, anchors={"centerx":"centerx", "centery":"centery"}, container=self._panel)
-        self._text=pygame_gui.elements.UILabel(relative_rect=(0,MEDIUM_ELEMENT_DIV,MEDIUM_PANEL,AUTO_SIZING), text="text", manager=self._gui_manager, anchors={'top_target':self._title, "centerx":"centerx"}, container=self._panel)
+        self._title_element=pygame_gui.elements.UILabel(relative_rect=(0,0,MEDIUM_PANEL,AUTO_SIZING), text="", manager=self._gui_manager, anchors={"centerx":"centerx", "centery":"centery"}, container=self._panel)
+        self._text_element=pygame_gui.elements.UILabel(relative_rect=(0,MEDIUM_ELEMENT_DIV,MEDIUM_PANEL,AUTO_SIZING), text="", manager=self._gui_manager, anchors={'top_target':self._title_element, "centerx":"centerx"}, container=self._panel)
+        self._text=""
+        self._title=""
+        self._error_handler=self._game_state_manager.error_screen_handler
     
     def run(self, event:pygame.event.Event)->None:
         """A role screen for users"""
         self._display.fill(BACKGROUND_COLOR)
         self._gui_manager.draw_ui(self._display)
+        if self._title!=self._error_handler.get_error_title() or self._text!=self._error_handler.get_error_message():
+            #Error message is not set in this screen
+            error=self._error_handler.get_error()
+            self._title=error[0]
+            self._text=error[1]
+            self._title_element.set_text(self._title)
+            self._text_element.set_text(self._text)
         
         #Event handling
         self._gui_manager.process_events(event) #processes pygame_gui events
         
     def reset_screen(self) -> None:
         #Reset values that were sent via custom event
-        self._title.set_text("")
-        self._text.set_text("")
+        self._title_element.set_text("")
+        self._text_element.set_text("")
+        self._text=""
+        self._title=""
 
 if __name__ == "__main__":
     my_app=View()
