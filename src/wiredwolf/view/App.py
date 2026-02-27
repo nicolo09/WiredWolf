@@ -471,7 +471,16 @@ class NewLobbyScreen(AbstractScreen):
             if event.ui_element==self._go_home_button:
                 #go back to home screen
                 self._game_state_manager.change_screen(Screens.HOME)
-                self.reset_screen()    
+                self.reset_screen()
+        #If received custom event
+        if event.type==self._global_state.custom_event:
+            #parse the custom event into an object
+            e=create_custom_event_from_dict(event.dict)
+            if isinstance(e, ErrorType):
+                #If it's an error event, show error message
+                self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
+                self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
+                self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
             
     def reset_screen(self) -> None:
         #Reset lobby name
@@ -531,6 +540,15 @@ class LoadingLobbyScreen(AbstractScreen):
             self._step=-self._step #Inverts progress
         self._loading_bar.set_current_progress(self._current_progress)
         #When lobby is created, screen changes to join lobby
+        #If received custom event
+        if event.type==self._global_state.custom_event:
+            #parse the custom event into an object
+            e=create_custom_event_from_dict(event.dict)
+            if isinstance(e, ErrorType):
+                #If it's an error event, show error message
+                self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
+                self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
+                self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
 
     def reset_screen(self) -> None:
         #Delete panel and create it new
@@ -600,6 +618,11 @@ class SearchLobbyScreen(AbstractScreen):
                 else:
                     if e.action==LobbyType.s_action_remove:
                         self._remove_lobby(e.lobby)
+            if isinstance(e, ErrorType):
+                #If it's an error event, show error message
+                self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
+                self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
+                self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
         
     def reset_screen(self) -> None:
         #reset lobby list
@@ -732,6 +755,11 @@ class WaitingLobbyScreen(AbstractScreen):
                 if e.action==UsersType.s_action_remove:
                     #Remove user
                     self._delete_player(e.user)
+            if isinstance(e, ErrorType):
+                #If it's an error event, show error message
+                self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
+                self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
+                self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
                     
     def _add_player(self, user:Peer)->None:
         """Add a connected player username to the panel"""
@@ -865,6 +893,15 @@ class LoadingGameScreen(AbstractScreen):
             self._step=-self._step #Inverts progress
         self._loading_bar.set_current_progress(self._current_progress)
         #When game is started, screen changes to day voting
+        #If received custom event
+        if event.type==self._global_state.custom_event:
+            #parse the custom event into an object
+            e=create_custom_event_from_dict(event.dict)
+            if isinstance(e, ErrorType):
+                #If it's an error event, show error message
+                self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
+                self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
+                self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
 
     def reset_screen(self) -> None:
         #Delete panel and create it new
@@ -1133,6 +1170,11 @@ class DayExecutionScreen(AbstractScreen):
                     self._spare_button.text="Vote to spare "+self._executed_user.name
                     #Updating the button text requires an update on the container
                     self._button_container.update_on_next_draw()
+            if isinstance(e, ErrorType):
+                #If it's an error event, show error message
+                self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
+                self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
+                self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
     
     def _spare_or_execute(self, outcome:bool)->None:
         """The function called when the buttons are pressed, to save the outcome of the voting"""
@@ -1236,6 +1278,11 @@ class NightVillagerScreen(AbstractScreen):
                 #End of night, changing screen to day voting
                 self._game_state_manager.change_screen(e.next_screen)
                 self.reset_screen() #resets current screen for next time this is used
+            if isinstance(e, ErrorType):
+                #If it's an error event, show error message
+                self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
+                self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
+                self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
     
     def reset_screen(self) -> None:
         #Static screen, nothing to change
@@ -1315,6 +1362,11 @@ class NightRoleScreen(AbstractScreen):
                         self._voting_panel.set_scrollable_area_dimensions(self._increased_size)
             if isinstance(e, ChatMessageType):
                 self._send_message(e.message)
+            if isinstance(e, ErrorType):
+                #If it's an error event, show error message
+                self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
+                self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
+                self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
                               
     def _create_users_panel(self)->None:
         """Creates the scrolling panel containing all player buttons"""
@@ -1424,6 +1476,11 @@ class RoleDisplayScreen(AbstractScreen):
                 self._global_state.role_description=e.role_description
                 self._panel_handler.role_panel.set_content(e.role, e.role_description)
                 self._panel_handler.role_panel.show()
+            if isinstance(e, ErrorType):
+                #If it's an error event, show error message
+                self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
+                self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
+                self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
         
     def reset_screen(self) -> None:
         #Reset values that were sent via custom event
