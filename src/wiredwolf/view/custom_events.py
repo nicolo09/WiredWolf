@@ -206,12 +206,20 @@ class ErrorType(AbstractEventType):
 class EndErrorType(AbstractEventType):
     """An event sent to exit the error screen"""
 
-    def __init__(self)->None:
+    s_next_screen="next_screen"
+
+    def __init__(self, next_screen:Screens=Screens.NONE)->None:
         self._event=EventType.END_ERROR
+        self._next_screen=next_screen
+    
+    @property
+    def next_screen(self)->Screens:
+        """Returns the next screen of the end error message"""
+        return self._next_screen
     
     def as_dictionary(self) -> dict[Any, Any]:
         """Returns all the fields of the event as a dictionary, used when creating the event in pygame.event.Event()"""
-        return {AbstractEventType.s_event:self._event}
+        return {AbstractEventType.s_event:self._event, EndErrorType.s_next_screen:self._next_screen}
 
 class ChatMessageType(AbstractEventType):
     """An event sent containing a chat message"""
@@ -354,7 +362,9 @@ def create_end_error_type(dict:dict[Any, Any])->EndErrorType:
     """Creates a end error type from a correct dictionary"""
     event=dict.get(EndErrorType.s_event)
     assert(event!=EventType.NONE and event!=None and event==EventType.END_ERROR)
-    return EndErrorType()
+    next_screen=dict.get(EndErrorType.s_next_screen)
+    assert(next_screen!=None)
+    return EndErrorType(next_screen)
 
 def create_custom_event_from_dict(dict:dict[Any, Any])->AbstractEventType:
     """Creates an event type from a dictionary by parsing the event field. If the event field doesn't match a Value error is thrown"""
@@ -483,6 +493,11 @@ class EventSender(ABC):
     def error_ended(self)->None:
         """Sends the end of error to the view"""
         raise NotImplementedError("Please implement this method")
+    
+    @abstractmethod
+    def error_ended_go_to_screen(self, next_screen:Screens)->None:
+        """Sends the end of error to the view and changes screen to the given one"""
+        raise NotImplementedError("Please implement this method")
 
 
 class StatusMessages():
@@ -577,9 +592,11 @@ class CustomEventSender(EventSender):
         """Sends a custom event containing the error message"""
         pygame.event.post(pygame.event.Event(self._custom_event, ErrorType(title, message).as_dictionary()))
 
-    def send_event_end_error(self)->None:
+    def send_event_end_error(self, next_screen:Screens=Screens.NONE)->None:
         """Sends a custom event containing the end of the error"""
-        pygame.event.post(pygame.event.Event(self._custom_event, EndErrorType().as_dictionary()))
+        pygame.event.post(pygame.event.Event(self._custom_event, EndErrorType(next_screen).as_dictionary()))
+    
+
         
 
     @property
@@ -661,4 +678,7 @@ class CustomEventSender(EventSender):
     
     def error_ended(self)->None:
         self.send_event_end_error()
+
+    def error_ended_go_to_screen(self, next_screen:Screens)->None:
+        self.send_event_end_error(next_screen)
 
