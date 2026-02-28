@@ -1519,7 +1519,10 @@ class ErrorMessageScreen(AbstractScreen):
             #Custom event
             e=create_custom_event_from_dict(event.dict)
             if isinstance(e, EndErrorType):
-                #Go back to previous screen
+                if e.next_screen!=Screens.NONE:
+                    #If the next screen is set, then it overrides the prev screen information
+                    self._game_state_manager.error_screen_handler.save_previous_screen(e.next_screen)
+                #Go back to saved screen
                 self.reset_screen() #Reset error screen
                 self._game_state_manager.go_back_screen()
         
