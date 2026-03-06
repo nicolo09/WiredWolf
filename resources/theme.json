@@ -51,7 +51,7 @@
             "text_cursor":"#1A1A1A"
         }
      },
-     "progress_bar":{
+     "status_bar":{
         "colours":
          {
              "normal_border": "#DA0000",

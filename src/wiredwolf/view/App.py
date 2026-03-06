@@ -526,7 +526,7 @@ class LoadingLobbyScreen(AbstractScreen):
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler, global_state:GlobalState) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler, global_state)
         self._loading_container:pygame_gui.elements.UIPanel
-        self._loading_bar:pygame_gui.elements.UIProgressBar
+        self._loading_bar:pygame_gui.elements.UIStatusBar
         self._current_progress=0
         self._step=1
         self._create_loading_panel()
@@ -538,7 +538,7 @@ class LoadingLobbyScreen(AbstractScreen):
         self._current_progress=self._current_progress+self._step
         if self._current_progress>=100 or self._current_progress<=2:
             self._step=-self._step #Inverts progress
-        self._loading_bar.set_current_progress(self._current_progress)
+        self._loading_bar.percent_full=self._current_progress
         #When lobby is created, screen changes to join lobby
         #If received custom event
         if event.type==self._global_state.custom_event:
@@ -559,9 +559,9 @@ class LoadingLobbyScreen(AbstractScreen):
         """Creates the panel containing the loading element"""
         self._loading_container=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(0,0, 200, 200), anchors={'centerx':'centerx', 'centery': 'centery'})
         self._loading_text=pygame_gui.elements.UILabel(relative_rect=pygame.Rect((0, 0), (-1, -1)), text="Creating a new lobby...", manager=self._gui_manager, anchors={'centery': 'centery', 'centerx':'centerx'}, container=self._loading_container)
-        self._loading_bar=pygame_gui.elements.UIProgressBar(pygame.rect.Rect(0,10, 100, 50), manager=self._gui_manager, container=self._loading_container, anchors={'top_target': self._loading_text, 'centerx':'centerx'})
-        #TODO: create a class to hide progressbar text
-        self._current_progress=2
+        self._loading_bar=pygame_gui.elements.UIStatusBar(pygame.rect.Rect(0,10, 100, 50), manager=self._gui_manager, container=self._loading_container, anchors={'top_target': self._loading_text, 'centerx':'centerx'})
+        self._current_progress=2 #For some reason if current progress is 1 there's a display error
+        self._loading_bar.percent_full=self._current_progress
         self._step=1
 
 class SearchLobbyScreen(AbstractScreen):
@@ -879,7 +879,7 @@ class LoadingGameScreen(AbstractScreen):
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler, global_state:GlobalState) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler, global_state)
         self._loading_container:pygame_gui.elements.UIPanel
-        self._loading_bar:pygame_gui.elements.UIProgressBar
+        self._loading_bar:pygame_gui.elements.UIStatusBar
         self._current_progress=0
         self._step=1
         self._create_loading_panel()
@@ -891,7 +891,7 @@ class LoadingGameScreen(AbstractScreen):
         self._current_progress=self._current_progress+self._step
         if self._current_progress>=100 or self._current_progress<=2:
             self._step=-self._step #Inverts progress
-        self._loading_bar.set_current_progress(self._current_progress)
+        self._loading_bar.percent_full=self._current_progress
         #When game is started, screen changes to day voting
         #If received custom event
         if event.type==self._global_state.custom_event:
@@ -912,9 +912,9 @@ class LoadingGameScreen(AbstractScreen):
         """Creates the panel containing the loading element"""
         self._loading_container=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(0,0, 200, 200), anchors={'centerx':'centerx', 'centery': 'centery'})
         self._loading_text=pygame_gui.elements.UILabel(relative_rect=pygame.Rect((0, 0), (-1, -1)), text="Starting the game...", manager=self._gui_manager, anchors={'centery': 'centery', 'centerx':'centerx'}, container=self._loading_container)
-        self._loading_bar=pygame_gui.elements.UIProgressBar(pygame.rect.Rect(0,10, 100, 50), manager=self._gui_manager, container=self._loading_container, anchors={'top_target': self._loading_text, 'centerx':'centerx'})
-        #TODO: create a class to hide progressbar text
-        self._current_progress=2
+        self._loading_bar=pygame_gui.elements.UIStatusBar(pygame.rect.Rect(0,10, 100, 50), manager=self._gui_manager, container=self._loading_container, anchors={'top_target': self._loading_text, 'centerx':'centerx'})
+        self._current_progress=2 #For some reason if current progress is 1 there's a display error
+        self._loading_bar.percent_full=self._current_progress
         self._step=1
 
 
