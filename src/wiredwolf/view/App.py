@@ -840,7 +840,7 @@ class WaitingLobbyScreen(AbstractScreen):
     def _if_master_start(self) ->None:
         """If the button is pressed by the master, start the game"""
         if self._global_state.is_master==True: #Player is master if they created the lobby
-            self._game_state_manager.change_screen(Screens.DAY_VOTING)
+            self._game_state_manager.change_screen(Screens.ROLE_DISPLAY)
             #TODO: maybe go to role?
             self.reset_screen() #resets current screen for next time this is used
             #Send message to controller that master started the game

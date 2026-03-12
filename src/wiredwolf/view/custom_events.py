@@ -419,7 +419,7 @@ class EventSender(ABC):
 
     @abstractmethod
     def game_started_by_master(self)->None:
-        """Communicates to the other players that the game was started by the master of the lobby"""
+        """Communicates to the other players that the game was started by the master of the lobby, goes to role screen"""
         raise NotImplementedError("Please implement this method")
 
     @abstractmethod
@@ -610,7 +610,7 @@ class CustomEventSender(EventSender):
         self.send_event_remove_user(user)
 
     def game_started_by_master(self) -> None:
-        self.send_event_to_screen(Screens.DAY_VOTING)
+        self.send_event_to_screen(Screens.ROLE_DISPLAY)
         #Send message that it's the first day
         self.day_message()
 
