@@ -669,10 +669,10 @@ class SearchLobbyScreen(AbstractScreen):
         self._password=simpledialog.askstring(title="Insert password",prompt="Insert password (or leave empty for no password:")
         psw=None
         if self._password != "":
-            #If no password is entered, password field is set to None (so controller creates a passwordless lobby)
+            #If no password is entered, password field is set to None
             psw=self._password
         if self._lobby_to_join!=None:
-            lobby_created=asyncio.create_task(self._controller.join_lobby(self._lobby_to_join.name, psw)) #TODO: is this fine? You join a lobby based on name, not on a unique id
+            lobby_created=asyncio.create_task(self._controller.join_lobby(self._lobby_to_join.name, psw)) #You join a lobby based on name, not on a unique id
             lobby_created.add_done_callback(self._on_lobby_joined)
             self.reset_screen()
             self._game_state_manager.change_screen(Screens.LOADING_LOBBY)
