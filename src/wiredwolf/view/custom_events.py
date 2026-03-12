@@ -426,17 +426,10 @@ class EventSender(ABC):
     def players_to_nominate_for_execution(self, players:list[Peer])->None:
         """The list of players possible to choose from when nominating for execution and starts voting"""
         raise NotImplementedError("Please implement this method")
-
-    @abstractmethod
-    def start_voting_for_nominations(self)->None:
-        """Players can start nominating for execution"""
-        raise NotImplementedError("Please implement this method")
-    
-    #TODO: Evento inizia a votare a ballot (change screen type)
     
     @abstractmethod
-    def user_to_nominated_for_execution(self, user:Peer)->None:
-        """The user nominated to be executed"""
+    def user_to_nominated_for_ballot(self, user:Peer)->None:
+        """Changes the screen and displays the user nominated to be executed"""
         raise NotImplementedError("Please implement this method")
 
     @abstractmethod
@@ -624,16 +617,14 @@ class CustomEventSender(EventSender):
     def players_to_nominate_for_execution(self, players: list[Peer]) -> None:
         for elem in players:
             self.send_event_add_user(elem)
-        self.start_voting_for_execution()
+        self.start_voting_for_nominations()
 
     def start_voting_for_nominations(self) -> None:
         self.send_event_timeout()
         #TODO: message?
 
-    def start_voting_for_execution(self) -> None:
+    def user_to_nominated_for_ballot(self, user:Peer) -> None:
         self.send_event_to_screen(Screens.DAY_EXECUTION)
-
-    def user_to_nominated_for_execution(self, user:Peer) -> None:
         self.send_event_add_user(user)
 
     def display_chat_message(self, message: str) -> None:
