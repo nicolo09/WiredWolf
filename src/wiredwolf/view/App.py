@@ -305,7 +305,7 @@ class View:
         self._start_screen=StartScreen(Screens.HOME, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
         self._new_lobby_screen=NewLobbyScreen(Screens.NEW_LOBBY, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
         self._search_lobby_screen=SearchLobbyScreen(Screens.SEARCH_LOBBY, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
-        self._waiting_lobby_screen=WaitingLobbyScreen(Screens.LOBBY_WAITING, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._event_sender, self._global_state)
+        self._waiting_lobby_screen=WaitingLobbyScreen(Screens.LOBBY_WAITING, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
         self._day_voting_screen=DayVotingScreen(Screens.DAY_VOTING, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
         self._day_execution_screen=DayExecutionScreen(Screens.DAY_EXECUTION, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
         self._night_villager_screen=NightVillagerScreen(Screens.NIGHT_VILLAGER, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
@@ -706,9 +706,8 @@ class SearchLobbyScreen(AbstractScreen):
 
 class WaitingLobbyScreen(AbstractScreen):
     """The waiting room after joining a lobby"""
-    def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler, custom_event_sender:CustomEventSender, global_state:GlobalState) -> None:
+    def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler, global_state:GlobalState) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler, global_state)
-        self._custom_event_sender=custom_event_sender
         self._local_lobby:Lobby=Lobby(Peer(""), "Lobby Test")
         self._title=Text("Waiting for other players to join "+" lobby")
         self._title_container=VContainer(SINGLE_ELEMENT_DIV, [self._title], self._display.get_size(), (50,20))
@@ -844,9 +843,6 @@ class WaitingLobbyScreen(AbstractScreen):
     def _if_master_start(self) ->None:
         """If the button is pressed by the master, start the game"""
         if self._global_state.is_master==True: #Player is master if they created the lobby
-            self._game_state_manager.change_screen(Screens.ROLE_DISPLAY)
-            #TODO: maybe go to role?
-            self.reset_screen() #resets current screen for next time this is used
             #Send message to controller that master started the game
             game_started=asyncio.create_task(self._controller.start_game())
             game_started.add_done_callback(self._on_game_started)
@@ -874,9 +870,7 @@ class WaitingLobbyScreen(AbstractScreen):
         """The callback function called when the controller has actually started the game"""
         if future.exception() is None:
             #Game started ok
-            self._game_state_manager.change_screen(Screens.DAY_VOTING)
-            #Sends message that says what day it is
-            self._custom_event_sender.day_message() #All other players receive the message when switching screens via event. The master won't receive this unless it sends a message to itself
+            self._game_state_manager.change_screen(Screens.ROLE_DISPLAY)
         else:
             #Go to error screen
             self._game_state_manager.error_screen_handler.set_error("Error", str(future.exception()))

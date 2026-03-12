@@ -421,6 +421,11 @@ class EventSender(ABC):
     def game_started_by_master(self)->None:
         """Communicates to the other players that the game was started by the master of the lobby, goes to role screen"""
         raise NotImplementedError("Please implement this method")
+    
+    @abstractmethod
+    def start_first_day(self)->None:
+        """After displaying the role screen, starts the game by displaying the first day screen"""
+        raise NotImplementedError("Please implement this method")
 
     @abstractmethod
     def players_to_nominate_for_execution(self, players:list[Peer])->None:
@@ -587,10 +592,7 @@ class CustomEventSender(EventSender):
 
     def send_event_end_error(self, next_screen:Screens=Screens.NONE)->None:
         """Sends a custom event containing the end of the error"""
-        pygame.event.post(pygame.event.Event(self._custom_event, EndErrorType(next_screen).as_dictionary()))
-    
-
-        
+        pygame.event.post(pygame.event.Event(self._custom_event, EndErrorType(next_screen).as_dictionary())) 
 
     @property
     def custom_event(self)->int:
@@ -611,8 +613,6 @@ class CustomEventSender(EventSender):
 
     def game_started_by_master(self) -> None:
         self.send_event_to_screen(Screens.ROLE_DISPLAY)
-        #Send message that it's the first day
-        self.day_message()
 
     def players_to_nominate_for_execution(self, players: list[Peer]) -> None:
         for elem in players:
@@ -640,6 +640,10 @@ class CustomEventSender(EventSender):
     def end_night(self) -> None:
         self.send_event_to_screen(Screens.DAY_VOTING)
         self._status_messages.next_day()
+        self.day_message()
+    
+    def start_first_day(self)->None:
+        self.send_event_to_screen(Screens.DAY_VOTING)
         self.day_message()
 
     def user_role(self, role_name: str, role_description: str) -> None:
