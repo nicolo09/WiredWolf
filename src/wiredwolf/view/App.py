@@ -510,8 +510,10 @@ class NewLobbyScreen(AbstractScreen):
             self._game_state_manager.change_screen(Screens.LOBBY_WAITING)
             self._global_state.lobby=future.result()
         else:
-            #TODO: go to error screen
-            pass
+            #Go to error screen
+            self._game_state_manager.error_screen_handler.set_error("Error", str(future.exception()))
+            self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
+            self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
 
     def _create_input_panel(self)->None:
         self._panel=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(0,-100,LARGE_BTN_WIDTH,LARGE_BTN_WIDTH*6), anchors={'centerx':'centerx', 'centery': 'centery'})
@@ -689,8 +691,10 @@ class SearchLobbyScreen(AbstractScreen):
             if e is ValueError():
                 messagebox.showwarning('Password error', str(e))
             else:
-                #TODO: go to error screen
-                pass
+                #Go to error screen
+                self._game_state_manager.error_screen_handler.set_error("Error", str(e))
+                self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
+                self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
 
     def _create_lobby_panel(self)->None:
         """Creates the scrolling panel containing all lobbies buttons"""
@@ -874,8 +878,10 @@ class WaitingLobbyScreen(AbstractScreen):
             #Sends message that says what day it is
             self._custom_event_sender.day_message() #All other players receive the message when switching screens via event. The master won't receive this unless it sends a message to itself
         else:
-            #TODO: go to error screen
-            pass
+            #Go to error screen
+            self._game_state_manager.error_screen_handler.set_error("Error", str(future.exception()))
+            self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
+            self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
 
 class LoadingGameScreen(AbstractScreen):
     """A simple loading screen shown when a game is being started"""
@@ -1075,14 +1081,18 @@ class DayVotingScreen(AbstractScreen):
     def _check_if_message_ok(self, future: Future[None])->None:
         """The callback function called when the message is sent"""
         if future.exception() is not None:
-            #TODO: go to error screen
-            pass
+            #Go to error screen
+            self._game_state_manager.error_screen_handler.set_error("Error", str(future.exception()))
+            self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
+            self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
     
     def _check_voted_player(self, future: Future[None])->None:
         """The callback function called when the player is voted"""
         if future.exception() is not None:
-            #TODO: go to error screen
-            pass
+            #Go to error screen
+            self._game_state_manager.error_screen_handler.set_error("Error", str(future.exception()))
+            self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
+            self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
 
     def _create_voting_panel(self)->None:
         """Creates the scrolling panel containing all player buttons"""
@@ -1197,8 +1207,10 @@ class DayExecutionScreen(AbstractScreen):
     def _on_executed_or_spared(self, future: Future[None])->None:
         """The callback function called when the user is executed or spared"""
         if future.exception() is not None:
-            #TODO: go to error screen
-            pass
+            #Go to error screen
+            self._game_state_manager.error_screen_handler.set_error("Error", str(future.exception()))
+            self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
+            self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
 
     def _create_chat_panel(self)->None:
         """Creates the chat panel"""
@@ -1237,8 +1249,10 @@ class DayExecutionScreen(AbstractScreen):
     def _check_if_message_ok(self, future: Future[None])->None:
         """The callback function called when the message is sent"""
         if future.exception() is not None:
-            #TODO: go to error screen
-            pass
+            #Go to error screen
+            self._game_state_manager.error_screen_handler.set_error("Error", str(future.exception()))
+            self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
+            self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
         
     def reset_screen(self) -> None:
         #Enable buttons to execute
@@ -1424,8 +1438,10 @@ class NightRoleScreen(AbstractScreen):
     def _check_if_message_ok(self, future: Future[None])->None:
         """The callback function called when the message is sent"""
         if future.exception() is not None:
-            #TODO: go to error screen
-            pass
+            #Go to error screen
+            self._game_state_manager.error_screen_handler.set_error("Error", str(future.exception()))
+            self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
+            self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
 
     def reset_screen(self) -> None:
         #reset player list
