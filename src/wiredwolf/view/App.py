@@ -375,8 +375,10 @@ class View:
         self._gui_manager.update(tick/1000.0)
         for event in pygame.event.get():
             self._on_event(event) #handles generated events 
-        pygame.display.update() #necessary or the screen won't draw at all
-        self._dictionary[self._game_state_manager.current_state].run(pygame.event.Event(pygame.USEREVENT)) #By using this event as a "keep alive", the gui updates more frequently
+        if self._running:
+            #If quit event is recived->don't update
+            pygame.display.update() #necessary or the screen won't draw at all
+            self._dictionary[self._game_state_manager.current_state].run(pygame.event.Event(pygame.USEREVENT)) #By using this event as a "keep alive", the gui updates more frequently
 
     def set_controller(self, controller:GameController)->None:
         """A function to connect the controller to the view"""
@@ -1536,8 +1538,12 @@ class ErrorMessageScreen(AbstractScreen):
 if __name__ == "__main__":
     my_app=View()
     async def update():
-        my_app.update_display()
-        asyncio.create_task(update())
+        if my_app.app_running:
+            my_app.update_display()
+            asyncio.create_task(update())
+        else:
+            loop.stop()
+            return
 
     controller=GameController(TcpMdnsLobbyBrowser(), Peer("Peer"))
     my_app.set_controller(controller)
