@@ -1,7 +1,6 @@
 from asyncio import StreamReader, StreamWriter, timeout
 import asyncio
 from typing import Any
-import uuid
 import pytest
 import pytest_asyncio
 from wiredwolf.controller.commons import DEFAULT_SERVER_PORT, Peer

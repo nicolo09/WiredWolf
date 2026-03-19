@@ -335,6 +335,11 @@ class EventSender(ABC):
         """Tells the view that werewolves won"""
         raise NotImplementedError("Please implement this method")
 
+    @abstractmethod
+    def start_voting_for_ballot(self)->None:
+        """Starts the voting for guilty or innocent after a player has been nominated for execution"""
+        raise NotImplementedError("Please implement this method")
+
 
 class StatusMessages():
     """A simple class that constructs messages sent by the server. It keeps count of days"""
