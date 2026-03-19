@@ -178,11 +178,12 @@ class GameController:
         )
 
     async def choose_player(self, player: Peer):
-        """Votes a player in the lobby. This method may be called only during a voting phase.
+        """Chooses a player in the lobby. This method may be called only during a voting phase or during the night phase if the player can do an action.
 
         Args:
             player (Peer): The player to choose.
         """
+        #TODO: Add switch for night phase actions and voting phases to send the correct message type
         await self._send_message_and_wait_for_ack(
             VotePlayerMessage(self._my_self, player.uuid)
         )
