@@ -1340,8 +1340,9 @@ class NightRoleScreen(AbstractScreen):
             for element in self._players_list:
                     if event.ui_element == element[0]:
                         #vote for selected player (via peer unique identifier)
-                        #TODO: communicate to controller that user acted on given player
-                        result=self._controller.choose_player(element[1])
+                        #Communicate to controller that user acted on given player
+                        voted_player=asyncio.create_task(self._controller.choose_player(element[1]))
+                        voted_player.add_done_callback(self._check_voted_player)
                         self._voting_panel.disable() #Can only act once
         if event.type==pygame_gui.UI_TEXT_ENTRY_FINISHED:
             #Enter is entered in the textbox
@@ -1378,7 +1379,15 @@ class NightRoleScreen(AbstractScreen):
                 self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
                 self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
                 self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
-                              
+
+    def _check_voted_player(self, future: Future[None])->None:
+        """The callback function called when the player is acted on"""
+        if future.exception() is not None:
+            #Go to error screen
+            self._game_state_manager.error_screen_handler.set_error("Error", str(future.exception()))
+            self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
+            self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
+
     def _create_users_panel(self)->None:
         """Creates the scrolling panel containing all player buttons"""
         self._starting_size=(SMALL_PANEL, PANEL_Y) 
