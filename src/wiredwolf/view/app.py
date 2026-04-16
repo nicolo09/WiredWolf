@@ -539,11 +539,15 @@ class LoadingLobbyScreen(AbstractScreen):
     def run(self, event:pygame.event.Event)->None:
         self._display.fill(BACKGROUND_COLOR) #fills the background color for the application
         self._gui_manager.draw_ui(self._display)
+        
+        #Loading at constant speed
+        if event.type==pygame.USEREVENT:
+            self._current_progress=self._current_progress+self._step
+            if self._current_progress>=100 or self._current_progress<=2:
+                self._step=-self._step #Inverts progress
+            self._loading_bar.percent_full=self._current_progress
+
         self._gui_manager.process_events(event) #processes pygame_gui events
-        self._current_progress=self._current_progress+self._step
-        if self._current_progress>=100 or self._current_progress<=2:
-            self._step=-self._step #Inverts progress
-        self._loading_bar.percent_full=self._current_progress
         #When lobby is created, screen changes to join lobby
         #If received custom event
         if event.type==self._global_state.custom_event:
@@ -890,13 +894,16 @@ class LoadingGameScreen(AbstractScreen):
     def run(self, event:pygame.event.Event)->None:
         self._display.fill(BACKGROUND_COLOR) #fills the background color for the application
         self._gui_manager.draw_ui(self._display)
-        self._gui_manager.process_events(event) #processes pygame_gui events
-        self._current_progress=self._current_progress+self._step
-        if self._current_progress>=100 or self._current_progress<=2:
-            self._step=-self._step #Inverts progress
-        self._loading_bar.percent_full=self._current_progress
+        #Loading at constant speed
+        if event.type==pygame.USEREVENT:
+            self._current_progress=self._current_progress+self._step
+            if self._current_progress>=100 or self._current_progress<=2:
+                self._step=-self._step #Inverts progress
+            self._loading_bar.percent_full=self._current_progress
+        
         #When game is started, screen changes to day voting
         #If received custom event
+        self._gui_manager.process_events(event) #processes pygame_gui events
         if event.type==self._global_state.custom_event:
             #parse the custom event into an object
             e=create_custom_event_from_dict(event.dict)
