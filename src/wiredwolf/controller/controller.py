@@ -148,38 +148,36 @@ class GameController:
                 self._event_sender.game_started_by_master()
             case PhaseAdvanceMessage():
                 self._logger.info("Game phase has advanced.")
-                match message.outcome.new_phase:
-                    case GamePhase.DAY_DISCUSSION:
-                        self._event_sender.end_night()
-                    case GamePhase.DAY_ACCUSING:
-                        self._event_sender.start_voting_for_nominations()
-                    case GamePhase.DAY_BALLOT:
-                        self._event_sender.start_voting_for_ballot()
-                    case GamePhase.NIGHT:
-                        if self._game_status is not None:
-                            my_self = next(player for player in self._game_status.players if player.id == self._my_self.uuid)
-                            self._event_sender.start_night(my_self.role is Role.VILLAGER)
-                    case _:
-                        NotImplementedError("")
-                        #TODO: Add game end screens
                 if message.outcome.someone_died():
                     self._logger.info("A player has died this phase.")
                     for player in message.outcome.deaths:
                         self._event_sender.display_chat_message(
                             f"{player} has died."
                         )
-                if message.outcome.new_phase in (
-                    GamePhase.VILLAGERS_VICTORY,
-                    GamePhase.WEREWOLVES_VICTORY,
-                ):
-                    self._logger.info("Game has ended with a victory.")
-                    if message.outcome.new_phase == GamePhase.VILLAGERS_VICTORY:
-                        self._event_sender.villager_win()
-                    elif message.outcome.new_phase == GamePhase.WEREWOLVES_VICTORY:
-                        self._event_sender.werewolf_win()
-                    #TODO: Wait for a few seconds and then return to the main menu
+                match message.outcome.new_phase:
+                    case GamePhase.DAY_DISCUSSION:
+                        self._event_sender.end_night()
+                    case GamePhase.DAY_ACCUSING:
+                        if self._game_status is not None:
+                            votable_peers = [Peer(player.name, player.id) for player in self._game_status.players if player.is_alive() and player.id != self._my_self.uuid]
+                            self._event_sender.players_to_nominate_for_execution(votable_peers)
+                        else:
+                            self._logger.error("Game status is not available.")
+                    case GamePhase.DAY_BALLOT:
+                        self._event_sender.start_voting_for_ballot()
+                    case GamePhase.NIGHT:
+                        if self._game_status is not None:
+                            my_self = next(player for player in self._game_status.players if player.id == self._my_self.uuid)
+                            self._event_sender.start_night(my_self.role is Role.VILLAGER)
+                    case GamePhase.VILLAGERS_VICTORY | GamePhase.WEREWOLVES_VICTORY:
+                        self._logger.info("Game has ended with a victory.")
+                        if message.outcome.new_phase == GamePhase.VILLAGERS_VICTORY:
+                            self._event_sender.villager_win()
+                        elif message.outcome.new_phase == GamePhase.WEREWOLVES_VICTORY:
+                            self._event_sender.werewolf_win()
             case _:
                 self._logger.warning("Unhandled message type: %s", type(message))
+
 
     async def _wait_for_acknowledgment(self, message_id: str):
         """Waits for an acknowledgment for a message with the given ID.
@@ -233,7 +231,6 @@ class GameController:
         Args:
             player (Peer): The player to choose.
         """
-        #TODO: Add switch for night phase actions and voting phases to send the correct message type
         await self._send_message_and_wait_for_ack(
             VotePlayerMessage(self._my_self, player.uuid)
         )

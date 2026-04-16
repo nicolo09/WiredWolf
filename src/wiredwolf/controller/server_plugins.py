@@ -60,6 +60,7 @@ class VotingPlugin(ServerPlugin):
         if not server.game:
             raise RuntimeError("Game has not started yet.")
         match message:
+            #TODO: Add night action voting here as well
             case VotePlayerMessage():
                 try:
                     server.game.accuse_player(

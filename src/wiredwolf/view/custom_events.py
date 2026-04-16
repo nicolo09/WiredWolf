@@ -428,7 +428,7 @@ class EventSender(ABC):
         raise NotImplementedError("Please implement this method")
 
     @abstractmethod
-    def players_to_nominate_for_execution(self, players:list[Peer])->None:
+    def players_to_nominate_for_execution(self, players:list[Peer])->None: #TODO: consider renaming to start_nomination_for_execution
         """The list of players possible to choose from when nominating for execution and starts voting"""
         raise NotImplementedError("Please implement this method")
     
@@ -495,11 +495,6 @@ class EventSender(ABC):
     @abstractmethod
     def error_ended_go_to_screen(self, next_screen:Screens)->None:
         """Sends the end of error to the view and changes screen to the given one"""
-        raise NotImplementedError("Please implement this method")
-
-    @abstractmethod
-    def start_voting_for_ballot(self)->None:
-        """Starts the voting for guilty or innocent after a player has been nominated for execution"""
         raise NotImplementedError("Please implement this method")
 
 
