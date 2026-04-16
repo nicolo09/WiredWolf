@@ -377,7 +377,7 @@ class View:
         for event in pygame.event.get():
             self._on_event(event) #handles generated events 
         if self._running:
-            #If quit event is recived->don't update
+            #If quit event is received->don't update
             pygame.display.update() #necessary or the screen won't draw at all
             self._dictionary[self._game_state_manager.current_state].run(pygame.event.Event(pygame.USEREVENT)) #By using this event as a "keep alive", the gui updates more frequently
 
