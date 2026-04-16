@@ -27,6 +27,7 @@
             "disabled_bg": "#727272",
             "normal_text": "#1A1A1A",
             "active_text":"#1A1A1A",
+            "disabled_text":"#1A1A1A",
             "hovered_text":"#1A1A1A"
          },
         
@@ -49,6 +50,19 @@
             "normal_text":"#1A1A1A",
             "text_cursor":"#1A1A1A"
         }
+     },
+     "status_bar":{
+        "colours":
+         {
+             "normal_border": "#DA0000",
+             "filled_bar": "#DA0000",
+             "unfilled_bar": "#F3A6A6"
+         },
+         "misc":{
+            "shape":"rounded_rectangle",
+            "shape_corner_radius":"12",
+            "shadow_width":0
+         }
      }
      
 }
