@@ -507,14 +507,16 @@ class StatusMessages():
     def day_count(self)->int:
         """Returns the day count"""
         return self._day_count
+    
+    def reset_day_count(self)->None:
+        """Resets the day count, starts at day 1"""
+        self._day_count=1
 
 class CustomEventSender(EventSender):
     """This class is used to send custom events to the GUI"""
     def __init__(self, times:int=-1) -> None:
         pygame.init()
         self._custom_event=pygame.event.custom_type() #Set once by custom event sender initialization
-        self._times=times
-        self._counter=0
         self._status_messages=StatusMessages()
     
     def send_event_to_screen(self, screen:Screens)->None:
@@ -654,4 +656,8 @@ class CustomEventSender(EventSender):
 
     def player_is_dead(self)->None:
         self.send_event_dead_player()
+    
+    def reset_day_counter(self)->None:
+        """Resets the day count"""
+        self._status_messages.reset_day_count()
 

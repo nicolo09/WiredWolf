@@ -19,6 +19,7 @@ from asyncio import Future
 from wiredwolf.model.player import Role
 
 FPS=60
+STARTING_SCREEN=Screens.HOME
 class RolePanel():
     """A class to handle role panel creation and hiding/showing"""
 
@@ -103,6 +104,16 @@ class GlobalState:
         self._role_name:str=""
         self._role_description:str=""
         self._is_dead:bool=False
+
+    def reset(self)->None:
+        """Resets the global state"""
+        self._username=""
+        self._custom_event=0
+        self._lobby:Lobby
+        self._is_master=False
+        self._role_name=""
+        self._role_description=""
+        self._is_dead=False
 
     @property
     def username(self)->str:
@@ -324,7 +335,7 @@ class View:
         self._gui_manager=pygame_gui.UIManager(self._size, theme_path='resources/theme.json')
         self._global_state=GlobalState()
         self._panel_handler=PanelHandler(self._gui_manager, self._global_state)
-        self._game_state_manager=GameStateManager(Screens.HOME, self._panel_handler)
+        self._game_state_manager=GameStateManager(STARTING_SCREEN, self._panel_handler)
         #Sets custom event sender
         self._event_sender=CustomEventSender()
         self._global_state.custom_event=self._event_sender.custom_event
@@ -414,6 +425,19 @@ class View:
         for screen in self._dictionary:
             self._dictionary[screen].set_controller(controller)
 
+    def reset(self)->None:
+        """A function to reset the view to the initial state, used when going back to the home screen. Username isn't reset"""
+        self._dictionary[self._game_state_manager.current_state].reset_screen() #reset current screen 
+        username=self._global_state.username #save username
+        self._game_state_manager.error_screen_handler.reset_error() #if game is in an error state, also reset error state
+        self._game_state_manager.error_screen_handler.reset_previous_screen()
+        self._global_state.reset()
+        self._global_state.username=username #restore username
+        self._global_state.custom_event=self._event_sender.custom_event #restores custom event id
+        self._panel_handler.role_panel.reset() #reset role panel (displays game role)
+        self._event_sender.reset_day_counter() #resets day count
+        self._game_state_manager.change_screen(STARTING_SCREEN)
+
 class StartScreen(AbstractScreen):
     """The start screen, the first screen showed at startup"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager,gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler, global_state:GlobalState) -> None:
@@ -458,8 +482,7 @@ class StartScreen(AbstractScreen):
                 self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
     
     def reset_screen(self) -> None:
-        #Reset field text
-        self._field.text=""
+        #Don't reset username, nothing else to reset
         pass
 
 class NewLobbyScreen(AbstractScreen):
