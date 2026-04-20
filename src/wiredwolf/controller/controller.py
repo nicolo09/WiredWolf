@@ -19,6 +19,7 @@ from wiredwolf.controller.commons import ACK_TIMEOUT_SECONDS, DEFAULT_SERVER_POR
 from wiredwolf.model.game import GameStatus
 from wiredwolf.model.game_phases import GamePhase
 
+#TODO: Check if the lobby is removed from advertisement when the game starts
 
 class GameController:
     """Handles the game logic and player interactions. This controller is implemented by means of
