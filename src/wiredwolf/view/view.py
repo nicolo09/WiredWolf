@@ -6,7 +6,7 @@ import tkinter
 from abc import ABC, abstractmethod
 from wiredwolf.controller.commons import Peer
 from wiredwolf.controller.controller import GameController
-from wiredwolf.controller.lobbies import Lobby, TcpMdnsLobbyBrowser
+from wiredwolf.controller.lobbies import Lobby, LobbyInfo, TcpMdnsLobbyBrowser
 from wiredwolf.view.custom_events import ChangeScreenType, ChatMessageType, CustomEventSender, DeadPlayerType, EndErrorType, ErrorType, LobbyType, EventSender, GameRoleType, TimeOutType, UsersType, create_custom_event_from_dict
 from wiredwolf.view.components import CallbackButton, VContainer, HContainer, EnabledButton, Text, TextField, DrawableComponent
 from wiredwolf.view.constants import FontSize, Screens
@@ -324,7 +324,7 @@ class View:
         self._gui_manager=pygame_gui.UIManager(self._size, theme_path='resources/theme.json')
         self._global_state=GlobalState()
         self._panel_handler=PanelHandler(self._gui_manager, self._global_state)
-        self._game_state_manager=GameStateManager(Screens.DAY_EXECUTION, self._panel_handler)
+        self._game_state_manager=GameStateManager(Screens.HOME, self._panel_handler)
         #Sets custom event sender
         self._event_sender=CustomEventSender()
         self._global_state.custom_event=self._event_sender.custom_event
@@ -610,8 +610,8 @@ class SearchLobbyScreen(AbstractScreen):
         #The lobbies discovered are stored in a lobby panel
         self._create_lobby_panel()
         #This is a list to store the buttons corresponding to the lobbies
-        self._lobby_list:list[tuple[pygame_gui.elements.UIButton, Lobby]]=[]
-        self._lobby_to_join:Lobby|None=None
+        self._lobby_list:list[tuple[pygame_gui.elements.UIButton, LobbyInfo]]=[]
+        self._lobby_to_join:LobbyInfo|None=None
         self._password=""
 
     def run(self,event:pygame.event.Event)->None:
@@ -643,17 +643,17 @@ class SearchLobbyScreen(AbstractScreen):
                     length=len(self._lobby_list)
                     if length==0:
                         #First element, absolute positioning inside the container
-                        self._lobby_list.insert(length, (pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.lobby.name, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._lobby_panel), e.lobby))
+                        self._lobby_list.insert(length, (pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.lobby_info.name, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._lobby_panel), e.lobby_info))
                     else:
                         #Second element, relative positioning (below previous button)
-                        self._lobby_list.insert(length, (pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.lobby.name, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._lobby_list[length-1][0]}, container=self._lobby_panel), e.lobby))
+                        self._lobby_list.insert(length, (pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.lobby_info.name, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._lobby_list[length-1][0]}, container=self._lobby_panel), e.lobby_info))
                     if length>self._elements_before_scrollbar:
                         #Increase scrollbar size, up to self._elements_before_scrollbar buttons can fit without a scrollbar
                         self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
                         self._lobby_panel.set_scrollable_area_dimensions(self._increased_size)
                 else:
                     if e.action==LobbyType.s_action_remove:
-                        self._remove_lobby(e.lobby)
+                        self._remove_lobby(e.lobby_info)
             if isinstance(e, ErrorType):
                 #If it's an error event, show error message
                 self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
@@ -669,7 +669,7 @@ class SearchLobbyScreen(AbstractScreen):
         self._lobby_to_join=None
         self._password=""
     
-    def _remove_lobby(self, lobby:Lobby)->None:
+    def _remove_lobby(self, lobby:LobbyInfo)->None:
         """Remove a lobby from the panel if present"""
         element_to_remove=None
         anchors=None
@@ -705,8 +705,8 @@ class SearchLobbyScreen(AbstractScreen):
             #If no password is entered, password field is set to None
             psw=self._password
         if self._lobby_to_join!=None:
-            lobby_created=asyncio.create_task(self._controller.join_lobby(self._lobby_to_join.name, psw)) #You join a lobby based on name, not on a unique id
-            lobby_created.add_done_callback(self._on_lobby_joined)
+            lobby_created=asyncio.create_task(self._controller.join_lobby(self._lobby_to_join, psw)) #You join a lobby based on lobby info object, which is unique
+            lobby_created.add_done_callback(self._on_lobby_joined) #Lobby object is available only when you have actually joined the lobby
             self.reset_screen()
             self._game_state_manager.change_screen(Screens.LOADING_LOBBY)
 

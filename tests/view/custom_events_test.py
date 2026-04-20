@@ -11,10 +11,8 @@ class TestCustomEvents(unittest.TestCase):
         self.status_messages=StatusMessages()
         self.custom_event=self.event_sender.custom_event
         self.change_screen=ChangeScreenType(Screens.HOME)
-        self.lobby_without_peers=Lobby(Peer("Owner"), "Lobby 1", password="password")
-        self.lobby_without_password=Lobby(Peer("Owner2"), "Lobby 2")
-        self.lobby_without_password.peers.add(Peer("Mario"))
-        self.lobby_without_password.peers.add(Peer("Luigi"))
+        self.lobby_without_peers=LobbyInfo(name="Lobby 1", peers_number=0, max_peers=4, has_password=True, uuid="1")
+        self.lobby_without_password=LobbyInfo(name="Lobby 2", peers_number=2, max_peers=4, has_password=False, uuid="2")
         self.discovered_lobby_add=LobbyType(self.lobby_without_peers, LobbyType.s_action_add)
         self.discovered_lobby_remove=LobbyType(self.lobby_without_password, LobbyType.s_action_remove)
         self.username_add=UsersType(Peer("Mario"), UsersType.s_action_add)
@@ -49,8 +47,8 @@ class TestCustomEvents(unittest.TestCase):
         events_received=0
         total_events=13
         self.event_sender.send_event_to_screen(self.change_screen.next_screen)
-        self.event_sender.send_event_new_lobby(self.discovered_lobby_add.lobby)
-        self.event_sender.send_event_removed_lobby(self.discovered_lobby_remove.lobby)
+        self.event_sender.send_event_new_lobby(self.discovered_lobby_add.lobby_info)
+        self.event_sender.send_event_removed_lobby(self.discovered_lobby_remove.lobby_info)
         self.event_sender.send_event_add_user(self.username_add.user)
         self.event_sender.send_event_remove_user(self.username_remove.user)
         self.event_sender.send_event_timeout()
@@ -72,12 +70,14 @@ class TestCustomEvents(unittest.TestCase):
                     if isinstance(e, LobbyType):
                         if e.action==LobbyType.s_action_add:
                             self.assertEqual(e, self.discovered_lobby_add)
-                            self.assertEqual(e.lobby, self.lobby_without_peers)
+                            self.assertEqual(e.lobby_info, self.lobby_without_peers)
+                            self.assertEqual(e.lobby_info, LobbyInfo(e.lobby_info.name, e.lobby_info.has_password, e.lobby_info.uuid, e.lobby_info.peers_number, e.lobby_info.max_peers))
                             events_received=events_received+1
                         else:
                             if e.action==LobbyType.s_action_remove:
                                 self.assertEqual(e, self.discovered_lobby_remove)
-                                self.assertEqual(e.lobby, self.lobby_without_password)
+                                self.assertEqual(e.lobby_info, self.lobby_without_password)
+                                self.assertEqual(e.lobby_info, LobbyInfo(e.lobby_info.name, e.lobby_info.has_password, e.lobby_info.uuid, e.lobby_info.peers_number, e.lobby_info.max_peers))
                                 events_received=events_received+1
                             else:
                                 raise ValueError("Lobby type can only be add or remove")
