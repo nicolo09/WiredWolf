@@ -3,7 +3,6 @@ import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass, field
 import dataclasses
-import uuid
 from wiredwolf.controller.connections import (
     AsyncTCPClientConnectionHandler,
     AsyncTCPMessageHandler,
@@ -13,7 +12,12 @@ from wiredwolf.controller.connections import (
     MessageHandlerFactory,
 )
 
-from wiredwolf.controller.commons import CONNECTION_TIMEOUT, MAX_PLAYERS, Peer
+from wiredwolf.controller.commons import (
+    CONNECTION_TIMEOUT,
+    MAX_PLAYERS,
+    Peer,
+    id_generator,
+)
 from wiredwolf.controller.commons import PasswordRequest
 from wiredwolf.controller.services import CallbackServiceListener, ServiceManager
 
@@ -26,6 +30,7 @@ class LobbyInfo:
     """
     Represents the information of a lobby that can be sent to a client to be displayed in the lobby browser.
     """
+
     name: str
     has_password: bool
     uuid: str
@@ -37,7 +42,9 @@ class LobbyInfo:
 class Lobby:
     owner: Peer
     name: str
-    uuid: str = field(default_factory=lambda: str(uuid.uuid4()))  #TODO: Possible UUID collision will have to be handled in server code
+    uuid: str = field(
+        default_factory=lambda: id_generator()
+    )  # TODO: Possible UUID collision will have to be handled in services code
     password: str | None = None
     peers: set[Peer] = dataclasses.field(init=False, default_factory=set[Peer])
 
@@ -78,7 +85,7 @@ class LobbyBrowser(abc.ABC):
         self,
         on_lobby_found: Callable[[LobbyInfo], None],
         on_lobby_lost: Callable[[str], None],
-        on_lobby_updated: Callable[[LobbyInfo], None]
+        on_lobby_updated: Callable[[LobbyInfo], None],
     ) -> None:
         """Starts the lobby browser to discover available lobbies.
         When appropriate the lobby browser should be stopped by calling stop_lobby_browser().
@@ -106,14 +113,14 @@ class LobbyBrowser(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    async def connect_to_lobby_by_name(
-        self, my_self: Peer, lobby_name: str, lobby_password: str | None
+    async def connect_to_lobby_by_id(
+        self, my_self: Peer, lobby_id: str, lobby_password: str | None
     ) -> tuple[ClientConnectionHandler, Lobby]:
         """
-        Connects to a lobby with the given name and password.
+        Connects to a lobby with the given ID and password.
 
         Args:
-            lobby_name (str): The name of the lobby to connect to.
+            lobby_id (str): The ID of the lobby to connect to.
             lobby_password (str | None): The password for the lobby, or None if not required.
 
         Returns:
@@ -150,15 +157,21 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
         """
         if not self._browser:
             listener = CallbackServiceListener(
-                on_service_added=lambda name, props: on_lobby_found(self._get_lobby_info_from_service_properties(props)),
+                on_service_added=lambda name, props: on_lobby_found(
+                    self._get_lobby_info_from_service_properties(props)
+                ),
                 on_service_removed=on_lobby_lost,
-                on_service_updated=lambda name, props: on_lobby_updated(self._get_lobby_info_from_service_properties(props)),
+                on_service_updated=lambda name, props: on_lobby_updated(
+                    self._get_lobby_info_from_service_properties(props)
+                ),
             )
             self._browser = self._service_manager.get_service_browser(listener)
         else:
             raise RuntimeError("Lobby browser is already running.")
 
-    def _get_lobby_info_from_service_properties(self, properties: dict[str, str]) -> LobbyInfo:
+    def _get_lobby_info_from_service_properties(
+        self, properties: dict[str, str]
+    ) -> LobbyInfo:
         """Helper method to convert service properties to a LobbyInfo object."""
         return LobbyInfo(
             name=properties.get("name", "Unknown Lobby"),
@@ -168,7 +181,9 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
             max_peers=int(properties.get("max_peers", str(MAX_PLAYERS))),
         )
 
-    def _get_service_properties_from_lobby_info(self, lobby_info: LobbyInfo) -> dict[str, str]:
+    def _get_service_properties_from_lobby_info(
+        self, lobby_info: LobbyInfo
+    ) -> dict[str, str]:
         """Helper method to convert LobbyInfo to service properties."""
         return {
             "name": lobby_info.name,
@@ -186,11 +201,15 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
         else:
             raise RuntimeError("Lobby browser is not running.")
 
-    def publish_lobby(self, lobby_info: LobbyInfo, receiver_port: int) -> None: #TODO Move receiver_port to constructor
+    def publish_lobby(
+        self, lobby_info: LobbyInfo, receiver_port: int
+    ) -> None:  # TODO Move receiver_port to constructor
         """Publishes a lobby to the network so that it can be discovered by other players."""
         if not self._published_lobby_service_info:
             self._published_lobby_service_info = self._service_manager.register_service(
-                name=lobby_info.name, receiverPort=receiver_port, properties=self._get_service_properties_from_lobby_info(lobby_info)
+                name=lobby_info.uuid,  # Using lobby UUID as service name to avoid name collisions
+                receiverPort=receiver_port,
+                properties=self._get_service_properties_from_lobby_info(lobby_info),
             )
         else:
             raise RuntimeError("There is already a lobby being published.")
@@ -267,27 +286,28 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
 
         return await self._connect(address, my_self, lobby_password)
 
-    async def connect_to_lobby_by_name(
-        self, my_self: Peer, lobby_name: str, lobby_password: str | None
+    async def connect_to_lobby_by_id(
+        self, my_self: Peer, lobby_id: str, lobby_password: str | None
     ) -> tuple[ClientConnectionHandler, Lobby]:
         """
-        Connects to a lobby with the given name and password.
+        Connects to a lobby with the given ID and password.
 
         Args:
-            lobby_name (str): The name of the lobby to connect to.
+            lobby_id (str): The ID of the lobby to connect to.
             lobby_password (str | None): The password for the lobby, or None if not required.
 
         Returns:
             tuple[ClientConnectionHandler, Lobby]: The connected client handler and the joined lobby.
         """
         try:
-            ip, port = await self._service_manager.get_service_endpoint(lobby_name)
+            ip, port = await self._service_manager.get_service_endpoint(lobby_id)
         except TimeoutError:
-            raise LobbyNotFoundError(f"Could not find lobby '{lobby_name}'.")
+            raise LobbyNotFoundError(f"Could not find lobby '{lobby_id}'.")
 
         return await self._connect((ip, port), my_self, lobby_password)
 
     # TODO: This should also handle reconnection to previously joined lobbies in case of crash/network issues
+
 
 class LobbyBrowserFactory:
     @staticmethod

@@ -1,4 +1,6 @@
 from dataclasses import dataclass, field
+import random
+import string
 import uuid
 
 DEFAULT_SERVER_PORT = 12233
@@ -29,3 +31,6 @@ class PasswordRequest:
 
     password: str | None = None
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
+
+def id_generator(size: int = 15, chars: str = string.ascii_uppercase + string.digits):
+    return ''.join(random.choice(chars) for _ in range(size))

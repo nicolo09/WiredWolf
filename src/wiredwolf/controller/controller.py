@@ -22,7 +22,8 @@ from wiredwolf.model.game_phases import GamePhase
 from wiredwolf.model.player import Role
 from wiredwolf.view.custom_events import EventSender
 
-#TODO: Check if the lobby is removed from advertisement when the game starts
+# TODO: Check if the lobby is removed from advertisement when the game starts
+
 
 class GameController:
     """Handles the game logic and player interactions. This controller is implemented by means of
@@ -88,25 +89,28 @@ class GameController:
             Lobby: The created lobby.
         """
         self._lobby = Lobby(self._my_self, name=name, password=password)
-        self._server, self._client_connection_handler = await GameServerFactory.get_game_server(self._lobby)
+        (
+            self._server,
+            self._client_connection_handler,
+        ) = await GameServerFactory.get_game_server(self._lobby)
         self._client_connection_handler.set_on_message(self._on_message)
         await self._client_connection_handler.start_receiving()
         await self._server.start_listening()
         self._lobby_browser.publish_lobby(self._lobby.lobby_info(), DEFAULT_SERVER_PORT)
         return self._lobby
 
-    async def join_lobby(self, lobby_name: str, lobby_password: str | None) -> Lobby:
+    async def join_lobby(self, lobby_name: LobbyInfo, lobby_password: str | None) -> Lobby:
         """Joins a lobby by its name.
 
         Args:
-            lobby_name (str): The name of the lobby to join.
+            lobby_name (LobbyInfo): The info of the lobby to join.
             lobby_password (str | None): The password for the lobby or None if no password is set.
         """
         (
             self._client_connection_handler,
             self._lobby,
-        ) = await self._lobby_browser.connect_to_lobby_by_name(
-            self._my_self, lobby_name, lobby_password
+        ) = await self._lobby_browser.connect_to_lobby_by_id(
+            self._my_self, lobby_name.uuid, lobby_password
         )
         self._client_connection_handler.set_on_message(self._on_message)
         await self._client_connection_handler.start_receiving()
@@ -118,11 +122,12 @@ class GameController:
             lobby information when it changes."""
             self._event_sender.remove_discovered_lobby(lobby_info.uuid)
             self._event_sender.new_discovered_lobby(lobby_info.uuid)
+
         """Starts listening for available lobbies."""
         self._lobby_browser.start_lobby_browser(
             lambda lobby_info: self._event_sender.new_discovered_lobby(lobby_info),
             lambda lobby_uuid: self._event_sender.remove_discovered_lobby(lobby_uuid),
-            lambda lobby_info: remove_and_readd_lobby(lobby_info)
+            lambda lobby_info: remove_and_readd_lobby(lobby_info),
         )
 
     def stop_listening_for_lobbies(self):
@@ -152,24 +157,34 @@ class GameController:
                 if message.outcome.someone_died():
                     self._logger.info("A player has died this phase.")
                     for player in message.outcome.deaths:
-                        self._event_sender.display_chat_message(
-                            f"{player} has died."
-                        )
+                        self._event_sender.display_chat_message(f"{player} has died.")
                 match message.outcome.new_phase:
                     case GamePhase.DAY_DISCUSSION:
                         self._event_sender.end_night()
                     case GamePhase.DAY_ACCUSING:
                         if self._game_status is not None:
-                            votable_peers = [Peer(player.name, player.id) for player in self._game_status.players if player.is_alive() and player.id != self._my_self.uuid]
-                            self._event_sender.players_to_nominate_for_execution(votable_peers)
+                            votable_peers = [
+                                Peer(player.name, player.id)
+                                for player in self._game_status.players
+                                if player.is_alive() and player.id != self._my_self.uuid
+                            ]
+                            self._event_sender.players_to_nominate_for_execution(
+                                votable_peers
+                            )
                         else:
                             self._logger.error("Game status is not available.")
                     case GamePhase.DAY_BALLOT:
                         self._event_sender.start_voting_for_ballot()
                     case GamePhase.NIGHT:
                         if self._game_status is not None:
-                            my_self = next(player for player in self._game_status.players if player.id == self._my_self.uuid)
-                            self._event_sender.start_night(my_self.role is Role.VILLAGER)
+                            my_self = next(
+                                player
+                                for player in self._game_status.players
+                                if player.id == self._my_self.uuid
+                            )
+                            self._event_sender.start_night(
+                                my_self.role is Role.VILLAGER
+                            )
                     case GamePhase.VILLAGERS_VICTORY | GamePhase.WEREWOLVES_VICTORY:
                         self._logger.info("Game has ended with a victory.")
                         if message.outcome.new_phase == GamePhase.VILLAGERS_VICTORY:
@@ -178,7 +193,6 @@ class GameController:
                             self._event_sender.werewolf_win()
             case _:
                 self._logger.warning("Unhandled message type: %s", type(message))
-
 
     async def _wait_for_acknowledgment(self, message_id: str):
         """Waits for an acknowledgment for a message with the given ID.
@@ -222,9 +236,7 @@ class GameController:
 
     async def start_game(self):
         """Sends a request to start the game. This method may be called only by the lobby owner."""
-        await self._send_message_and_wait_for_ack(
-            StartGameMessage(self._my_self)
-        )
+        await self._send_message_and_wait_for_ack(StartGameMessage(self._my_self))
 
     async def choose_player(self, player: Peer):
         """Chooses a player in the lobby. This method may be called only during a voting phase or during the night phase if the player can do an action.
@@ -239,7 +251,7 @@ class GameController:
     async def vote_guilty(self):
         """Votes for the selected player to be guilty. This method may be called only during a
         guilty decision voting phase."""
-        #TODO: Change this and vote_innocent to a single method that takes a boolean parameter, since the logic is the same for both
+        # TODO: Change this and vote_innocent to a single method that takes a boolean parameter, since the logic is the same for both
         await self._send_message_and_wait_for_ack(
             VoteBallotMessage(self._my_self, True)
         )
@@ -247,14 +259,17 @@ class GameController:
     async def vote_innocent(self):
         """Votes for the selected player to be innocent. This method may be called only during a
         guilty decision voting phase."""
-        #TODO: Change this and vote_guilty to a single method that takes a boolean parameter, since the logic is the same for both
+        # TODO: Change this and vote_guilty to a single method that takes a boolean parameter, since the logic is the same for both
         await self._send_message_and_wait_for_ack(
             VoteBallotMessage(self._my_self, False)
         )
 
+
 class ControllerFactory:
     @staticmethod
-    def get_controller(browser: LobbyBrowser, event_sender: EventSender) -> GameController:
+    def get_controller(
+        browser: LobbyBrowser, event_sender: EventSender
+    ) -> GameController:
         """Creates and returns a new GameController instance.
 
         Args:

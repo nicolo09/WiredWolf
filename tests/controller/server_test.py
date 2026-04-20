@@ -12,7 +12,7 @@ PASSWORD: str = "password123"
 @pytest_asyncio.fixture
 async def server():
     owner = Peer("Owner Peer")
-    lobby = Lobby(owner, "Test Lobby", PASSWORD)
+    lobby = Lobby(owner=owner, name="Test Lobby", password=PASSWORD)
     server, _ = await GameServerFactory.get_game_server(lobby)
     await server.start_listening()
     yield server
@@ -30,7 +30,9 @@ async def test_join_server(server: GameServer, browser: TcpMdnsLobbyBrowser) -> 
     try:
         async with asyncio.timeout(5):
             handler, lobby = await browser.connect_to_lobby_directly(
-                Peer("test_user"), ("127.0.0.1", DEFAULT_SERVER_PORT), PASSWORD
+                my_self=Peer("test_user"),
+                address=("127.0.0.1", DEFAULT_SERVER_PORT),
+                lobby_password=PASSWORD
             )
             assert lobby == server.lobby
             await handler.close()
@@ -50,7 +52,7 @@ async def test_multiple_client_connect_to_server(
             "127.0.0.1",
             DEFAULT_SERVER_PORT,
         ),
-        PASSWORD,
+        lobby_password=PASSWORD,
     )
     assert recv_lobby1 == server.lobby
     assert len(recv_lobby1.peers) == 2
@@ -60,7 +62,7 @@ async def test_multiple_client_connect_to_server(
             "127.0.0.1",
             DEFAULT_SERVER_PORT,
         ),
-        PASSWORD,
+        lobby_password=PASSWORD,
     )
     assert recv_lobby2 == server.lobby
     assert len(recv_lobby2.peers) == 3
