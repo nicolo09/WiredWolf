@@ -26,6 +26,7 @@ class EventType(Enum): #Used to easily identify the type of event sent
     GAME_ROLE='game-role'
     ERROR="error"
     END_ERROR="end-error"
+    DEAD_PLAYER="dead-player"
     NONE=""
 
 def h1Font()->pygame.font.Font:

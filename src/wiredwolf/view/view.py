@@ -7,8 +7,8 @@ from abc import ABC, abstractmethod
 from wiredwolf.controller.commons import Peer
 from wiredwolf.controller.controller import GameController
 from wiredwolf.controller.lobbies import Lobby, TcpMdnsLobbyBrowser
-from wiredwolf.view.custom_events import ChangeScreenType, ChatMessageType, CustomEventSender, EndErrorType, ErrorType, LobbyType, EventSender, GameRoleType, TimeOutType, UsersType, create_custom_event_from_dict
-from wiredwolf.view.components import CallbackButton, MemoryTextField, VContainer, HContainer, EnabledButton, Text, TextField, DrawableComponent
+from wiredwolf.view.custom_events import ChangeScreenType, ChatMessageType, CustomEventSender, DeadPlayerType, EndErrorType, ErrorType, LobbyType, EventSender, GameRoleType, TimeOutType, UsersType, create_custom_event_from_dict
+from wiredwolf.view.components import CallbackButton, VContainer, HContainer, EnabledButton, Text, TextField, DrawableComponent
 from wiredwolf.view.constants import FontSize, Screens
 from functools import partial
 from wiredwolf.view.view_constants import AUTO_SIZING, HORIZONTAL_SPACE_FOR_SCROLLBAR, MEDIUM_BTN_HEIGHT, MEDIUM_PANEL, ROLE_PANEL_X, ROLE_PANEL_Y, SMALL_PANEL, PANEL_Y, SINGLE_ELEMENT_DIV, SMALL_BTN_WIDTH, MEDIUM_ELEMENT_DIV, LARGE_ELEMENT_DIV, LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, MEDIUM_BTN_WIDTH, BACKGROUND_COLOR, SMALL_ELEMENT_DIV
@@ -24,9 +24,10 @@ class RolePanel():
 
     def __init__(self, gui_manager:pygame_gui.UIManager)->None:
         self._gui_manager=gui_manager
-        self._role_panel=pygame_gui.elements.UIPanel(relative_rect=(-ROLE_PANEL_X-MEDIUM_ELEMENT_DIV,0,ROLE_PANEL_X,ROLE_PANEL_Y), starting_height=10, manager=self._gui_manager, anchors={"right":"right"})
+        self._role_panel=pygame_gui.elements.UIPanel(relative_rect=(-ROLE_PANEL_X-LARGE_ELEMENT_DIV-SMALL_ELEMENT_DIV,0,ROLE_PANEL_X,ROLE_PANEL_Y), starting_height=10, manager=self._gui_manager, anchors={"right":"right"})
         self._title=pygame_gui.elements.UILabel(relative_rect=(0,0,ROLE_PANEL_X,AUTO_SIZING), text="", manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._role_panel)
-        self._text=pygame_gui.elements.UILabel(relative_rect=(0,MEDIUM_ELEMENT_DIV,ROLE_PANEL_X,AUTO_SIZING), text="", manager=self._gui_manager, anchors={'top_target':self._title, "centerx":"centerx"}, container=self._role_panel)
+        self._text=pygame_gui.elements.UILabel(relative_rect=(0,LARGE_ELEMENT_DIV,ROLE_PANEL_X,AUTO_SIZING), text="", manager=self._gui_manager, anchors={'top_target':self._title, "centerx":"centerx"}, container=self._role_panel)
+        self._dead=pygame_gui.elements.UILabel(relative_rect=(0,SMALL_ELEMENT_DIV,ROLE_PANEL_X,AUTO_SIZING), text="", manager=self._gui_manager, anchors={'top_target':self._title, "centerx":"centerx"}, container=self._role_panel)
 
     def set_content(self, title:str, text:str)->None:
         """Sets a title and text for the role display"""
@@ -37,6 +38,10 @@ class RolePanel():
         """Resets the shown text on the role display"""
         self._title.set_text("")
         self._text.set_text("")
+        self._dead.set_text("")
+
+    def sets_dead(self)->None:
+        self._dead.set_text("You are dead")
 
     def show(self)->None:
         """Shows the role display"""
@@ -87,104 +92,6 @@ class ErrorScreenHandler():
     def get_error_message(self)->str:
         """Returns the error message"""
         return self._error_message
-    
-class PanelHandler():
-    """A class to handle all panel creations and hiding/showing"""
-
-    def __init__(self, gui_manager:pygame_gui.UIManager)->None:
-        self._gui_manager=gui_manager
-        self._panel_dictionary:dict[Screens,list[tuple[UIElement, bool]]]={} #Can store both UiPanels and UiScrollingContainers
-        #this dictionary stores all existing panels connected to the screen they are shown on
-        #list of (panels, always_on)->if always_on==true, panel is always displayed when screen is shown. Otherwise it stays hidden
-        self._role_panel=RolePanel(self._gui_manager)
-
-    def create_panel(self, screen:Screens, relative_rect:pygame.Rect, anchors:dict[str, str | IUIElementInterface], starting_height:int=10,always_on:bool=True)->pygame_gui.elements.UIPanel:
-        """Creates a hidden pygame_gui UIPanel with the given parameters. Saves a reference to the panel together with the screen it's shown on for future use"""
-        panel=pygame_gui.elements.UIPanel(relative_rect=relative_rect, starting_height=starting_height, manager=self._gui_manager, anchors=anchors)
-        panel.hide() #starts panel as hidden
-        if screen in self._panel_dictionary:
-            #already another panel of the same screen has been created
-            self._panel_dictionary[screen].append((panel,always_on))
-        else:
-            #first panel of this screen
-            self._panel_dictionary[screen]=[(panel, always_on)]
-        return panel
-    
-    def create_scrolling_panel(self, screen:Screens, relative_rect:pygame.Rect, anchors:dict[str, str | IUIElementInterface], starting_height:int=10, allow_scroll_x:bool=False, always_on:bool=True)->pygame_gui.elements.UIScrollingContainer:
-        """Creates a hidden pygame_gui UIScrollingContainer with the given parameters. Saves a reference to the panel together with the screen it's shown on for future use"""
-        panel=pygame_gui.elements.UIScrollingContainer(relative_rect=relative_rect, starting_height=starting_height, manager=self._gui_manager, anchors=anchors, allow_scroll_x=allow_scroll_x)
-        panel.hide() #starts panel as hidden
-        if screen in self._panel_dictionary:
-            #already another panel of the same screen has been created
-            self._panel_dictionary[screen].append((panel,always_on))
-        else:
-            #first panel of this screen
-            self._panel_dictionary[screen]=[(panel,always_on)]
-        return panel
-
-    def show_screens(self, screen:Screens)->None:
-        """Shows all panels of a given screen"""
-        if screen in self._panel_dictionary:
-            for element in self._panel_dictionary[screen]:
-                if element[1]==True:
-                    #If always on->true then display
-                    element[0].show()
-        
-        if screen in [Screens.HOME, Screens.NEW_LOBBY, Screens.SEARCH_LOBBY, Screens.LOBBY_WAITING, Screens.LOADING_LOBBY, Screens.LOADING_GAME, Screens.ROLE_DISPLAY, Screens.ERROR_SCREEN, Screens.NONE]:
-            #In these screens, role panel should be hidden
-            self.role_panel.hide()
-        else:
-            #Otherwise, show role panel
-            self.role_panel.show()
-
-    def hide_screens(self, screen:Screens)->None:
-        """Hides all panels of a given screen"""
-        if screen in self._panel_dictionary:
-            for element in self._panel_dictionary[screen]:
-                element[0].hide()
-
-    def delete_panels(self, screen:Screens)->None:
-        """Deletes all panels of a given screen"""
-        if screen in self._panel_dictionary:
-            for element in self._panel_dictionary[screen]:
-                element[0].kill()
-            self._panel_dictionary[screen]=[]
-
-    @property
-    def role_panel(self)->RolePanel:
-        """Returns the role panel object"""
-        return self._role_panel
-class GameStateManager:
-    """The game state manager internally stores which scene is displayed"""
-
-    def __init__(self, start_screen:Screens, panel_handler:PanelHandler) -> None:
-        self._current_state=start_screen
-        self._panel_handler=panel_handler
-        self._error_screen_handler=ErrorScreenHandler()
-
-    @property
-    def current_state(self)->Screens:
-        """Returns the screen the app game is on"""
-        return self._current_state
-    
-    @property
-    def error_screen_handler(self)->ErrorScreenHandler:
-        """Returns the error screen handler object"""
-        return self._error_screen_handler
-
-    def change_screen(self, target_screen:Screens)->None:
-        """A function to change the application screen to the given one"""
-        self._panel_handler.hide_screens(self._current_state) #hides old screen panels
-        self._current_state=target_screen
-        self._panel_handler.show_screens(target_screen) #shows new screen panels
-
-    def go_back_screen(self)->None:
-        """A function called when the error screen is closed, using the saved previous screen id, it goes back to the previous screen"""
-        self.change_screen(self._error_screen_handler.get_previous_screen())
-        #Reset error data
-        self._error_screen_handler.reset_error()
-        self._error_screen_handler.reset_previous_screen()
-        
 
 class GlobalState:
     """A global application state, for saving data across screens easily"""
@@ -195,6 +102,7 @@ class GlobalState:
         self._is_master:bool=False
         self._role_name:str=""
         self._role_description:str=""
+        self._is_dead:bool=False
 
     @property
     def username(self)->str:
@@ -255,6 +163,124 @@ class GlobalState:
     def role_description(self, role_description:str)->None:
         """Sets the role description"""
         self._role_description=role_description
+
+    @property
+    def is_dead(self)->bool:
+        """Returns if the player is dead"""
+        return self._is_dead
+    
+    @is_dead.setter
+    def is_dead(self, is_dead:bool)->None:
+        """Sets if the player is dead"""
+        self._is_dead=is_dead
+
+
+class PanelHandler():
+    """A class to handle all panel creations and hiding/showing. Uses global state to enable/disable panels for dead players"""
+
+    def __init__(self, gui_manager:pygame_gui.UIManager, global_state:GlobalState)->None:
+        self._gui_manager=gui_manager
+        self._global_state=global_state
+        self._panel_dictionary:dict[Screens,list[tuple[UIElement, bool, bool, bool]]]={} #Can store both UiPanels and UiScrollingContainers
+        #this dictionary stores all existing panels connected to the screen they are shown on
+        #list of (panels, always_on, enabled_even_for_dead, hidden_for_dead)->if always_on==true, panel is always displayed when screen is shown. Otherwise it stays hidden
+        #if enabled_even_for_dead==true, panel is enabled even for dead players, otherwise it stays disabled
+        #if hidden_for_dead==true, panel is hidden for dead players, otherwise it stays visible
+        self._role_panel=RolePanel(self._gui_manager)
+
+    def create_panel(self, screen:Screens, relative_rect:pygame.Rect, anchors:dict[str, str | IUIElementInterface], starting_height:int=10,always_on:bool=True, enabled_even_for_dead:bool=False, hidden_for_dead:bool=False)->pygame_gui.elements.UIPanel:
+        """Creates a hidden pygame_gui UIPanel with the given parameters. Saves a reference to the panel together with the screen it's shown on for future use"""
+        panel=pygame_gui.elements.UIPanel(relative_rect=relative_rect, starting_height=starting_height, manager=self._gui_manager, anchors=anchors)
+        panel.hide() #starts panel as hidden
+        if screen in self._panel_dictionary:
+            #already another panel of the same screen has been created
+            self._panel_dictionary[screen].append((panel,always_on, enabled_even_for_dead, hidden_for_dead))
+        else:
+            #first panel of this screen
+            self._panel_dictionary[screen]=[(panel, always_on, enabled_even_for_dead, hidden_for_dead)]
+        return panel
+    
+    def create_scrolling_panel(self, screen:Screens, relative_rect:pygame.Rect, anchors:dict[str, str | IUIElementInterface], starting_height:int=10, allow_scroll_x:bool=False, always_on:bool=True, enabled_even_for_dead:bool=False, hidden_for_dead:bool=False)->pygame_gui.elements.UIScrollingContainer:
+        """Creates a hidden pygame_gui UIScrollingContainer with the given parameters. Saves a reference to the panel together with the screen it's shown on for future use"""
+        panel=pygame_gui.elements.UIScrollingContainer(relative_rect=relative_rect, starting_height=starting_height, manager=self._gui_manager, anchors=anchors, allow_scroll_x=allow_scroll_x)
+        panel.hide() #starts panel as hidden
+        if screen in self._panel_dictionary:
+            #already another panel of the same screen has been created
+            self._panel_dictionary[screen].append((panel,always_on, enabled_even_for_dead, hidden_for_dead))
+        else:
+            #first panel of this screen
+            self._panel_dictionary[screen]=[(panel,always_on, enabled_even_for_dead, hidden_for_dead)]
+        return panel
+
+    def show_screens(self, screen:Screens)->None:
+        """Shows all panels of a given screen"""
+        if screen in self._panel_dictionary:
+            for element in self._panel_dictionary[screen]:
+                if element[1]==True:
+                    #If always on->true then display
+                    element[0].show()
+                #if is_dead->false, panels enabled
+                #if is_dead->true, all panels disabled except the ones with enabled_even_for_dead->true
+                if self._global_state.is_dead==True and element[2]==False:
+                    element[0].disable()
+                #if is_dead->true and is_hideen_for_dead_true, hide panel
+                if self._global_state.is_dead==True and element[3]==True:
+                    element[0].hide()
+        if screen in [Screens.HOME, Screens.NEW_LOBBY, Screens.SEARCH_LOBBY, Screens.LOBBY_WAITING, Screens.LOADING_LOBBY, Screens.LOADING_GAME, Screens.ROLE_DISPLAY, Screens.ERROR_SCREEN, Screens.NONE]:
+            #In these screens, role panel should be hidden
+            self.role_panel.hide()
+        else:
+            #Otherwise, show role panel
+            self.role_panel.show()
+
+    def hide_screens(self, screen:Screens)->None:
+        """Hides all panels of a given screen"""
+        if screen in self._panel_dictionary:
+            for element in self._panel_dictionary[screen]:
+                element[0].hide()
+
+    def delete_panels(self, screen:Screens)->None:
+        """Deletes all panels of a given screen"""
+        if screen in self._panel_dictionary:
+            for element in self._panel_dictionary[screen]:
+                element[0].kill()
+            self._panel_dictionary[screen]=[]
+
+    @property
+    def role_panel(self)->RolePanel:
+        """Returns the role panel object"""
+        return self._role_panel
+class GameStateManager:
+    """The game state manager internally stores which scene is displayed"""
+
+    def __init__(self, start_screen:Screens, panel_handler:PanelHandler) -> None:
+        self._current_state=start_screen
+        self._panel_handler=panel_handler
+        self._error_screen_handler=ErrorScreenHandler()
+
+    @property
+    def current_state(self)->Screens:
+        """Returns the screen the app game is on"""
+        return self._current_state
+    
+    @property
+    def error_screen_handler(self)->ErrorScreenHandler:
+        """Returns the error screen handler object"""
+        return self._error_screen_handler
+
+    def change_screen(self, target_screen:Screens)->None:
+        """A function to change the application screen to the given one"""
+        self._panel_handler.hide_screens(self._current_state) #hides old screen panels
+        self._current_state=target_screen
+        self._panel_handler.show_screens(target_screen) #shows new screen panels
+
+    def go_back_screen(self)->None:
+        """A function called when the error screen is closed, using the saved previous screen id, it goes back to the previous screen"""
+        self.change_screen(self._error_screen_handler.get_previous_screen())
+        #Reset error data
+        self._error_screen_handler.reset_error()
+        self._error_screen_handler.reset_previous_screen()
+        
 class AbstractScreen(ABC):
     """A screen abstraction, handling the base work of any screen implementation"""
 
@@ -296,9 +322,9 @@ class View:
         pygame.display.set_caption("Wiredwolf") #window title
         self._running = True
         self._gui_manager=pygame_gui.UIManager(self._size, theme_path='resources/theme.json')
-        self._panel_handler=PanelHandler(self._gui_manager)
-        self._game_state_manager=GameStateManager(Screens.HOME, self._panel_handler)
         self._global_state=GlobalState()
+        self._panel_handler=PanelHandler(self._gui_manager, self._global_state)
+        self._game_state_manager=GameStateManager(Screens.DAY_EXECUTION, self._panel_handler)
         #Sets custom event sender
         self._event_sender=CustomEventSender()
         self._global_state.custom_event=self._event_sender.custom_event
@@ -516,7 +542,8 @@ class NewLobbyScreen(AbstractScreen):
             self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
 
     def _create_input_panel(self)->None:
-        self._panel=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(0,-100,LARGE_BTN_WIDTH,LARGE_BTN_WIDTH*6), anchors={'centerx':'centerx', 'centery': 'centery'})
+        self._panel=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(0,-100,LARGE_BTN_WIDTH,LARGE_BTN_WIDTH*6), anchors={'centerx':'centerx', 'centery': 'centery'}, enabled_even_for_dead=True)
+
         lobby_name=pygame_gui.elements.UILabel(pygame.rect.Rect(0,0,-1,-1), text="Insert the new lobby name", manager=self._gui_manager, container=self._panel, anchors={'centerx':'centerx', 'centery': 'centery'})
         self._field=pygame_gui.elements.UITextEntryLine(pygame.rect.Rect(0,MEDIUM_ELEMENT_DIV,LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT), manager=self._gui_manager, container=self._panel, placeholder_text="", anchors={'centerx':'centerx', 'top_target': lobby_name})
         password_text=pygame_gui.elements.UILabel(pygame.rect.Rect(0,MEDIUM_ELEMENT_DIV,-1,-1), text="Insert a password (optional)", manager=self._gui_manager, container=self._panel, anchors={'centerx':'centerx', 'top_target': self._field})
@@ -539,11 +566,15 @@ class LoadingLobbyScreen(AbstractScreen):
     def run(self, event:pygame.event.Event)->None:
         self._display.fill(BACKGROUND_COLOR) #fills the background color for the application
         self._gui_manager.draw_ui(self._display)
+        
+        #Loading at constant speed
+        if event.type==pygame.USEREVENT:
+            self._current_progress=self._current_progress+self._step
+            if self._current_progress>=100 or self._current_progress<=2:
+                self._step=-self._step #Inverts progress
+            self._loading_bar.percent_full=self._current_progress
+
         self._gui_manager.process_events(event) #processes pygame_gui events
-        self._current_progress=self._current_progress+self._step
-        if self._current_progress>=100 or self._current_progress<=2:
-            self._step=-self._step #Inverts progress
-        self._loading_bar.percent_full=self._current_progress
         #When lobby is created, screen changes to join lobby
         #If received custom event
         if event.type==self._global_state.custom_event:
@@ -562,7 +593,7 @@ class LoadingLobbyScreen(AbstractScreen):
 
     def _create_loading_panel(self)->None:
         """Creates the panel containing the loading element"""
-        self._loading_container=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(0,0, 200, 200), anchors={'centerx':'centerx', 'centery': 'centery'})
+        self._loading_container=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(0,0, 200, 200), anchors={'centerx':'centerx', 'centery': 'centery'}, enabled_even_for_dead=True)
         self._loading_text=pygame_gui.elements.UILabel(relative_rect=pygame.Rect((0, 0), (-1, -1)), text="Creating a new lobby...", manager=self._gui_manager, anchors={'centery': 'centery', 'centerx':'centerx'}, container=self._loading_container)
         self._loading_bar=pygame_gui.elements.UIStatusBar(pygame.rect.Rect(0,10, 100, 50), manager=self._gui_manager, container=self._loading_container, anchors={'top_target': self._loading_text, 'centerx':'centerx'})
         self._current_progress=2 #For some reason if current progress is 1 there's a display error
@@ -701,7 +732,7 @@ class SearchLobbyScreen(AbstractScreen):
         self._starting_size=(SMALL_PANEL, PANEL_Y) 
         self._increased_size=self._starting_size
         self._elements_before_scrollbar=int(PANEL_Y/(LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV))-1 #3 elements can fit without a scrollbar, 4th element needs it
-        self._lobby_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(0,0, self._starting_size[0], self._starting_size[1]), anchors={'centerx':'centerx', 'centery':'centery'})
+        self._lobby_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(0,0, self._starting_size[0], self._starting_size[1]), anchors={'centerx':'centerx', 'centery':'centery'}, enabled_even_for_dead=True)
         self._lobby_panel.set_scrollable_area_dimensions(self._starting_size)
 
 class WaitingLobbyScreen(AbstractScreen):
@@ -858,7 +889,7 @@ class WaitingLobbyScreen(AbstractScreen):
         self._starting_size=(SMALL_PANEL, PANEL_Y)  
         self._increased_size=(SMALL_PANEL-HORIZONTAL_SPACE_FOR_SCROLLBAR, PANEL_Y) #The actual inside space is slightly smaller, due to the horizontal scrollbar
         self._elements_before_scrollbar=int(PANEL_Y/MEDIUM_BTN_HEIGHT) #How many elements fit into the inner panel, rounded to the lowest integer 
-        self._user_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(20,0, self._starting_size[0], self._starting_size[1]), anchors={'left':'left', 'centery':'centery'}, allow_scroll_x=True)
+        self._user_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(20,0, self._starting_size[0], self._starting_size[1]), anchors={'left':'left', 'centery':'centery'}, allow_scroll_x=True, enabled_even_for_dead=True)
         self._user_panel.set_scrollable_area_dimensions(self._starting_size)
 
     def _go_home(self)->None:
@@ -890,13 +921,16 @@ class LoadingGameScreen(AbstractScreen):
     def run(self, event:pygame.event.Event)->None:
         self._display.fill(BACKGROUND_COLOR) #fills the background color for the application
         self._gui_manager.draw_ui(self._display)
-        self._gui_manager.process_events(event) #processes pygame_gui events
-        self._current_progress=self._current_progress+self._step
-        if self._current_progress>=100 or self._current_progress<=2:
-            self._step=-self._step #Inverts progress
-        self._loading_bar.percent_full=self._current_progress
+        #Loading at constant speed
+        if event.type==pygame.USEREVENT:
+            self._current_progress=self._current_progress+self._step
+            if self._current_progress>=100 or self._current_progress<=2:
+                self._step=-self._step #Inverts progress
+            self._loading_bar.percent_full=self._current_progress
+        
         #When game is started, screen changes to day voting
         #If received custom event
+        self._gui_manager.process_events(event) #processes pygame_gui events
         if event.type==self._global_state.custom_event:
             #parse the custom event into an object
             e=create_custom_event_from_dict(event.dict)
@@ -913,7 +947,7 @@ class LoadingGameScreen(AbstractScreen):
 
     def _create_loading_panel(self)->None:
         """Creates the panel containing the loading element"""
-        self._loading_container=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(0,0, 200, 200), anchors={'centerx':'centerx', 'centery': 'centery'})
+        self._loading_container=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(0,0, 200, 200), anchors={'centerx':'centerx', 'centery': 'centery'}, enabled_even_for_dead=True)
         self._loading_text=pygame_gui.elements.UILabel(relative_rect=pygame.Rect((0, 0), (-1, -1)), text="Starting the game...", manager=self._gui_manager, anchors={'centery': 'centery', 'centerx':'centerx'}, container=self._loading_container)
         self._loading_bar=pygame_gui.elements.UIStatusBar(pygame.rect.Rect(0,10, 100, 50), manager=self._gui_manager, container=self._loading_container, anchors={'top_target': self._loading_text, 'centerx':'centerx'})
         self._current_progress=2 #For some reason if current progress is 1 there's a display error
@@ -926,9 +960,6 @@ class DayVotingScreen(AbstractScreen):
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler, global_state:GlobalState) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler, global_state)
         self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Day")], self._display.get_size(), (50, 5))
-        self._text_box=MemoryTextField(LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, font=FontSize.H3) #This is where the new messages are entered
-        self._container_text=VContainer(SINGLE_ELEMENT_DIV, [self._text_box], self._display.get_size(), (70,90))
-        self._last_message=""
         self._create_voting_panel()
         self._voted_user:Peer|None = None
         #This is a list to store the buttons corresponding to the users
@@ -938,26 +969,26 @@ class DayVotingScreen(AbstractScreen):
         #Chat panel
         self._create_chat_panel()
         self._chat_messages:list[pygame_gui.elements.UILabel]=[]
+        #Chat input
+        self._create_input_panel()
 
     def run(self,event:pygame.event.Event)->None:
         """A day waiting and voting screen"""
         self._display.fill(BACKGROUND_COLOR)
         self._gui_manager.draw_ui(self._display)
-        self._container_text.draw(self._display)
         self._title.draw(self._display)
         self._voted_container.draw(self._display)
-
         #Event handling
+        self._gui_manager.process_events(event) #processes pygame_gui events
         if event.type!=self._global_state.custom_event:
             #pygame event, text box handles it
-            self._text_box.handle_event(event) #Textbox handles key input
-            tmp=self._text_box.last_input #get last message sent (if it's not already handled)
-            if len(tmp)>0 and str.isspace(tmp)==False:
-                #if the message is not the last message sent and it's not empty, then send the new message
-                self._text_box.reset_last_input() #clear internal memory
-                message_sent=asyncio.create_task(self._controller.send_chat_message(self._global_state.username+":"+tmp))
-                message_sent.add_done_callback(self._check_if_message_ok)
-            self._gui_manager.process_events(event) #processes pygame_gui events
+            if event.type==pygame_gui.UI_TEXT_ENTRY_FINISHED:
+            #Enter is entered in the textbox
+                if len(event.text)>0 and str.isspace(event.text)==False:
+                    #Message isn't empty
+                    self._text_input.clear() #Remove message
+                    message_sent=asyncio.create_task(self._controller.send_chat_message(self._global_state.username+":"+event.text))
+                    message_sent.add_done_callback(self._check_if_message_ok)
             if event.type == pygame_gui.UI_BUTTON_PRESSED:
                 #A pygame_gui button is pressed
                 for element in self._player_list:
@@ -975,8 +1006,9 @@ class DayVotingScreen(AbstractScreen):
                     #Remove user
                     self._delete_player(e.user)
             if isinstance(e, TimeOutType):
-                #Starts voting
-                self._voting_panel.enable()
+                if self._global_state.is_dead==False:
+                    #Starts voting, if player is alive
+                    self._voting_panel.enable()
                 self._voted_text.text="Start voting for execution!"
             if isinstance(e, ChangeScreenType):
                 #End of voting, changing screen to DayExecutionScreen
@@ -990,6 +1022,11 @@ class DayVotingScreen(AbstractScreen):
                 self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
                 self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
                 self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
+            if isinstance(e, DeadPlayerType):
+                #If a player is executed, disable every panel
+                self._panel_handler.role_panel.sets_dead()
+                self._global_state.is_dead=True
+                self._game_state_manager.change_screen(self._screen_id) #Reload screen to disable panels properly
 
     def _add_player(self, user:Peer)->None:
         """Adds a new button username to the panel"""
@@ -1093,7 +1130,7 @@ class DayVotingScreen(AbstractScreen):
         self._starting_size=(SMALL_PANEL, PANEL_Y)  
         self._increased_size=self._starting_size
         self._elements_before_scrollbar_players=int(PANEL_Y/(LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV))-1 #3 elements can fit without a scrollbar, 4th element needs it
-        self._voting_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(20,0, self._starting_size[0], self._starting_size[1]), anchors={'left':'left', 'centery':'centery'})
+        self._voting_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(20,0, self._starting_size[0], self._starting_size[1]), anchors={'left':'left', 'centery':'centery'}, enabled_even_for_dead=False)
         self._voting_panel.set_scrollable_area_dimensions(self._starting_size)
     
     def _create_chat_panel(self)->None:
@@ -1101,9 +1138,16 @@ class DayVotingScreen(AbstractScreen):
         self._starting_size_chat=(MEDIUM_PANEL, PANEL_Y)  
         self._increased_size_chat=(MEDIUM_PANEL-HORIZONTAL_SPACE_FOR_SCROLLBAR, PANEL_Y) #Inner panel is slightly smaller, has to account for scrollbars
         self._elements_before_scrollbar=int(PANEL_Y/MEDIUM_BTN_HEIGHT) #How many elements fit into the inner panel, rounded to the lowest integer 
-        self._chat_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(-MEDIUM_PANEL ,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'centery':'centery'}, allow_scroll_x=True)
+        self._chat_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(-MEDIUM_PANEL ,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'centery':'centery'}, allow_scroll_x=True, enabled_even_for_dead=True)
         #Positioning is negative because the anchor is right, same applies to bottom anchors
         self._chat_panel.set_scrollable_area_dimensions(self._increased_size_chat)
+
+    def _create_input_panel(self)->None:
+        """Creates the text box panel"""
+        self._input_panel=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(-MEDIUM_PANEL,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'top_target': self._chat_panel}, hidden_for_dead=True) #TODO: is it ok if it's hidden for dead players? 
+        #Positioning is: below chat panel, same distance from right side as chat panel
+        #Panel shown to everybody
+        self._text_input=pygame_gui.elements.UITextEntryLine(relative_rect=(0,0,MEDIUM_BTN_WIDTH, AUTO_SIZING), manager=self._gui_manager, initial_text="",container=self._input_panel)
         
     def reset_screen(self) -> None:
         #reset player list
@@ -1115,50 +1159,48 @@ class DayVotingScreen(AbstractScreen):
         self._voted_text.text="Wait to vote..."
         #Delete all chat messages
         self._chat_messages.clear()
-        #Already deleted panel
+        #Already deleted panel, create it new
         self._create_chat_panel()
-        #Clears textbox input
-        self._text_box.reset_last_input()
-        self._text_box.text=""
+        #Delete text input, already deleted panel
+        self._create_input_panel()
+        self._text_input.clear()
 
 class DayExecutionScreen(AbstractScreen):
     """The screen where users chat and choose if the player nominated for execution should be spared or not"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler, global_state:GlobalState) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler, global_state)
         self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Day: execution")], self._display.get_size(), (50, 5))
-        self._text_box=MemoryTextField(LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, font=FontSize.H3) #This is where the new messages are entered
-        self._container_text=VContainer(SINGLE_ELEMENT_DIV, [self._text_box], self._display.get_size(), (70,90))
-        self._last_message=""
-        self._vote_to_execute=None #Saved outcome of user voting, if None->not voted, True->executed, False->Spared
         self._executed_user:Peer #Gets username via custom event
-        executed=partial(self._spare_or_execute, True)
-        spared=partial(self._spare_or_execute, False)
-        self._execute_button=EnabledButton(executed, "Vote to execute ", MEDIUM_BTN_WIDTH, LARGE_BTN_HEIGHT, enabled=True)
-        self._spare_button=EnabledButton(spared, "Vote to spare ", MEDIUM_BTN_WIDTH, LARGE_BTN_HEIGHT, enabled=True)
-        self._button_container=VContainer(LARGE_ELEMENT_DIV, [self._execute_button, self._spare_button], self._display.get_size(), (20, 50))
+        #Button panel
+        self._create_button_panel()
         #Chat panel
         self._create_chat_panel()
         self._chat_messages:list[pygame_gui.elements.UILabel]=[]
+        self._create_input_panel()
 
     def run(self,event:pygame.event.Event)->None:
         """A day execution screen"""
         self._display.fill(BACKGROUND_COLOR)
         self._gui_manager.draw_ui(self._display)
-        self._container_text.draw(self._display)
         self._title.draw(self._display)
-        self._button_container.draw(self._display)
-
-        #Event handling
-        if event.type!=self._global_state.custom_event:
-            self._text_box.handle_event(event) #Textbox handles key input
-            tmp=self._text_box.last_input #get last message sent (if it's not already handled)
-            if len(tmp)>0 and str.isspace(tmp)==False:
-                #if the message is not the last message sent and it's not empty, then send the new message
-                self._text_box.reset_last_input() #clear internal memory
-                message_sent=asyncio.create_task(self._controller.send_chat_message(self._global_state.username+":"+tmp))
-                message_sent.add_done_callback(self._check_if_message_ok)
                 
-            self._gui_manager.process_events(event) #processes pygame_gui events
+        self._gui_manager.process_events(event) #processes pygame_gui events
+        if event.type == pygame_gui.UI_BUTTON_PRESSED:
+            #A pygame_gui button is pressed
+            if event.ui_element == self._execute_button:
+                #Vote to execute selected player
+                self._spare_or_execute(True)
+            if event.ui_element == self._spare_button:
+                #Vote to spare selected player
+                self._spare_or_execute(False)
+
+        if event.type==pygame_gui.UI_TEXT_ENTRY_FINISHED:
+        #Enter is entered in the textbox
+            if len(event.text)>0 and str.isspace(event.text)==False:
+                #Message isn't empty
+                self._text_input.clear() #Remove message
+                message_sent=asyncio.create_task(self._controller.send_chat_message(self._global_state.username+":"+event.text))
+                message_sent.add_done_callback(self._check_if_message_ok)
         if event.type==self._global_state.custom_event:
             #parse the custom event into an object
             e=create_custom_event_from_dict(event.dict)
@@ -1173,21 +1215,26 @@ class DayExecutionScreen(AbstractScreen):
                 if e.action==UsersType.s_action_add:
                     #Username of player to execute
                     self._executed_user=e.user
-                    self._execute_button.text="Vote to execute "+self._executed_user.name
-                    self._spare_button.text="Vote to spare "+self._executed_user.name
-                    #Updating the button text requires an update on the container
-                    self._button_container.update_on_next_draw()
+                    self._execute_button.set_text("Vote to execute "+self._executed_user.name)
+                    self._spare_button.set_text("Vote to spare "+self._executed_user.name)
+                    self._execute_button.enable()
+                    self._spare_button.enable()
             if isinstance(e, ErrorType):
                 #If it's an error event, show error message
                 self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
                 self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
                 self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
+            if isinstance(e, DeadPlayerType):
+                #If a player is executed, disable every panel
+                self._panel_handler.role_panel.sets_dead()
+                self._global_state.is_dead=True
+                self._game_state_manager.change_screen(self._screen_id) #Reload screen to disable panels properly
     
     def _spare_or_execute(self, outcome:bool)->None:
         """The function called when the buttons are pressed, to save the outcome of the voting"""
         #Can only vote once, disabling buttons
-        self._execute_button.is_enabled=False
-        self._spare_button.is_enabled=False
+        self._execute_button.disable()
+        self._spare_button.disable()
         self._vote_to_execute=outcome
         if outcome==True:
             #Executed
@@ -1211,9 +1258,23 @@ class DayExecutionScreen(AbstractScreen):
         self._starting_size_chat=(MEDIUM_PANEL, PANEL_Y)  
         self._increased_size_chat=(MEDIUM_PANEL-HORIZONTAL_SPACE_FOR_SCROLLBAR, PANEL_Y) #Inner panel is slightly smaller, has to account for scrollbars
         self._elements_before_scrollbar=int(PANEL_Y/MEDIUM_BTN_HEIGHT) #How many elements fit into the inner panel, rounded to the lowest integer 
-        self._chat_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(-MEDIUM_PANEL,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'centery':'centery'}, allow_scroll_x=True)
+        self._chat_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(-MEDIUM_PANEL,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'centery':'centery'}, allow_scroll_x=True, enabled_even_for_dead=True)
         #Positioning is negative because the anchor is right, same applies to bottom anchors
         self._chat_panel.set_scrollable_area_dimensions(self._increased_size_chat)
+
+    def _create_button_panel(self)->None:
+        """Creates the button panel"""
+        self._button_panel=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(10,0,MEDIUM_BTN_WIDTH, LARGE_BTN_HEIGHT*3), anchors={'centery': 'centery'}, enabled_even_for_dead=False)
+        self._execute_button=pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, 0), (MEDIUM_BTN_WIDTH, LARGE_BTN_HEIGHT)), text="Vote to execute ", manager=self._gui_manager, anchors={'centerx':'centerx'}, container=self._button_panel)
+        self._execute_button.disable() #Disabled until a player is nominated for execution
+        self._spare_button=pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, 10), (MEDIUM_BTN_WIDTH, LARGE_BTN_HEIGHT)), text="Vote to spare ", manager=self._gui_manager, anchors={'centerx':'centerx', 'top_target':self._execute_button}, container=self._button_panel)
+        self._spare_button.disable() #Disabled until a player is nominated for execution
+
+    def _create_input_panel(self)->None:
+        """Creates the text box panel"""
+        self._input_panel=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(-MEDIUM_PANEL,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'top_target': self._chat_panel}, hidden_for_dead=True) #TODO: is it ok if it's hidden for dead players? 
+        #Positioning is: below chat panel, same distance from right side as chat panel
+        self._text_input=pygame_gui.elements.UITextEntryLine(relative_rect=(0,0,MEDIUM_BTN_WIDTH, AUTO_SIZING), manager=self._gui_manager, initial_text="",container=self._input_panel)
 
     def _send_message(self, message:str)->None:
         """Function called to display a new message in chat"""
@@ -1249,22 +1310,17 @@ class DayExecutionScreen(AbstractScreen):
             self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
         
     def reset_screen(self) -> None:
-        #Enable buttons to execute
-        self._execute_button.is_enabled=True
-        self._spare_button.is_enabled=True
         #Resets outcome of voting
         self._vote_to_execute=None #Saved outcome of user voting, if None->not voted, True->executed, False->Spared
-        #Reset name
-        self._execute_button.text="Vote to execute "
-        self._spare_button.text="Vote to spare "
-        self._button_container.update_on_next_draw()
+        #Reset buttons
+        self._panel_handler.delete_panels(self._screen_id)
+        self._create_button_panel()
         #Delete all chat messages
         self._chat_messages.clear()
-        #Already deleted panel
+        #Create chat panel anew
         self._create_chat_panel()
-        #Clears textbox input
-        self._text_box.reset_last_input()
-        self._text_box.text=""
+        #Create input panel anew
+        self._create_input_panel()
 
 class NightVillagerScreen(AbstractScreen):
     """The screen where villager role users wait for the night to end"""
@@ -1294,6 +1350,11 @@ class NightVillagerScreen(AbstractScreen):
                 self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
                 self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
                 self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
+            if isinstance(e, DeadPlayerType):
+                #If a player is executed, disable every panel
+                self._panel_handler.role_panel.sets_dead()
+                self._global_state.is_dead=True
+                self._game_state_manager.change_screen(self._screen_id) #Reload screen to disable panels properly
     
     def reset_screen(self) -> None:
         #Static screen, nothing to change
@@ -1329,9 +1390,15 @@ class NightRoleScreen(AbstractScreen):
             self._role_text.text="Use your power, "+self._role_name
             self._role_container.update_on_next_draw()
             if self._role_name==Role.WEREWOLF.role_name:
-                #Show panels to chat with other werewolves
-                self._chat_panel.show()
-                self._input_panel.show()
+                if self._global_state.is_dead==False:
+                    #Show panels to chat with other werewolves
+                    self._chat_panel.show()
+                    self._input_panel.show()
+                else:
+                    self._chat_panel.show()
+                    self._input_panel.hide()
+            
+
         
         #Event handling
         self._gui_manager.process_events(event) #processes pygame_gui events
@@ -1379,6 +1446,11 @@ class NightRoleScreen(AbstractScreen):
                 self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
                 self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
                 self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
+            if isinstance(e, DeadPlayerType):
+                #If a player is executed, disable every panel
+                self._panel_handler.role_panel.sets_dead()
+                self._global_state.is_dead=True
+                self._game_state_manager.change_screen(self._screen_id) #Reload screen to disable panels properly
 
     def _check_voted_player(self, future: Future[None])->None:
         """The callback function called when the player is acted on"""
@@ -1393,7 +1465,7 @@ class NightRoleScreen(AbstractScreen):
         self._starting_size=(SMALL_PANEL, PANEL_Y) 
         self._increased_size=self._starting_size
         self._elements_before_scrollbar_players=int(PANEL_Y/(LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV))-1 #3 elements can fit without a scrollbar, 4th element needs it
-        self._voting_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(-100,0, self._starting_size[0], self._starting_size[1]), anchors={'centerx':'centerx', 'centery':'centery'})
+        self._voting_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(-100,0, self._starting_size[0], self._starting_size[1]), anchors={'centerx':'centerx', 'centery':'centery'}, enabled_even_for_dead=False)
         self._voting_panel.set_scrollable_area_dimensions(self._starting_size)
 
     def _create_chat_panel(self)->None:
@@ -1401,14 +1473,14 @@ class NightRoleScreen(AbstractScreen):
         self._starting_size_chat=(MEDIUM_PANEL, PANEL_Y)  
         self._increased_size_chat=(MEDIUM_PANEL-HORIZONTAL_SPACE_FOR_SCROLLBAR, PANEL_Y) #Inner panel is slightly smaller, has to account for scrollbars
         self._elements_before_scrollbar=int(PANEL_Y/MEDIUM_BTN_HEIGHT) #How many elements fit into the inner panel, rounded to the lowest integer 
-        self._chat_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(-MEDIUM_PANEL,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'centery':'centery'}, allow_scroll_x=True, always_on=False)
+        self._chat_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(-MEDIUM_PANEL,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'centery':'centery'}, allow_scroll_x=True, always_on=False, enabled_even_for_dead=True)
         #Positioning is negative because the anchor is right, same applies to bottom anchors
         self._chat_panel.set_scrollable_area_dimensions(self._increased_size_chat)
         #Panel default hidden unless werewolf role is set
 
     def _create_input_panel(self)->None:
         """Creates the text box panel"""
-        self._input_panel=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(-MEDIUM_PANEL,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'top_target': self._chat_panel}, always_on=False)
+        self._input_panel=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(-MEDIUM_PANEL,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'top_target': self._chat_panel}, always_on=False, hidden_for_dead=True) #TODO: is it ok if it's hidden for dead players? 
         #Positioning is: below chat panel, same distance from right side as chat panel
         #Panel default hidden unless werewolf role is set
         self._text_input=pygame_gui.elements.UITextEntryLine(relative_rect=(0,0,MEDIUM_BTN_WIDTH, AUTO_SIZING), manager=self._gui_manager, initial_text="",container=self._input_panel)
@@ -1457,7 +1529,7 @@ class NightRoleScreen(AbstractScreen):
         self._role_text.text="Use your power, "
         #Delete all chat messages
         self._chat_messages.clear()
-        #Already deleted panel
+        #Already deleted panel, created it new
         self._create_chat_panel()
         #Delete text input, already deleted panel
         self._create_input_panel()
@@ -1496,6 +1568,7 @@ class RoleDisplayScreen(AbstractScreen):
                 self._description_container.update_on_next_draw()
                 self._global_state.role_name=e.role
                 self._global_state.role_description=e.role_description
+                self._global_state.is_dead=False
                 self._panel_handler.role_panel.set_content(e.role, e.role_description)
                 self._panel_handler.role_panel.show()
             if isinstance(e, ErrorType):
@@ -1516,7 +1589,7 @@ class ErrorMessageScreen(AbstractScreen):
     """The screen displaying an error message"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler, global_state:GlobalState) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler, global_state)
-        self._panel=self._panel_handler.create_panel(self._screen_id, relative_rect=pygame.rect.Rect(0,0,MEDIUM_PANEL,PANEL_Y), anchors={"centerx":"centerx", "centery":"centery"})
+        self._panel=self._panel_handler.create_panel(self._screen_id, relative_rect=pygame.rect.Rect(0,0,MEDIUM_PANEL,PANEL_Y), anchors={"centerx":"centerx", "centery":"centery"}, enabled_even_for_dead=True)
         self._title_element=pygame_gui.elements.UILabel(relative_rect=(0,0,MEDIUM_PANEL,AUTO_SIZING), text="", manager=self._gui_manager, anchors={"centerx":"centerx", "centery":"centery"}, container=self._panel)
         self._text_element=pygame_gui.elements.UILabel(relative_rect=(0,MEDIUM_ELEMENT_DIV,MEDIUM_PANEL,AUTO_SIZING), text="", manager=self._gui_manager, anchors={'top_target':self._title_element, "centerx":"centerx"}, container=self._panel)
         self._text=""
@@ -1570,6 +1643,3 @@ if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     loop.create_task(update())
     loop.run_forever()
-
-
-

@@ -1,15 +1,16 @@
 import unittest
 
-from wiredwolf.view.app import *
+from wiredwolf.view.view import *
 
-class TestApp(unittest.TestCase):
+class TestView(unittest.TestCase):
     """Unit test for view custom events"""
 
     def setUp(self) -> None:
         pygame.init()
         self.display_screen = pygame.display.set_mode((100, 100), pygame.RESIZABLE)
         self.gui_manager=pygame_gui.UIManager((100, 100))
-        self.panel_handler=PanelHandler(self.gui_manager)
+        self.global_state=GlobalState()
+        self.panel_handler=PanelHandler(self.gui_manager, self.global_state)
         self.start_screen=Screens.HOME
         self.game_state_manager=GameStateManager(self.start_screen, self.panel_handler)
 
