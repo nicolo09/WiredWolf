@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 @pytest_asyncio.fixture
 async def lobby_owner_server_clients(request: pytest.FixtureRequest):
     owner = Peer("Owner")
-    lobby = Lobby(owner, "Test Lobby", None)
+    lobby = Lobby(owner, "Test Lobby", password=None)
     server, handlers = await TestFactory.create_tcp_server_with_connected_clients(
         request.param, lobby
     )

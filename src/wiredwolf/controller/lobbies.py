@@ -1,8 +1,9 @@
 import abc
 import asyncio
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import dataclasses
+import uuid
 from wiredwolf.controller.connections import (
     AsyncTCPClientConnectionHandler,
     AsyncTCPMessageHandler,
@@ -12,7 +13,7 @@ from wiredwolf.controller.connections import (
     MessageHandlerFactory,
 )
 
-from wiredwolf.controller.commons import CONNECTION_TIMEOUT, Peer
+from wiredwolf.controller.commons import CONNECTION_TIMEOUT, MAX_PLAYERS, Peer
 from wiredwolf.controller.commons import PasswordRequest
 from wiredwolf.controller.services import CallbackServiceListener, ServiceManager
 
@@ -21,15 +22,38 @@ SERVICE_TYPE: str = "_wiredwolflobby._tcp.local."
 
 
 @dataclass
+class LobbyInfo:
+    """
+    Represents the information of a lobby that can be sent to a client to be displayed in the lobby browser.
+    """
+    name: str
+    has_password: bool
+    uuid: str
+    peers_number: int = 1
+    max_peers: int = MAX_PLAYERS
+
+
+@dataclass
 class Lobby:
     owner: Peer
     name: str
+    uuid: str = field(default_factory=lambda: str(uuid.uuid4()))  #TODO: Possible UUID collision will have to be handled in server code
     password: str | None = None
     peers: set[Peer] = dataclasses.field(init=False, default_factory=set[Peer])
 
     def __post_init__(self):
         """Initializes the lobby by adding the owner to the peers list."""
         self.peers.add(self.owner)
+
+    def lobby_info(self) -> LobbyInfo:
+        """Returns a LobbyInfo object representing the information of this lobby."""
+        return LobbyInfo(
+            name=self.name,
+            has_password=self.is_password_protected(),
+            uuid=self.uuid,
+            peers_number=len(self.peers),
+            max_peers=MAX_PLAYERS,
+        )
 
     def check_password(self, passwd: str) -> bool:
         """Checks if the provided password matches the lobby's password."""
@@ -52,17 +76,17 @@ class LobbyBrowser(abc.ABC):
     @abc.abstractmethod
     def start_lobby_browser(
         self,
-        on_lobby_found: Callable[[str], None],
+        on_lobby_found: Callable[[LobbyInfo], None],
         on_lobby_lost: Callable[[str], None],
-        on_lobby_updated: Callable[[str], None],
+        on_lobby_updated: Callable[[LobbyInfo], None]
     ) -> None:
         """Starts the lobby browser to discover available lobbies.
         When appropriate the lobby browser should be stopped by calling stop_lobby_browser().
 
         args:
-            on_lobby_found (Callable[[str], None]): Callback invoked when a new lobby is found.
+            on_lobby_found (Callable[[LobbyInfo], None]): Callback invoked when a new lobby is found.
             on_lobby_lost (Callable[[str], None]): Callback invoked when a lobby is lost.
-            on_lobby_updated (Callable[[str], None]): Callback invoked when a lobby is updated.
+            on_lobby_updated (Callable[[LobbyInfo], None]): Callback invoked when a lobby is updated.
         """
         raise NotImplementedError
 
@@ -72,7 +96,7 @@ class LobbyBrowser(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def publish_lobby(self, lobby_name: str, receiver_port: int) -> None:
+    def publish_lobby(self, lobby_info: LobbyInfo, receiver_port: int) -> None:
         """Publishes a lobby to be discovered by other players."""
         raise NotImplementedError
 
@@ -112,27 +136,47 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
 
     def start_lobby_browser(
         self,
-        on_lobby_found: Callable[[str], None],
+        on_lobby_found: Callable[[LobbyInfo], None],
         on_lobby_lost: Callable[[str], None],
-        on_lobby_updated: Callable[[str], None],
+        on_lobby_updated: Callable[[LobbyInfo], None],
     ) -> None:
         """Starts the lobby browser to discover available lobbies.
         When appropriate the lobby browser should be stopped by calling stop_lobby_browser().
 
         args:
-            on_lobby_found (Callable[[str], None]): Callback invoked when a new lobby is found.
+            on_lobby_found (Callable[[LobbyInfo], None]): Callback invoked when a new lobby is found.
             on_lobby_lost (Callable[[str], None]): Callback invoked when a lobby is lost.
-            on_lobby_updated (Callable[[str], None]): Callback invoked when a lobby is updated.
+            on_lobby_updated (Callable[[LobbyInfo], None]): Callback invoked when a lobby is updated.
         """
         if not self._browser:
             listener = CallbackServiceListener(
-                on_service_added=on_lobby_found,
+                on_service_added=lambda name, props: on_lobby_found(self._get_lobby_info_from_service_properties(props)),
                 on_service_removed=on_lobby_lost,
-                on_service_updated=on_lobby_updated,
+                on_service_updated=lambda name, props: on_lobby_updated(self._get_lobby_info_from_service_properties(props)),
             )
             self._browser = self._service_manager.get_service_browser(listener)
         else:
             raise RuntimeError("Lobby browser is already running.")
+
+    def _get_lobby_info_from_service_properties(self, properties: dict[str, str]) -> LobbyInfo:
+        """Helper method to convert service properties to a LobbyInfo object."""
+        return LobbyInfo(
+            name=properties.get("name", "Unknown Lobby"),
+            has_password=properties.get("has_password", "false").lower() == "true",
+            uuid=properties.get("uuid", ""),
+            peers_number=int(properties.get("peers_number", "1")),
+            max_peers=int(properties.get("max_peers", str(MAX_PLAYERS))),
+        )
+
+    def _get_service_properties_from_lobby_info(self, lobby_info: LobbyInfo) -> dict[str, str]:
+        """Helper method to convert LobbyInfo to service properties."""
+        return {
+            "name": lobby_info.name,
+            "has_password": str(lobby_info.has_password).lower(),
+            "uuid": lobby_info.uuid,
+            "peers_number": str(lobby_info.peers_number),
+            "max_peers": str(lobby_info.max_peers),
+        }
 
     def stop_lobby_browser(self) -> None:
         """Stops the lobby browser from discovering lobbies."""
@@ -142,11 +186,11 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
         else:
             raise RuntimeError("Lobby browser is not running.")
 
-    def publish_lobby(self, lobby_name: str, receiver_port: int) -> None:
+    def publish_lobby(self, lobby_info: LobbyInfo, receiver_port: int) -> None: #TODO Move receiver_port to constructor
         """Publishes a lobby to the network so that it can be discovered by other players."""
         if not self._published_lobby_service_info:
             self._published_lobby_service_info = self._service_manager.register_service(
-                name=lobby_name, receiverPort=receiver_port
+                name=lobby_info.name, receiverPort=receiver_port, properties=self._get_service_properties_from_lobby_info(lobby_info)
             )
         else:
             raise RuntimeError("There is already a lobby being published.")

@@ -91,7 +91,7 @@ class GameController:
         self._client_connection_handler.set_on_message(self._on_message)
         await self._client_connection_handler.start_receiving()
         await self._server.start_listening()
-        self._lobby_browser.publish_lobby(self._lobby.name, DEFAULT_SERVER_PORT)
+        self._lobby_browser.publish_lobby(self._lobby.lobby_info(), DEFAULT_SERVER_PORT)
         return self._lobby
 
     async def join_lobby(self, lobby_name: str, lobby_password: str | None) -> Lobby:
@@ -112,16 +112,16 @@ class GameController:
         return self._lobby
 
     def start_listening_for_lobbies(self):
-        def remove_and_readd_lobby(lobby_name: str):
+        def remove_and_readd_lobby(lobby_info: LobbyInfo):
             """Removes and re-adds a lobby to the discovered lobbies list. This is used to update the
             lobby information when it changes."""
-            self._event_sender.remove_discovered_lobby(lobby_name)
-            self._event_sender.new_discovered_lobby(lobby_name)
+            self._event_sender.remove_discovered_lobby(lobby_info.uuid)
+            self._event_sender.new_discovered_lobby(lobby_info.uuid)
         """Starts listening for available lobbies."""
         self._lobby_browser.start_lobby_browser(
-            lambda lobby_name: self._event_sender.new_discovered_lobby(lobby_name),
-            lambda lobby_name: self._event_sender.remove_discovered_lobby(lobby_name),
-            lambda lobby_name: remove_and_readd_lobby(lobby_name)
+            lambda lobby_info: self._event_sender.new_discovered_lobby(lobby_info),
+            lambda lobby_uuid: self._event_sender.remove_discovered_lobby(lobby_uuid),
+            lambda lobby_info: remove_and_readd_lobby(lobby_info)
         )
 
     def stop_listening_for_lobbies(self):

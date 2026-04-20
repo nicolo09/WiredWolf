@@ -8,23 +8,37 @@ from zeroconf import ServiceBrowser, ServiceInfo, ServiceListener, Zeroconf
 class CallbackServiceListener(ServiceListener):
     def __init__(
         self,
-        on_service_added: Callable[[str], None],
+        on_service_added: Callable[[str, dict[str, str]], None],
         on_service_removed: Callable[[str], None],
-        on_service_updated: Callable[[str], None],
+        on_service_updated: Callable[[str, dict[str, str]], None],
     ) -> None:
         super().__init__()
         self.__on_service_added = on_service_added
         self.__on_service_removed = on_service_removed
         self.__on_service_updated = on_service_updated
 
+    def decode_properties(self, zc: Zeroconf, type_: str, name: str) -> dict[str, str]:
+        service_properties: dict[str, str] = {}
+        try:
+            info = zc.get_service_info(type_, name)
+            if info and info.properties:
+                service_properties = {
+                    key.decode("utf-8"): value.decode("utf-8") if isinstance(value, bytes) else ""
+                    for key, value in info.properties.items()
+                }
+        except Exception as e:
+            logging.warning(f"Failed to get properties for service {name}: {e}")
+        return service_properties
+
     def add_service(self, zc: Zeroconf, type_: str, name: str) -> None:
-        self.__on_service_added(name)
+        # Retrieve service properties and pass them to the callback
+        self.__on_service_added(name, self.decode_properties(zc, type_, name))
 
     def remove_service(self, zc: Zeroconf, type_: str, name: str) -> None:
         self.__on_service_removed(name)
 
     def update_service(self, zc: Zeroconf, type_: str, name: str) -> None:
-        self.__on_service_updated(name)  # TODO: Implement service update logic
+        self.__on_service_updated(name, self.decode_properties(zc, type_, name))
 
 
 class ServiceManager:
@@ -34,14 +48,16 @@ class ServiceManager:
         self._zeroconf: Zeroconf = Zeroconf()
         self._service_type: str = service_type
 
-    def register_service(self, name: str, receiverPort: int) -> ServiceInfo:
+    def register_service(self, name: str, receiverPort: int, properties: dict[str, str]) -> ServiceInfo:
         self.__logger.info(f"Registering service {name} on port {receiverPort}...")
         service_info = ServiceInfo(
             type_=self._service_type,
             name=name + "." + self._service_type,
             addresses=[socket.inet_aton("127.0.0.1")],
             port=receiverPort,
-            properties={},
+            properties={
+                key: value.encode("utf-8") for key, value in properties.items()
+            },
         )
         self._zeroconf.register_service(service_info)
         self.__logger.info(f"Service {name} registered successfully.")
@@ -55,9 +71,9 @@ class ServiceManager:
     def get_service_listener(
         self,
         service_type: str,
-        on_service_added: Callable[[str], None],
+        on_service_added: Callable[[str, dict[str, str]], None],
         on_service_removed: Callable[[str], None],
-        on_service_updated: Callable[[str], None],
+        on_service_updated: Callable[[str, dict[str, str]], None],
     ) -> CallbackServiceListener:
         self.__logger.info("Starting service listener for type" + service_type + "...")
         return CallbackServiceListener(

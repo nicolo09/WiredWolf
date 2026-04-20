@@ -46,7 +46,7 @@ def test_peer_connect(lobby: Lobby, server: GameServer, tcp_mdns_lobby_browser: 
     lobbies: list[Lobby] = []
     tcp_mdns_lobby_browser.start_lobby_browser(on_lobby_found=lobbies.append, on_lobby_lost=lobbies.remove, on_lobby_updated=lambda x: None,)  # type: ignore
     tcp_mdns_lobby_browser.publish_lobby(
-        lobby.name, DEFAULT_SERVER_PORT
+        lobby.lobby_info(), DEFAULT_SERVER_PORT
     )
     # Wait for the lobby to be discovered
     while not lobbies:
