@@ -414,7 +414,7 @@ class StartScreen(AbstractScreen):
         tmp=self._field.text
         if len(tmp)>0 and str.isspace(tmp)==False: #the username field is filled by chars, not empty or only whitespaces
             self._global_state.username=self._field.text #save username between screens
-            #TODO: communicate username to controller
+            self._controller.set_username(self._field.text) #communicate username to controller
             self._new_lobby_button.is_enabled=True
             self._search_lobby_button.is_enabled=True
         else:

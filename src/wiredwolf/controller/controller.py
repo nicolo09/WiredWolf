@@ -65,13 +65,13 @@ class GameController:
         """
         return self._lobby
 
-    def set_my_self(self, my_self: Peer):
-        """Sets the local player peer.
+    def set_username(self, username: str):
+        """Sets the username for the local player.
 
         Args:
-            my_self (Peer): The peer representing the local player.
+            username (str): The username to set.
         """
-        self._my_self = my_self
+        self._my_self = Peer(username)
 
     async def create_lobby(self, name: str, password: str | None = None) -> Lobby:
         """Creates a new lobby and local server.
