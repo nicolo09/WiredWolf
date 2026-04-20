@@ -2,7 +2,7 @@ import asyncio
 import logging
 
 from wiredwolf.controller.connections import ClientConnectionHandler
-from wiredwolf.controller.lobbies import LobbyBrowser
+from wiredwolf.controller.lobbies import LobbyBrowser, LobbyInfo
 from wiredwolf.controller.lobbies import Lobby
 from wiredwolf.controller.messages import (
     AcknowledgeMessage,
@@ -22,6 +22,7 @@ from wiredwolf.model.game_phases import GamePhase
 from wiredwolf.model.player import Role
 from wiredwolf.view.custom_events import EventSender
 
+#TODO: Check if the lobby is removed from advertisement when the game starts
 
 class GameController:
     """Handles the game logic and player interactions. This controller is implemented by means of

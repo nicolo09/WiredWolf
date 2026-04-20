@@ -2,7 +2,7 @@ import asyncio
 
 from wiredwolf.controller.controller import GameController
 from wiredwolf.controller.lobbies import TcpMdnsLobbyBrowser
-from wiredwolf.view.app import View
+from wiredwolf.view.view import View
 
 if __name__ == "__main__":
     async def main():

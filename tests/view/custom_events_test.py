@@ -26,6 +26,7 @@ class TestCustomEvents(unittest.TestCase):
         self.error=ErrorType("A player disconnected", "Please wait while the player re-connects")
         self.end_error=EndErrorType()
         self.end_error_next_screen=EndErrorType(Screens.HOME)
+        self.dead_player=DeadPlayerType()
 
     def test_custom_event_serialization(self)->None:
         """A custom event serialized and deserialized should be the same"""
@@ -41,11 +42,12 @@ class TestCustomEvents(unittest.TestCase):
         self.assertEqual(self.error, create_custom_event_from_dict(self.error.as_dictionary()))
         self.assertEqual(self.end_error, create_custom_event_from_dict(self.end_error.as_dictionary()))
         self.assertEqual(self.end_error_next_screen, create_custom_event_from_dict(self.end_error_next_screen.as_dictionary()))
+        self.assertEqual(self.dead_player, create_dead_player_type(self.dead_player.as_dictionary()))
 
     def test_custom_event_pygame(self)->None:
         """An event sent to the game loop should be parsed correctly"""
         events_received=0
-        total_events=12
+        total_events=13
         self.event_sender.send_event_to_screen(self.change_screen.next_screen)
         self.event_sender.send_event_new_lobby(self.discovered_lobby_add.lobby)
         self.event_sender.send_event_removed_lobby(self.discovered_lobby_remove.lobby)
@@ -58,6 +60,7 @@ class TestCustomEvents(unittest.TestCase):
         self.event_sender.send_event_error(self.error.title, self.error.message)
         self.event_sender.send_event_end_error()
         self.event_sender.send_event_end_error(self.end_error_next_screen.next_screen)
+        self.event_sender.send_event_dead_player()
 
         while events_received<total_events:
             for event in pygame.event.get():
@@ -112,6 +115,9 @@ class TestCustomEvents(unittest.TestCase):
                         else:
                             self.assertEqual(e, self.end_error_next_screen)
                             events_received=events_received+1
+                    if isinstance(e, DeadPlayerType):
+                        self.assertEqual(e, self.dead_player)
+                        events_received=events_received+1
 
         #Received all events
         self.assertEqual(events_received, total_events)

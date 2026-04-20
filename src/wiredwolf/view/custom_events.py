@@ -157,6 +157,16 @@ class TimeOutType(AbstractEventType):
         """Returns all the fields of the event as a dictionary, used when creating the event in pygame.event.Event()"""
         return {AbstractEventType.s_event:self._event}
 
+class DeadPlayerType(AbstractEventType):
+    """An event triggered when the player is killed"""
+
+    def __init__(self)->None:
+        self._event=EventType.DEAD_PLAYER
+    
+    def as_dictionary(self) -> dict[Any, Any]:
+        """Returns all the fields of the event as a dictionary, used when creating the event in pygame.event.Event()"""
+        return {AbstractEventType.s_event:self._event}
+
 class WaitingRoomType(AbstractEventType):
     """An event sent to update how many users are in a waiting room"""
     #TODO: consider removal, unused
@@ -366,6 +376,11 @@ def create_end_error_type(dict:dict[Any, Any])->EndErrorType:
     assert(next_screen!=None)
     return EndErrorType(next_screen)
 
+def create_dead_player_type(dict:dict[Any, Any])->DeadPlayerType:
+    event=dict.get(DeadPlayerType.s_event)
+    assert(event!=EventType.NONE and event!=None and event==EventType.DEAD_PLAYER)
+    return DeadPlayerType()
+
 def create_custom_event_from_dict(dict:dict[Any, Any])->AbstractEventType:
     """Creates an event type from a dictionary by parsing the event field. If the event field doesn't match a Value error is thrown"""
     event=dict.get(AbstractEventType.s_event)
@@ -389,6 +404,8 @@ def create_custom_event_from_dict(dict:dict[Any, Any])->AbstractEventType:
                 return create_error_type(dict)
             case EventType.END_ERROR:
                 return create_end_error_type(dict)
+            case EventType.DEAD_PLAYER:
+                return create_dead_player_type(dict)
             case _: #default case, no matches
                 raise ValueError("Dictionary event must be one of the EventType enums")         
     else:
@@ -496,7 +513,11 @@ class EventSender(ABC):
     def error_ended_go_to_screen(self, next_screen:Screens)->None:
         """Sends the end of error to the view and changes screen to the given one"""
         raise NotImplementedError("Please implement this method")
-
+    
+    @abstractmethod
+    def player_is_dead(self)->None:
+        """Triggers ghost player view, called after player is executed or if player is killed by werewolves at night"""
+        raise NotImplementedError("Please implement this method")
 
 class StatusMessages():
     """A simple class that constructs messages sent by the server. It keeps count of days"""
@@ -573,6 +594,10 @@ class CustomEventSender(EventSender):
     def send_event_timeout(self)->None:
         """Sends a custom event to say that some time has passed"""
         pygame.event.post(pygame.event.Event(self._custom_event, TimeOutType().as_dictionary()))
+
+    def send_event_dead_player(self)->None:
+        """Sends a custom event to say that the player has died"""
+        pygame.event.post(pygame.event.Event(self._custom_event, DeadPlayerType().as_dictionary()))
 
     def send_event_waiting_room(self, number:int)->None:
         """Sends a custom event to say how many players are in the waiting room"""
@@ -676,4 +701,7 @@ class CustomEventSender(EventSender):
 
     def error_ended_go_to_screen(self, next_screen:Screens)->None:
         self.send_event_end_error(next_screen)
+
+    def player_is_dead(self)->None:
+        self.send_event_dead_player()
 

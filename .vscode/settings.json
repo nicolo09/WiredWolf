@@ -12,6 +12,7 @@
     "python.analysis.extraPaths": [
         "./src"
     ],
+    "python.analysis.diagnosticMode": "workspace",
     "python.useEnvironmentsExtension": true,
     "files.watcherExclude": {
         "**/target": true
