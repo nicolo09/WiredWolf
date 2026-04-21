@@ -116,6 +116,7 @@ class Game:
                     is not None
                 ):
                     self._phase = GamePhase.DAY_BALLOT
+                    return GamePhaseOutcome(self._phase, accused_player=self.__get_most_voted_player(self._game_info.accusation_votes))
                 else:
                     # No votes or tie in accusations, skip to night
                     self._phase = GamePhase.NIGHT

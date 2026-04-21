@@ -21,12 +21,16 @@ class GamePhaseOutcome:
         deaths (list[Player]): List of players who died because of the phase transition.
     """
 
-    def __init__(self, new_phase: GamePhase, deaths: list[Player] = []):
+    def __init__(self, new_phase: GamePhase, deaths: list[Player] = [], accused_player: Player | None = None):
         self.new_phase: GamePhase = new_phase
         self.deaths: list[Player] = deaths
+        self.accused_player: Player | None = accused_player
 
     def someone_died(self) -> bool:
         return len(self.deaths) > 0
+    
+    def get_accused_player(self) -> Player | None:
+        return self.accused_player
 
 
 @dataclass
