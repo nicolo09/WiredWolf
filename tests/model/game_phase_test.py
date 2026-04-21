@@ -19,6 +19,21 @@ class GamePhaseTest(unittest.TestCase):
         self.assertEqual(outcome.new_phase, GamePhase.DAY_ACCUSING)
         outcome = self.game.advance_phase()
         self.assertEqual(outcome.new_phase, GamePhase.NIGHT)
+        
+    def test_get_accused_player(self):
+
+        outcome: GamePhaseOutcome
+
+        outcome = self.game.advance_phase()
+        self.assertEqual(outcome.new_phase, GamePhase.DAY_ACCUSING)
+        self.game.accuse_player("Alice", "Bob")
+        outcome = self.game.advance_phase()
+        self.assertEqual(outcome.new_phase, GamePhase.DAY_BALLOT)
+        accused: Player | None = outcome.get_accused_player()
+        if accused is not None:
+            self.assertEqual(accused.name, "Bob")
+        else:
+            self.fail("Accused player should not be None")
 
     def test_advance_all_phases(self):
 
