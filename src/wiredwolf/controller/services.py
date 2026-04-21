@@ -48,7 +48,7 @@ class ServiceManager:
         self._zeroconf: Zeroconf = Zeroconf()
         self._service_type: str = service_type
 
-    def register_service(self, name: str, receiverPort: int, properties: dict[str, str]) -> ServiceInfo:
+    async def register_service(self, name: str, receiverPort: int, properties: dict[str, str]) -> ServiceInfo:
         self.__logger.info(f"Registering service {name} on port {receiverPort}...")
         service_info = ServiceInfo(
             type_=self._service_type,
@@ -59,13 +59,17 @@ class ServiceManager:
                 key: value.encode("utf-8") for key, value in properties.items()
             },
         )
-        self._zeroconf.register_service(service_info)
+        try:
+            await self._zeroconf.async_register_service(service_info)
+        except Exception as e:
+            self.__logger.error(f"Failed to register service {name}: {e}")
+            raise RuntimeError(f"Failed to register service {name}: {e}") from e
         self.__logger.info(f"Service {name} registered successfully.")
         return service_info
 
-    def unregister_service(self, info: ServiceInfo) -> None:
+    async def unregister_service(self, info: ServiceInfo) -> None:
         self.__logger.info(f"Unregistering service {info.name}...")
-        self._zeroconf.unregister_service(info)
+        await self._zeroconf.async_unregister_service(info)
         self.__logger.info(f"Service {info.name} unregistered successfully.")
 
     def get_service_listener(

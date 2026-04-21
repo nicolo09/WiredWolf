@@ -57,9 +57,9 @@ async def test_peer_connect(
     # Start the lobby browser
     lobbies: list[LobbyInfo] = []
 
-    def remove_lobby(lobby_name: str):
+    def remove_lobby(lobby_info: LobbyInfo):
         nonlocal lobbies
-        lobbies = [lobby for lobby in lobbies if lobby.name != lobby_name]
+        lobbies = [lobby for lobby in lobbies if lobby.name != lobby_info.name]
 
     tcp_mdns_lobby_browser.start_lobby_browser(
         on_lobby_found=lobbies.append,
@@ -85,9 +85,9 @@ async def test_receive_correct_lobby_info(
     # Start the lobby browser
     lobbies: list[LobbyInfo] = []
 
-    def remove_lobby(lobby_name: str):
+    def remove_lobby(lobby_info: LobbyInfo):
         nonlocal lobbies
-        lobbies = [lobby for lobby in lobbies if lobby.name != lobby_name]
+        lobbies = [lobby for lobby in lobbies if lobby.name != lobby_info.name]
 
     tcp_mdns_lobby_browser.start_lobby_browser(
         on_lobby_found=lobbies.append,

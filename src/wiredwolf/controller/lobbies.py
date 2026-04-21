@@ -84,7 +84,7 @@ class LobbyBrowser(abc.ABC):
     def start_lobby_browser(
         self,
         on_lobby_found: Callable[[LobbyInfo], None],
-        on_lobby_lost: Callable[[str], None],
+        on_lobby_lost: Callable[[LobbyInfo], None],
         on_lobby_updated: Callable[[LobbyInfo], None],
     ) -> None:
         """Starts the lobby browser to discover available lobbies.
@@ -92,7 +92,7 @@ class LobbyBrowser(abc.ABC):
 
         args:
             on_lobby_found (Callable[[LobbyInfo], None]): Callback invoked when a new lobby is found.
-            on_lobby_lost (Callable[[str], None]): Callback invoked when a lobby is lost.
+            on_lobby_lost (Callable[[LobbyInfo], None]): Callback invoked when a lobby is lost.
             on_lobby_updated (Callable[[LobbyInfo], None]): Callback invoked when a lobby is updated.
         """
         raise NotImplementedError
@@ -103,12 +103,12 @@ class LobbyBrowser(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def publish_lobby(self, lobby_info: LobbyInfo, receiver_port: int) -> None:
+    async def publish_lobby(self, lobby_info: LobbyInfo, receiver_port: int) -> None:
         """Publishes a lobby to be discovered by other players."""
         raise NotImplementedError
 
     @abc.abstractmethod
-    def stop_publishing_lobby(self) -> None:
+    async def stop_publishing_lobby(self) -> None:
         """Stops publishing the lobby."""
         raise NotImplementedError
 
@@ -140,11 +140,13 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
         self._service_manager: ServiceManager = ServiceManager(SERVICE_TYPE)
         self._browser = None
         self._published_lobby_service_info = None
+        # We keep track of found lobbies to be able to remove them when they are lost
+        self._found_lobbies: dict[str, LobbyInfo] = {}  # Maps lobby UUIDs to their info
 
     def start_lobby_browser(
         self,
         on_lobby_found: Callable[[LobbyInfo], None],
-        on_lobby_lost: Callable[[str], None],
+        on_lobby_lost: Callable[[LobbyInfo], None],
         on_lobby_updated: Callable[[LobbyInfo], None],
     ) -> None:
         """Starts the lobby browser to discover available lobbies.
@@ -152,18 +154,35 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
 
         args:
             on_lobby_found (Callable[[LobbyInfo], None]): Callback invoked when a new lobby is found.
-            on_lobby_lost (Callable[[str], None]): Callback invoked when a lobby is lost.
+            on_lobby_lost (Callable[[LobbyInfo], None]): Callback invoked when a lobby is lost.
             on_lobby_updated (Callable[[LobbyInfo], None]): Callback invoked when a lobby is updated.
         """
+
+        def on_lobby_found_cb(name: str, props: dict[str, str]) -> None:
+            """Callback invoked when a new lobby is found. This is used to add the lobby to the discovered lobbies list."""
+            self._found_lobbies[name] = self._get_lobby_info_from_service_properties(
+                props
+            )
+            on_lobby_found(self._found_lobbies[name])
+
+        def on_lobby_lost_cb(name: str) -> None:
+            """Callback invoked when a lobby is lost. This is used to remove the lobby from the discovered lobbies list."""
+            if name in self._found_lobbies:
+                on_lobby_lost(self._found_lobbies.pop(name))
+
+        def on_lobby_updated_cb(name: str, props: dict[str, str]) -> None:
+            """Callback invoked when a lobby is updated. This is used to update the lobby information in the discovered lobbies list."""
+            if name in self._found_lobbies:
+                self._found_lobbies[name] = (
+                    self._get_lobby_info_from_service_properties(props)
+                )
+                on_lobby_updated(self._found_lobbies[name])
+
         if not self._browser:
             listener = CallbackServiceListener(
-                on_service_added=lambda name, props: on_lobby_found(
-                    self._get_lobby_info_from_service_properties(props)
-                ),
-                on_service_removed=on_lobby_lost,
-                on_service_updated=lambda name, props: on_lobby_updated(
-                    self._get_lobby_info_from_service_properties(props)
-                ),
+                on_service_added=on_lobby_found_cb,
+                on_service_removed=on_lobby_lost_cb,
+                on_service_updated=on_lobby_updated_cb,
             )
             self._browser = self._service_manager.get_service_browser(listener)
         else:
@@ -201,12 +220,12 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
         else:
             raise RuntimeError("Lobby browser is not running.")
 
-    def publish_lobby(
+    async def publish_lobby(
         self, lobby_info: LobbyInfo, receiver_port: int
     ) -> None:  # TODO Move receiver_port to constructor
         """Publishes a lobby to the network so that it can be discovered by other players."""
         if not self._published_lobby_service_info:
-            self._published_lobby_service_info = self._service_manager.register_service(
+            self._published_lobby_service_info = await self._service_manager.register_service(
                 name=lobby_info.uuid,  # Using lobby UUID as service name to avoid name collisions
                 receiverPort=receiver_port,
                 properties=self._get_service_properties_from_lobby_info(lobby_info),
@@ -214,10 +233,10 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
         else:
             raise RuntimeError("There is already a lobby being published.")
 
-    def stop_publishing_lobby(self) -> None:
+    async def stop_publishing_lobby(self) -> None:
         """Stops publishing the lobby."""
         if self._published_lobby_service_info:
-            self._service_manager.unregister_service(self._published_lobby_service_info)
+            await self._service_manager.unregister_service(self._published_lobby_service_info)
             self._published_lobby_service_info = None
         else:
             raise RuntimeError("No lobby is currently being published.")

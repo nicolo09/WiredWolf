@@ -16,23 +16,23 @@ class ServiceManagerTest(unittest.TestCase):
         # This method would be called before each test to set up the environment
         self.service_manager = ServiceManager(service_type=self.SERVICE_TYPE)
 
-    def register_service(self, service_name: str) -> ServiceInfo:
+    async def register_service(self, service_name: str) -> ServiceInfo:
         sck = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sck.bind(("localhost", 0))
         # Test service registration
-        return self.service_manager.register_service(service_name, DEFAULT_SERVER_PORT, {})
+        return await self.service_manager.register_service(service_name, DEFAULT_SERVER_PORT, {})
 
-    def test_service_registration_dont_raise(
+    async def test_service_registration_dont_raise(
         self,
     ):  # TODO: Flaky test, sometimes raises exception
         NAME = "WiredWolfTest1"
         try:
-            serviceInfo = self.register_service(NAME)
+            serviceInfo = await self.register_service(NAME)
         except Exception as e:
             self.fail(f"Service registration raised an exception: {e}")
-        self.service_manager.unregister_service(serviceInfo)
+        await self.service_manager.unregister_service(serviceInfo)
 
-    def test_service_discovery(self):
+    async def test_service_discovery(self):
         services: dict[str, dict[str, str]] = {}
         self.service_manager.get_service_browser(
             listener=self.service_manager.get_service_listener(self.SERVICE_TYPE,
@@ -41,7 +41,7 @@ class ServiceManagerTest(unittest.TestCase):
                 on_service_updated=lambda name, info: services.update({name: info})
                 )
         )
-        self.register_service("WiredWolfTest2")
+        await self.register_service("WiredWolfTest2")
 
         timeout = 10
         while timeout > 0:
@@ -69,7 +69,7 @@ class LobbyBrowserTest(unittest.TestCase):
     def setUp(self):
         self.lobby_browser: LobbyBrowser = TcpMdnsLobbyBrowser()
 
-    def test_lobby_publish_and_discovery(self):  # TODO: Flaky test, sometimes fails
+    async def test_lobby_publish_and_discovery(self):  # TODO: Flaky test, sometimes fails
         discovered_lobbies: list[LobbyInfo] = []
 
         def on_lobby_found(lobby_info: LobbyInfo):
@@ -87,7 +87,7 @@ class LobbyBrowserTest(unittest.TestCase):
         # Simulate the publication of a lobby
         owner = Peer("TestOwner")
         lobby_info = Lobby(owner, "TestLobby").lobby_info()
-        self.lobby_browser.publish_lobby(lobby_info, DEFAULT_SERVER_PORT)
+        await self.lobby_browser.publish_lobby(lobby_info, DEFAULT_SERVER_PORT)
 
         timeout = 10
         while timeout > 0:

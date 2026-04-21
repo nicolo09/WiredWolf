@@ -96,7 +96,7 @@ class GameController:
         self._client_connection_handler.set_on_message(self._on_message)
         await self._client_connection_handler.start_receiving()
         await self._server.start_listening()
-        self._lobby_browser.publish_lobby(self._lobby.lobby_info(), DEFAULT_SERVER_PORT)
+        await self._lobby_browser.publish_lobby(self._lobby.lobby_info(), DEFAULT_SERVER_PORT)
         return self._lobby
 
     async def join_lobby(self, lobby_name: LobbyInfo, lobby_password: str | None) -> Lobby:
@@ -120,13 +120,13 @@ class GameController:
         def remove_and_readd_lobby(lobby_info: LobbyInfo):
             """Removes and re-adds a lobby to the discovered lobbies list. This is used to update the
             lobby information when it changes."""
-            self._event_sender.remove_discovered_lobby(lobby_info.uuid)
-            self._event_sender.new_discovered_lobby(lobby_info.uuid)
+            self._event_sender.remove_discovered_lobby(lobby_info)
+            self._event_sender.new_discovered_lobby(lobby_info)
 
         """Starts listening for available lobbies."""
         self._lobby_browser.start_lobby_browser(
             lambda lobby_info: self._event_sender.new_discovered_lobby(lobby_info),
-            lambda lobby_uuid: self._event_sender.remove_discovered_lobby(lobby_uuid),
+            lambda lobby_info: self._event_sender.remove_discovered_lobby(lobby_info),
             lambda lobby_info: remove_and_readd_lobby(lobby_info),
         )
 
@@ -174,7 +174,7 @@ class GameController:
                         else:
                             self._logger.error("Game status is not available.")
                     case GamePhase.DAY_BALLOT:
-                        self._event_sender.start_voting_for_ballot()
+                        self._event_sender.players_to_nominate_for_execution()
                     case GamePhase.NIGHT:
                         if self._game_status is not None:
                             my_self = next(
