@@ -96,10 +96,14 @@ class GameController:
         self._client_connection_handler.set_on_message(self._on_message)
         await self._client_connection_handler.start_receiving()
         await self._server.start_listening()
-        await self._lobby_browser.publish_lobby(self._lobby.lobby_info(), DEFAULT_SERVER_PORT)
+        await self._lobby_browser.publish_lobby(
+            self._lobby.lobby_info(), DEFAULT_SERVER_PORT
+        )
         return self._lobby
 
-    async def join_lobby(self, lobby_name: LobbyInfo, lobby_password: str | None) -> Lobby:
+    async def join_lobby(
+        self, lobby_name: LobbyInfo, lobby_password: str | None
+    ) -> Lobby:
         """Joins a lobby by its name.
 
         Args:
@@ -174,7 +178,24 @@ class GameController:
                         else:
                             self._logger.error("Game status is not available.")
                     case GamePhase.DAY_BALLOT:
-                        self._event_sender.players_to_nominate_for_execution()
+                        accused_player = message.outcome.get_accused_player()
+                        if (
+                            self._game_status is not None
+                            and self.lobby is not None
+                            and accused_player is not None
+                        ):
+                            peer = next(
+                                (
+                                    peer
+                                    for peer in self.lobby.peers
+                                    if peer.uuid == accused_player.id
+                                )
+                            )
+                            self._event_sender.user_to_nominated_for_ballot(peer)
+                        else:
+                            self._logger.error(
+                                "Game status, lobby, or accused player is not available."
+                            )
                     case GamePhase.NIGHT:
                         if self._game_status is not None:
                             my_self = next(
