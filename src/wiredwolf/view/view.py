@@ -628,27 +628,36 @@ class SearchLobbyScreen(AbstractScreen):
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler, global_state:GlobalState) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler, global_state)
         self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Join an existing lobby")], self._display.get_size(), (50, 10))
-        go_home=partial(self._game_state_manager.change_screen, Screens.HOME)
-        self._buttons=HContainer(SINGLE_ELEMENT_DIV, [CallbackButton(go_home, 'Go back to start screen', LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, font=FontSize.H2)], self._display.get_size(), (50, 85))
+        self._create_button_back_panel()
         #The lobbies discovered are stored in a lobby panel
         self._create_lobby_panel()
         #This is a list to store the buttons corresponding to the lobbies
         self._lobby_list:list[tuple[pygame_gui.elements.UIButton, LobbyInfo]]=[]
         self._lobby_to_join:LobbyInfo|None=None
         self._password=""
+        self._start_search=False
 
     def run(self,event:pygame.event.Event)->None:
         """The search lobby screen, to search for existing lobbies"""
         self._display.fill(BACKGROUND_COLOR)
         self._gui_manager.draw_ui(self._display)
         self._title.draw(self._display)
-        self._buttons.draw(self._display)
+        if self._start_search==False and self._game_state_manager.current_state==self._screen_id:
+            #Start lobby search only when the screen is actually shown
+            self._controller.start_listening_for_lobbies()
+            self._start_search=True
 
         #Event handling
         #process pygame_events
         #then process pygame_gui events
         self._gui_manager.process_events(event)
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
+            if event.ui_element is self._button_back:
+                #go back to home screen
+                self._controller.stop_listening_for_lobbies() #Stop searching for lobbies when leaving the screen
+                self.reset_screen()
+                self._game_state_manager.change_screen(Screens.HOME)
+                
             #A pygame_gui button is pressed
             for element in self._lobby_list:
                     if event.ui_element == element[0]:
@@ -691,6 +700,7 @@ class SearchLobbyScreen(AbstractScreen):
         self._create_lobby_panel()
         self._lobby_to_join=None
         self._password=""
+        self._start_search=False #Reset start search
     
     def _remove_lobby(self, lobby:LobbyInfo)->None:
         """Remove a lobby from the panel if present"""
@@ -732,6 +742,7 @@ class SearchLobbyScreen(AbstractScreen):
             lobby_created.add_done_callback(self._on_lobby_joined) #Lobby object is available only when you have actually joined the lobby
             self.reset_screen()
             self._game_state_manager.change_screen(Screens.LOADING_LOBBY)
+            self._controller.stop_listening_for_lobbies() #Stop searching for lobbies, since you already joined one
 
     def _on_lobby_joined(self, future: Future[Lobby])->None:
         """The callback function called when the controller has actually created the lobby"""
@@ -744,6 +755,7 @@ class SearchLobbyScreen(AbstractScreen):
         else:
             if e is ValueError():
                 messagebox.showwarning('Password error', str(e))
+                #TODO: and where do you go from here?
             else:
                 #Go to error screen
                 self._game_state_manager.error_screen_handler.set_error("Error", str(e))
@@ -757,6 +769,11 @@ class SearchLobbyScreen(AbstractScreen):
         self._elements_before_scrollbar=int(PANEL_Y/(LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV))-1 #3 elements can fit without a scrollbar, 4th element needs it
         self._lobby_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(0,0, self._starting_size[0], self._starting_size[1]), anchors={'centerx':'centerx', 'centery':'centery'}, enabled_even_for_dead=True)
         self._lobby_panel.set_scrollable_area_dimensions(self._starting_size)
+    
+    def _create_button_back_panel(self)->None:
+        """Creates the panel containing the back button"""
+        self._button_panel=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(0,-LARGE_BTN_HEIGHT-10, LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT), anchors={'centerx':'centerx', 'bottom': 'bottom'}, enabled_even_for_dead=True)
+        self._button_back=pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, 0), (LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT)), text="Go back to start screen", manager=self._gui_manager, anchors={'centerx':'centerx'}, container=self._button_panel)
 
 class WaitingLobbyScreen(AbstractScreen):
     """The waiting room after joining a lobby"""
