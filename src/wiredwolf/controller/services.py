@@ -102,7 +102,7 @@ class ServiceManager:
             tuple[str, int]: A tuple containing the IP address and port of the service.
         """
         service_info = await self._zeroconf.async_get_service_info(
-            self._service_type, service_name
+            type_=self._service_type, name=service_name+"." + self._service_type
         )
         if service_info and service_info.addresses[0] and service_info.port:
             return str(
