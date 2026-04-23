@@ -120,7 +120,7 @@ class GameController:
         await self._client_connection_handler.start_receiving()
         return self._lobby
 
-    def start_listening_for_lobbies(self):
+    def start_listening_for_lobbies(self) -> None:
         def remove_and_readd_lobby(lobby_info: LobbyInfo):
             """Removes and re-adds a lobby to the discovered lobbies list. This is used to update the
             lobby information when it changes."""
@@ -134,7 +134,7 @@ class GameController:
             lambda lobby_info: remove_and_readd_lobby(lobby_info),
         )
 
-    def stop_listening_for_lobbies(self):
+    def stop_listening_for_lobbies(self) -> None:
         """Stops listening for available lobbies."""
         self._lobby_browser.stop_lobby_browser()
 
