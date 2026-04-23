@@ -21,6 +21,7 @@ from wiredwolf.controller.connections import (
 from wiredwolf.controller.messages import (
     BaseMessage,
     GameStartedMessage,
+    LobbyUpdatedMessage,
     PhaseAdvanceMessage,
 )
 from wiredwolf.controller.lobbies import Lobby
@@ -139,19 +140,19 @@ class GameServer:
         try:
             if self._lobby.is_password_protected():
                 # If the lobby is password-protected, ask for the password
-                req = PasswordRequest()
-                await self._server_conn_handler.send_obj(peer, req)
-                resp: PasswordRequest = await self._server_conn_handler.receive_obj(
+                password_request = PasswordRequest()
+                await self._server_conn_handler.send_obj(peer, password_request)
+                password_response: PasswordRequest = await self._server_conn_handler.receive_obj(
                     peer
                 )
-                if resp.id != req.id:
+                if password_response.id != password_request.id:
                     await self._server_conn_handler.send_obj(
                         peer, ValueError("Invalid password request.")
                     )
                     return
-                if resp.password and self._lobby.check_password(resp.password):
+                if password_response.password and self._lobby.check_password(password_response.password):
                     await self._add_peer_and_notify_updates(peer)
-                    await self._server_conn_handler.send_obj(peer, self._lobby)
+                    #TODO: Check if this is needed await self._server_conn_handler.send_obj(peer, self._lobby)
                 else:
                     await self._server_conn_handler.send_obj(
                         peer, ValueError("Incorrect password.")
@@ -159,7 +160,7 @@ class GameServer:
             else:
                 # If no password is set, add the peer directly
                 await self._add_peer_and_notify_updates(peer)
-                await self._server_conn_handler.send_obj(peer, self._lobby)
+                #TODO: Check if this is needed await self._server_conn_handler.send_obj(peer, self._lobby)
         except Exception as e:
             self.__logger.error("Error handling new peer %s: %s", peer, e)
 
@@ -168,7 +169,7 @@ class GameServer:
         self._lobby.peers.add(peer)
         # Notify other peers of the updated lobby sending the updated lobby object
         for p in self._lobby.peers:
-            await self._server_conn_handler.send_obj(p, self._lobby)
+            await self._server_conn_handler.send_obj(p, LobbyUpdatedMessage(self._lobby))
         self.__logger.info(
             "Peer %s joined the lobby. Current peers: %s", peer, self._lobby.peers
         )

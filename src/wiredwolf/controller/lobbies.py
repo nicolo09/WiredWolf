@@ -3,6 +3,7 @@ import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass, field
 import dataclasses
+import logging
 from wiredwolf.controller.connections import (
     AsyncTCPClientConnectionHandler,
     AsyncTCPMessageHandler,
@@ -19,6 +20,7 @@ from wiredwolf.controller.commons import (
     id_generator,
 )
 from wiredwolf.controller.commons import PasswordRequest
+from wiredwolf.controller.messages import LobbyUpdatedMessage
 from wiredwolf.controller.services import CallbackServiceListener, ServiceManager
 
 
@@ -133,6 +135,8 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
     """
     Handles the discovery and creations/publishment of game lobbies through mDNS.
     """
+
+    __logger = logging.getLogger(__name__)
 
     # TODO Handle same lobby name collisions
 
@@ -252,7 +256,7 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
                 reader, writer = await asyncio.open_connection(endpoint[0], endpoint[1])
                 # Sending my peer info to the server
                 await msg_handler.send_obj(writer, my_self)
-                # Expecting PasswordRequest or lobby
+                # Expecting PasswordRequest or LobbyUpdatedMessage (in case no password is required) in response
                 recv_msg = await msg_handler.receive_obj(reader)
                 if isinstance(recv_msg, PasswordRequest):
                     # Server requested a password...
@@ -264,17 +268,22 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
                         if isinstance(lobby, Exception):
                             # The server returned an error
                             writer.close()
+                            self.__logger.error("Error received from server after sending password: %s", lobby)
                             raise lobby
-                        else:
-                            # The server returned a lobby, successfully joined
+                        elif isinstance(lobby, LobbyUpdatedMessage):
+                            # The server returned a lobby update, successfully joined
                             return AsyncTCPClientConnectionHandler(
                                 my_self, reader, writer
-                            ), lobby
+                            ), lobby.lobby
+                        else:
+                            writer.close()
+                            self.__logger.error("Unexpected message received after sending password: %s", lobby)
+                            raise RuntimeError("Unexpected message received during connection.")
                     else:
                         # ...but no password was provided
                         writer.close()
                         raise ValueError("Lobby requires a password.")
-                elif isinstance(recv_msg, Lobby):
+                elif isinstance(recv_msg, LobbyUpdatedMessage):
                     if lobby_password:
                         # Password was provided but not needed
                         writer.close()
@@ -282,7 +291,7 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
                     # Successfully joined the lobby
                     return AsyncTCPClientConnectionHandler(
                         my_self, reader, writer
-                    ), recv_msg
+                    ), recv_msg.lobby
                 else:
                     writer.close()
                     raise RuntimeError("Unexpected message received.")

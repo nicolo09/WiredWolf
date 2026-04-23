@@ -1,6 +1,10 @@
 import abc
 import uuid
 from wiredwolf.controller.commons import Peer
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    # Avoid circular imports for type checking
+    from wiredwolf.controller.lobbies import Lobby 
 from wiredwolf.model.game import GameStatus
 from wiredwolf.model.game_phases import GamePhaseOutcome
 
@@ -27,6 +31,22 @@ class BaseMessage(abc.ABC):
             str: The unique identifier of the message.
         """
         return self._id
+
+
+class LobbyUpdatedMessage(BaseMessage):
+    """A message sent by the server to all peers when the lobby information is updated"""
+
+    def __init__(self, lobby: "Lobby"):
+        super().__init__(None)
+        self._lobby = lobby
+
+    @property
+    def lobby(self) -> "Lobby":
+        """Gets the updated lobby information.
+        Returns:
+            Lobby: The updated lobby information.
+        """
+        return self._lobby
 
 
 class ChatMessage(BaseMessage):

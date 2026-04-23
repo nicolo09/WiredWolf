@@ -8,6 +8,7 @@ from wiredwolf.controller.connections import (
     AsyncTCPServerConnectionHandler
 )
 from wiredwolf.controller.lobbies import Lobby, LobbyBrowser, TcpMdnsLobbyBrowser
+from wiredwolf.controller.messages import LobbyUpdatedMessage
 from wiredwolf.controller.server import GameServer, GameServerFactory
 from wiredwolf.controller.server_plugins import ChatPlugin, GameLifecyclePlugin
 
@@ -39,7 +40,7 @@ class TestFactory:
 
         if isinstance(server.connection_handler, AsyncTCPServerConnectionHandler):
             def on_message(msg: Any) -> None:
-                if type(msg) is not Lobby:
+                if type(msg) is not LobbyUpdatedMessage:
                     TestFactory.logger.error(f"Unexpected message type received in test: {type(msg)}")
                     raise RuntimeError("Unexpected message type")
                 else:

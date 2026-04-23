@@ -9,6 +9,7 @@ from wiredwolf.controller.messages import (
     BaseMessage,
     ChatMessage,
     GameStartedMessage,
+    LobbyUpdatedMessage,
     NotAcknowledgeMessage,
     PhaseAdvanceMessage,
     StartGameMessage,
@@ -152,6 +153,18 @@ class GameController:
                 )
                 if message.id in self._waiting_for_ack:
                     self._waiting_for_ack[message.id][0].set()
+            case LobbyUpdatedMessage():
+                self._logger.info("Lobby information updated.")
+                old_lobby = self._lobby
+                self._lobby = message.lobby
+                if old_lobby:
+                    #If it's an update and not the first time lobby is sent, notify the view about who left or joined the lobby
+                    joined_users = self._lobby.peers - old_lobby.peers
+                    left_users = old_lobby.peers - self._lobby.peers
+                    for user in joined_users:
+                        self._event_sender.new_user_in_lobby(user)
+                    for user in left_users:
+                        self._event_sender.remove_user_in_lobby(user)
             case GameStartedMessage():
                 self._logger.info("Game has started.")
                 self._game_status = message.status
