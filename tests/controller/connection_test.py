@@ -1,5 +1,6 @@
 from asyncio import StreamReader, StreamWriter, timeout
 import asyncio
+from socket import socketpair
 from typing import Any
 import pytest
 import pytest_asyncio
@@ -10,10 +11,13 @@ from wiredwolf.controller.messages import BaseMessage, ChatMessage
 from wiredwolf.controller.server import GameServer, GameServerFactory
 from wiredwolf.controller.server_plugins import ChatPlugin, GameLifecyclePlugin
 
+
+async def check_is_instance(obj: Any, cls: type):
+    assert isinstance(obj, cls)
+
+
 @pytest_asyncio.fixture
 async def server_conn_handler():
-    async def check_is_instance(obj: Any, cls: type):
-        assert isinstance(obj, cls)
 
     serverConnHandler = connections.AsyncTCPServerConnectionHandler(
         lambda peer: check_is_instance(peer, Peer),
@@ -25,16 +29,47 @@ async def server_conn_handler():
 
 
 @pytest_asyncio.fixture
+async def client_conn_handler():
+
+    client_socket, server_socket = socketpair()
+    client_reader, client_writer = await asyncio.open_connection(sock=client_socket)
+    server_reader, server_writer = await asyncio.open_connection(sock=server_socket)
+    peer = Peer("TestPeer")
+
+    handler = connections.ConnectionHandlerFactory.get_client_connection_handler(
+        my_self=peer,
+        reader=client_reader,
+        writer=client_writer,
+    )
+
+    yield handler
+    await handler.close()
+
+
+@pytest_asyncio.fixture
+async def server():
+    myself = Peer("Server")
+    lobby = Lobby(myself, "TestLobby")
+    server, _ = await GameServerFactory.get_game_server(lobby)
+    yield server
+    await server.close()
+
+
+@pytest_asyncio.fixture
 async def browser():
     lobby_browser = TcpMdnsLobbyBrowser()
     yield lobby_browser
+
 
 def test_peer_equality():
     peer1 = Peer("Alice")
     peer2 = Peer("Bob")
     assert peer1 != peer2, "Peers with different names should not be equal"
     peer3 = Peer("Alice")
-    assert peer1 != peer3, "Peers with the same name but different UUIDs should not be equal"
+    assert peer1 != peer3, (
+        "Peers with the same name but different UUIDs should not be equal"
+    )
+
 
 def test_too_long_data_raises():
     handler = connections.AsyncTCPMessageHandler(connections.PickleSerializer())
@@ -76,15 +111,6 @@ def test_send_and_receive():
     asyncio.run(timeout_fun())
 
 
-@pytest_asyncio.fixture
-async def server():
-    myself = Peer("Server")
-    lobby = Lobby(myself, "TestLobby")
-    server, _ = await GameServerFactory.get_game_server(lobby)
-    yield server
-    await server.close()
-
-
 @pytest.mark.asyncio
 async def test_wrong_sender_discard_message(
     browser: TcpMdnsLobbyBrowser, server: GameServer
@@ -92,6 +118,7 @@ async def test_wrong_sender_discard_message(
     exception_received_event = asyncio.Event()
     myself = Peer("Client1")
     lobby = Lobby(myself, "TestLobby")
+
     def on_client_receives_message(message: BaseMessage) -> None:
         if isinstance(message, Lobby):
             assert message == lobby
@@ -99,6 +126,7 @@ async def test_wrong_sender_discard_message(
             exception_received_event.set()
         else:
             pytest.fail("Client should receive a RuntimeError message")
+
     server.add_plugin(ChatPlugin())
     server.add_plugin(GameLifecyclePlugin())
     await server.start_listening()
@@ -116,3 +144,12 @@ async def test_wrong_sender_discard_message(
     except asyncio.TimeoutError:
         pytest.fail("Exception message not received in time")
     await client_handler.close()
+
+
+@pytest.mark.asyncio
+async def test_double_call_to_start_receiving(
+    client_conn_handler: connections.AsyncTCPClientConnectionHandler,
+):
+    with pytest.raises(RuntimeError):
+        await client_conn_handler.start_receiving()
+        await client_conn_handler.start_receiving()

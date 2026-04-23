@@ -174,7 +174,8 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
             raise RuntimeError("Already receiving messages.")
         self._receiving_task = asyncio.create_task(
             self._receive_loop()
-        ).add_done_callback(self._handle_receive_loop_closed)
+        )
+        self._receiving_task.add_done_callback(self._handle_receive_loop_closed)
 
     def _handle_receive_loop_closed(self, task: asyncio.Task[None]) -> None:
         """Handle the completion of the receive loop task.
