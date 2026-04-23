@@ -55,12 +55,6 @@ async def server():
     await server.close()
 
 
-@pytest_asyncio.fixture
-async def browser():
-    lobby_browser = TcpMdnsLobbyBrowser()
-    yield lobby_browser
-
-
 def test_peer_equality():
     peer1 = Peer("Alice")
     peer2 = Peer("Bob")

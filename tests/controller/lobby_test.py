@@ -109,3 +109,4 @@ async def test_receive_correct_lobby_info(
     assert lobbies[0] == lobby.lobby_info()
     await tcp_mdns_lobby_browser.stop_publishing_lobby()
     tcp_mdns_lobby_browser.stop_lobby_browser()
+
