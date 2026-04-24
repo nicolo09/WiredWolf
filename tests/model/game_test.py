@@ -7,7 +7,7 @@ from wiredwolf.model.role_extensions import (
     BasicGameInfoBuilder,
     MediumDecorator,
 )
-from wiredwolf.model.player import Player, Role, Status
+from wiredwolf.model.player import Player, BasicRole, Status
 
 
 def populate_players() -> list[Player]:
@@ -16,13 +16,13 @@ def populate_players() -> list[Player]:
     # but in a real implementation these would be unique identifiers.
 
     return [
-        Player("Alice", "Alice", Role.VILLAGER),
-        Player("Bob", "Bob", Role.WEREWOLF),
-        Player("Charlie", "Charlie", Role.ESCORT),
-        Player("Diana", "Diana", Role.CLAIRVOYANT),
-        Player("Eve", "Eve", Role.MEDIUM),
-        Player("Frank", "Frank", Role.WEREWOLF),
-        Player("Grace", "Grace", Role.VILLAGER),
+        Player("Alice", "Alice", BasicRole.VILLAGER),
+        Player("Bob", "Bob", BasicRole.WEREWOLF),
+        Player("Charlie", "Charlie", BasicRole.ESCORT),
+        Player("Diana", "Diana", BasicRole.CLAIRVOYANT),
+        Player("Eve", "Eve", BasicRole.MEDIUM),
+        Player("Frank", "Frank", BasicRole.WEREWOLF),
+        Player("Grace", "Grace", BasicRole.VILLAGER),
     ]
 
 

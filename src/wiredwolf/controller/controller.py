@@ -19,7 +19,7 @@ from wiredwolf.controller.server import GameServer, GameServerFactory
 from wiredwolf.controller.commons import ACK_TIMEOUT_SECONDS, DEFAULT_SERVER_PORT, Peer
 from wiredwolf.model.game import GameStatus
 from wiredwolf.model.game_phases import GamePhase
-from wiredwolf.model.player import Role
+from wiredwolf.model.player import BasicRole
 from wiredwolf.view.custom_events import EventSender
 
 # TODO: Check if the lobby is removed from advertisement when the game starts
@@ -183,7 +183,7 @@ class GameController:
                                 if player.id == self._my_self.uuid
                             )
                             self._event_sender.start_night(
-                                my_self.role is Role.VILLAGER
+                                my_self.role is BasicRole.VILLAGER
                             )
                     case GamePhase.VILLAGERS_VICTORY | GamePhase.WEREWOLVES_VICTORY:
                         self._logger.info("Game has ended with a victory.")

@@ -1,6 +1,6 @@
 import unittest
 from wiredwolf.model.game import Game, can_perform_action_on
-from wiredwolf.model.player import Status, EVIL_ALIGNMENT
+from wiredwolf.model.player import Status, Alignment
 from wiredwolf.model.exceptions import *
 from tests.model.game_test import populate_players, get_index_by_name, create_game_info
 
@@ -86,13 +86,13 @@ class GameActionsTest(unittest.TestCase):
     def test_clairvoyant_action(self):
         self.game.advance_phase()
         self.game.advance_phase()
-        self.assertTrue(EVIL_ALIGNMENT in self.game.perform_night_action("Diana", "Bob").message)
+        self.assertTrue(Alignment.EVIL_ALIGNMENT.value in self.game.perform_night_action("Diana", "Bob").message)
 
     def test_medium_action(self):
         self.game.kill_player("Bob")
         self.game.advance_phase()
         self.game.advance_phase()
-        self.assertTrue(EVIL_ALIGNMENT in self.game.perform_night_action("Eve", "Bob").message)
+        self.assertTrue(Alignment.EVIL_ALIGNMENT.value in self.game.perform_night_action("Eve", "Bob").message)
         
     def test_special_roles_targets(self):
         self.game.kill_player("Grace")

@@ -1,29 +1,32 @@
 from enum import Enum
 import random
 
-GOOD_ALIGNMENT = "Good"
-EVIL_ALIGNMENT = "Evil"
-
+class Alignment(Enum):
+    GOOD_ALIGNMENT = "Good"
+    EVIL_ALIGNMENT = "Evil"
 
 class Role(Enum):
-    """Enumeration of possible player roles in the game."""
+    """Template for defining roles in the game. Each role has a name and an alignment (good or evil)."""
 
-    WEREWOLF = ("Werewolf", EVIL_ALIGNMENT)
-    VILLAGER = ("Villager", GOOD_ALIGNMENT)
-    ESCORT = ("Escort", GOOD_ALIGNMENT)
-    CLAIRVOYANT = ("Clairvoyant", GOOD_ALIGNMENT)
-    MEDIUM = ("Medium", GOOD_ALIGNMENT)
-
-    def __init__(self, role_name: str, alignment: str):
+    def __init__(self, role_name: str, alignment: Alignment):
         self.role_name = role_name
         self.alignment = alignment
 
     def is_evil(self) -> bool:
         """Returns True if this role is considered evil (part of the werewolf team)."""
-        return self.alignment == EVIL_ALIGNMENT
+        return self.alignment == Alignment.EVIL_ALIGNMENT
 
     def __str__(self) -> str:
         return self.role_name
+    
+class BasicRole(Role):
+    """Basic supported roles in the game."""
+    
+    WEREWOLF = ("Werewolf", Alignment.EVIL_ALIGNMENT)
+    VILLAGER = ("Villager", Alignment.GOOD_ALIGNMENT)
+    ESCORT = ("Escort", Alignment.GOOD_ALIGNMENT)
+    CLAIRVOYANT = ("Clairvoyant", Alignment.GOOD_ALIGNMENT)
+    MEDIUM = ("Medium", Alignment.GOOD_ALIGNMENT)
 
 
 class Status(Enum):
@@ -80,7 +83,7 @@ class Player:
 
     def get_alignment(self) -> str:
         """Returns the alignment of the player's role."""
-        return self._role.alignment
+        return self._role.alignment.value
 
     def __str__(self) -> str:
         return f"Player(id={self._id}, name={self._name}, role={self._role}, status={self._status})"
@@ -119,8 +122,8 @@ def create_players(ids: dict[str, str], roles: set[Role]) -> list[Player]:
 
     players: list[Player] = []
     special_roles: set[Role] = roles - {
-        Role.VILLAGER,
-        Role.WEREWOLF,
+        BasicRole.VILLAGER,
+        BasicRole.WEREWOLF,
     }  # Create a local copy excluding default roles
     werewolves_number = max(2, len(ids) // 4)
 
@@ -136,10 +139,10 @@ def create_players(ids: dict[str, str], roles: set[Role]) -> list[Player]:
         if special_roles:
             role = special_roles.pop()
         elif werewolves_number > 0:
-            role = Role.WEREWOLF
+            role = BasicRole.WEREWOLF
             werewolves_number -= 1
         else:
-            role = Role.VILLAGER
+            role = BasicRole.VILLAGER
         players.append(Player(id, ids[id], role))
 
     return players

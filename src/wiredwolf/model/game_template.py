@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, final, TypeVar, Type
 from wiredwolf.model.game_phases import GamePhase, NightActionResult
-from wiredwolf.model.player import Player, Status, Role
+from wiredwolf.model.player import Player, Status, Role, BasicRole
 from wiredwolf.model.exceptions import *
 
 # Type variable for generic decorator searching
@@ -208,14 +208,14 @@ class SimpleGameInfo(AbstractGameInfo):
         self._ballot_votes[voter] = vote
 
     def _handle_night_actions(self, actor: Player, target: Player) -> NightActionResult:
-        if actor.role == Role.WEREWOLF:
+        if actor.role == BasicRole.WEREWOLF:
             if not actor.is_alive():
                 raise PlayerStatusError(
                     f"{actor.role} cannot perform action as dead player."
                 )
             if actor in self._werewolves_votes:
                 raise InvalidActionError(f"{actor.id} has already voted.")
-            if target.role == Role.WEREWOLF:
+            if target.role == BasicRole.WEREWOLF:
                 raise InvalidActionError("Werewolves cannot vote for other werewolves.")
             if not target.is_alive():
                 raise InvalidActionError("Cannot vote for dead player.")
@@ -239,9 +239,9 @@ class SimpleGameInfo(AbstractGameInfo):
                 if player in self._ballot_votes:
                     del self._ballot_votes[player]
             case GamePhase.NIGHT:
-                if player.role == Role.WEREWOLF and player in self._werewolves_votes:
+                if player.role == BasicRole.WEREWOLF and player in self._werewolves_votes:
                     del self._werewolves_votes[player]
-                elif player.role != Role.WEREWOLF:
+                elif player.role != BasicRole.WEREWOLF:
                     for werewolf, target in list(self._werewolves_votes.items()):
                         if target == player:
                             del self._werewolves_votes[werewolf]
@@ -264,11 +264,11 @@ class SimpleGameInfo(AbstractGameInfo):
         return None
 
     def get_all_handled_roles(self) -> set[Role]:
-        return {Role.VILLAGER, Role.WEREWOLF}
+        return {BasicRole.VILLAGER, BasicRole.WEREWOLF}
     
     def get_possible_targets(self, role: Role, players: list[Player]) -> list[Player]:
-        if role == Role.WEREWOLF:
-            return [player for player in players if player.is_alive() and player.role != Role.WEREWOLF]
+        if role == BasicRole.WEREWOLF:
+            return [player for player in players if player.is_alive() and player.role != BasicRole.WEREWOLF]
         return []
 
 class GameInfoDecorator(AbstractGameInfo):

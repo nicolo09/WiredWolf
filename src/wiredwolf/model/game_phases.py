@@ -19,6 +19,7 @@ class GamePhaseOutcome:
     Attributes:
         new_phase (GamePhase): The new phase after the transition.
         deaths (list[Player]): List of players who died because of the phase transition.
+        accused_player (Player | None): The player who was accused during the day accusing phase, if applicable.
     """
 
     def __init__(self, new_phase: GamePhase, deaths: list[Player] = [], accused_player: Player | None = None):

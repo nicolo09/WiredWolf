@@ -16,7 +16,7 @@ from pygame_gui.core.interfaces import IUIElementInterface
 from pygame_gui.core import UIElement
 from tkinter import messagebox
 from asyncio import Future
-from wiredwolf.model.player import Role
+from wiredwolf.model.player import BasicRole
 
 FPS=60
 STARTING_SCREEN=Screens.HOME
@@ -1430,7 +1430,7 @@ class NightRoleScreen(AbstractScreen):
             self._role_name=self._global_state.role_name
             self._role_text.text="Use your power, "+self._role_name
             self._role_container.update_on_next_draw()
-            if self._role_name==Role.WEREWOLF.role_name:
+            if self._role_name==BasicRole.WEREWOLF.role_name:
                 if self._global_state.is_dead==False:
                     #Show panels to chat with other werewolves
                     self._chat_panel.show()

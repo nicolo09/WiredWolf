@@ -23,7 +23,7 @@ class ClairvoyantDecorator(GameInfoDecorator):
 
     @staticmethod
     def get_decorator_roles() -> set[Role]:
-        return {Role.CLAIRVOYANT}
+        return {BasicRole.CLAIRVOYANT}
 
     def get_decorator_data(self) -> GameActionData:
         return GameActionData(
@@ -37,7 +37,7 @@ class ClairvoyantDecorator(GameInfoDecorator):
         self._clairvoyant_acted = False
 
     def _handle_night_actions(self, actor: Player, target: Player) -> NightActionResult:
-        if actor.role == Role.CLAIRVOYANT:
+        if actor.role == BasicRole.CLAIRVOYANT:
             if not actor.is_alive():
                 raise InvalidActionError(
                     f"{actor.role} cannot perform action as dead player."
@@ -51,9 +51,9 @@ class ClairvoyantDecorator(GameInfoDecorator):
                 f"Clairvoyant investigated {target.name}: {target.get_alignment()}."
             )
         return super()._handle_night_actions(actor, target)
-    
+
     def get_possible_targets(self, role: Role, players: list[Player]) -> list[Player]:
-        if role == Role.CLAIRVOYANT:
+        if role == BasicRole.CLAIRVOYANT:
             return [player for player in players if player.is_alive()]
         return self._wrapped.get_possible_targets(role, players)
 
@@ -94,7 +94,7 @@ class EscortDecorator(GameInfoDecorator):
 
     @staticmethod
     def get_decorator_roles() -> set[Role]:
-        return {Role.ESCORT}
+        return {BasicRole.ESCORT}
 
     def get_decorator_data(self) -> GameActionData:
         return GameActionData(
@@ -113,7 +113,7 @@ class EscortDecorator(GameInfoDecorator):
             self._protected_player = None
 
     def _handle_night_actions(self, actor: Player, target: Player) -> NightActionResult:
-        if actor.role == Role.ESCORT:
+        if actor.role == BasicRole.ESCORT:
             if not actor.is_alive():
                 raise PlayerStatusError(
                     f"{actor.role} cannot perform action as dead player."
@@ -133,14 +133,14 @@ class EscortDecorator(GameInfoDecorator):
             if player == self._protected_player:
                 self._protected_player = None
                 self._escort_acted = False
-            elif player.role == Role.ESCORT and self._protected_player is not None:
+            elif player.role == BasicRole.ESCORT and self._protected_player is not None:
                 self._protected_player.status = Status.ALIVE
                 self._protected_player = None
                 self._escort_acted = False
         super().remove_player(player, gamephase)
-        
+
     def get_possible_targets(self, role: Role, players: list[Player]) -> list[Player]:
-        if role == Role.ESCORT:
+        if role == BasicRole.ESCORT:
             return [player for player in players if player.is_alive()]
         return self._wrapped.get_possible_targets(role, players)
 
@@ -180,7 +180,7 @@ class MediumDecorator(GameInfoDecorator):
 
     @staticmethod
     def get_decorator_roles() -> set[Role]:
-        return {Role.MEDIUM}
+        return {BasicRole.MEDIUM}
 
     def get_decorator_data(self) -> GameActionData:
         return GameActionData(
@@ -194,7 +194,7 @@ class MediumDecorator(GameInfoDecorator):
         self._medium_acted = False
 
     def _handle_night_actions(self, actor: Player, target: Player) -> NightActionResult:
-        if actor.role == Role.MEDIUM:
+        if actor.role == BasicRole.MEDIUM:
             if not actor.is_alive():
                 raise PlayerStatusError(
                     f"{actor.role} cannot perform action as dead player."
@@ -208,9 +208,9 @@ class MediumDecorator(GameInfoDecorator):
                 f"Medium communicated with {target.name}: {target.get_alignment()}."
             )
         return super()._handle_night_actions(actor, target)
-    
+
     def get_possible_targets(self, role: Role, players: list[Player]) -> list[Player]:
-        if role == Role.MEDIUM:
+        if role == BasicRole.MEDIUM:
             return [player for player in players if not player.is_alive()]
         return self._wrapped.get_possible_targets(role, players)
 
@@ -270,7 +270,7 @@ class BasicGameInfoBuilder:
         Returns:
             BasicGameInfoBuilder: This builder.
         """
-        if Role.CLAIRVOYANT not in self._game_info.get_all_handled_roles():
+        if BasicRole.CLAIRVOYANT not in self._game_info.get_all_handled_roles():
             self._game_info = ClairvoyantDecorator(self._game_info, self._game_data)
         return self
 
@@ -281,8 +281,10 @@ class BasicGameInfoBuilder:
         Returns:
             BasicGameInfoBuilder: This builder.
         """
-        if Role.ESCORT not in self._game_info.get_all_handled_roles():
-            self._game_info = EscortDecorator(self._game_info, self._game_data, self._players)
+        if BasicRole.ESCORT not in self._game_info.get_all_handled_roles():
+            self._game_info = EscortDecorator(
+                self._game_info, self._game_data, self._players
+            )
         return self
 
     def with_medium(self) -> "BasicGameInfoBuilder":
@@ -292,7 +294,7 @@ class BasicGameInfoBuilder:
         Returns:
             BasicGameInfoBuilder: This builder.
         """
-        if Role.MEDIUM not in self._game_info.get_all_handled_roles():
+        if BasicRole.MEDIUM not in self._game_info.get_all_handled_roles():
             self._game_info = MediumDecorator(self._game_info, self._game_data)
         return self
 
@@ -307,11 +309,11 @@ class BasicGameInfoBuilder:
             BasicGameInfoBuilder: This builder.
         """
         for role in roles:
-            if role == Role.CLAIRVOYANT:
+            if role == BasicRole.CLAIRVOYANT:
                 self.with_clairvoyant()
-            elif role == Role.ESCORT:
+            elif role == BasicRole.ESCORT:
                 self.with_escort()
-            elif role == Role.MEDIUM:
+            elif role == BasicRole.MEDIUM:
                 self.with_medium()
 
         return self

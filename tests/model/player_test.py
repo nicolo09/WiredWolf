@@ -6,8 +6,8 @@ from wiredwolf.model.player import *
 class TestPlayer(unittest.TestCase):
 
     def setUp(self):
-        self.villager = Player("01", "Alice", Role.VILLAGER)
-        self.werewolf = Player("02", "Bob", Role.WEREWOLF)
+        self.villager = Player("01", "Alice", BasicRole.VILLAGER)
+        self.werewolf = Player("02", "Bob", BasicRole.WEREWOLF)
 
     def test_player_creation(self):
         ids: dict[str, str] = {
@@ -21,10 +21,10 @@ class TestPlayer(unittest.TestCase):
             "08": "Hank",
         }
         special_roles: set[Role] = {
-            Role.ESCORT,
-            Role.CLAIRVOYANT,
-            Role.WEREWOLF,
-            Role.VILLAGER,
+            BasicRole.ESCORT,
+            BasicRole.CLAIRVOYANT,
+            BasicRole.WEREWOLF,
+            BasicRole.VILLAGER,
         }
         players = create_players(ids, special_roles)
         self.assertEqual(len(players), 8)
@@ -37,16 +37,18 @@ class TestPlayer(unittest.TestCase):
 
         for player in players:
             match player.role:
-                case Role.VILLAGER:
+                case BasicRole.VILLAGER:
                     villagers_count += 1
-                case Role.WEREWOLF:
+                case BasicRole.WEREWOLF:
                     werewolves_count += 1
-                case Role.ESCORT:
+                case BasicRole.ESCORT:
                     escorts_count += 1
-                case Role.CLAIRVOYANT:
+                case BasicRole.CLAIRVOYANT:
                     clairvoyants_count += 1
-                case Role.MEDIUM:
+                case BasicRole.MEDIUM:
                     mediums_count += 1
+                case _:
+                    self.fail(f"Unexpected role assigned: {player.role}")
 
         self.assertEqual(escorts_count, 1)
         self.assertEqual(clairvoyants_count, 1)
