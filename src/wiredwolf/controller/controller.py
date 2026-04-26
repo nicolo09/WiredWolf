@@ -2,7 +2,7 @@ import asyncio
 import logging
 
 from wiredwolf.controller.connections import ClientConnectionHandler
-from wiredwolf.controller.lobbies import LobbyBrowser, LobbyInfo
+from wiredwolf.controller.lobbies import LobbyBrowser, LobbyBrowserFactory, LobbyInfo
 from wiredwolf.controller.lobbies import Lobby
 from wiredwolf.controller.messages import (
     AcknowledgeMessage,
@@ -97,10 +97,32 @@ class GameController:
         self._client_connection_handler.set_on_message(self._on_message)
         await self._client_connection_handler.start_receiving()
         await self._server.start_listening()
+        self._lobby_browser = LobbyBrowserFactory.get_lobby_browser()
         await self._lobby_browser.publish_lobby(
             self._lobby.lobby_info(), DEFAULT_SERVER_PORT
         )
         return self._lobby
+
+    async def leave(self) -> None:
+        """Leaves the current lobby and shuts down the server."""
+        #Checks if this controller has a server to shut down
+        if self._server:
+            await self._server.close()
+            self._server = None
+        #Checks if this controller is publishing a lobby
+        if self._lobby_browser.is_publishing_lobby:
+            await self.stop_publishing_lobby()
+        #Checks if this controller has a client connection to close
+        if self._client_connection_handler:
+            await self._client_connection_handler.close()
+            self._client_connection_handler = None
+        #Reset the lobby status
+        self._lobby = None
+
+    async def stop_publishing_lobby(self):
+        """Stops publishing the lobby."""
+        if self._lobby:
+            await self._lobby_browser.stop_publishing_lobby()
 
     async def join_lobby(
         self, lobby_name: LobbyInfo, lobby_password: str | None
@@ -270,7 +292,12 @@ class GameController:
 
     async def start_game(self):
         """Sends a request to start the game. This method may be called only by the lobby owner."""
-        await self._send_message_and_wait_for_ack(StartGameMessage(self._my_self))
+        try:
+            await self._send_message_and_wait_for_ack(StartGameMessage(self._my_self))
+            await self.stop_publishing_lobby()
+        except Exception as e:
+            self._logger.error("Failed to start game: %s", e)
+            raise
 
     async def choose_player(self, player: Peer):
         """Chooses a player in the lobby. This method may be called only during a voting phase or during the night phase if the player can do an action.

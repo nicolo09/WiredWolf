@@ -114,6 +114,11 @@ class LobbyBrowser(abc.ABC):
         """Stops publishing the lobby."""
         raise NotImplementedError
 
+    @property
+    def is_publishing_lobby(self) -> bool:
+        """Returns whether a lobby is currently being published."""
+        raise NotImplementedError
+
     @abc.abstractmethod
     async def connect_to_lobby_by_id(
         self, my_self: Peer, lobby_id: str, lobby_password: str | None
@@ -146,6 +151,11 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
         self._published_lobby_service_info = None
         # We keep track of found lobbies to be able to remove them when they are lost
         self._found_lobbies: dict[str, LobbyInfo] = {}  # Maps lobby UUIDs to their info
+
+    @property
+    def is_publishing_lobby(self) -> bool:
+        """Returns whether a lobby is currently being published."""
+        return self._published_lobby_service_info is not None
 
     def start_lobby_browser(
         self,
@@ -242,6 +252,12 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
         if self._published_lobby_service_info:
             await self._service_manager.unregister_service(self._published_lobby_service_info)
             self._published_lobby_service_info = None
+            # Close zeroconf resources used by the service manager
+            try:
+                self._service_manager.close()
+            except Exception:
+                # Be tolerant: closing zeroconf is best-effort
+                self.__logger.warning("Failed to close ServiceManager Zeroconf instance.")
         else:
             raise RuntimeError("No lobby is currently being published.")
 

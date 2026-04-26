@@ -47,6 +47,7 @@ class ServiceManager:
     def __init__(self, service_type: str):
         self._zeroconf: Zeroconf = Zeroconf()
         self._service_type: str = service_type
+        self._closed: bool = False
 
     async def register_service(self, name: str, receiverPort: int, properties: dict[str, str]) -> ServiceInfo:
         self.__logger.info(f"Registering service {name} on port {receiverPort}...")
@@ -113,3 +114,12 @@ class ServiceManager:
                 f"Service {service_name} not found or informations incomplete."
             )
             raise TimeoutError(f"Service {service_name} not found.")
+
+    def close(self) -> None:
+        """Closes the underlying Zeroconf instance."""
+        try:
+            self._zeroconf.close()
+            self.__logger.info("Zeroconf instance closed.")
+        except Exception as e:
+            self.__logger.warning(f"Error while closing Zeroconf: {e}")
+
