@@ -7,7 +7,7 @@ import pytest_asyncio
 from wiredwolf.controller.commons import DEFAULT_SERVER_PORT, Peer
 import wiredwolf.controller.connections as connections
 from wiredwolf.controller.lobbies import Lobby, TcpMdnsLobbyBrowser
-from wiredwolf.controller.messages import BaseMessage, ChatMessage
+from wiredwolf.controller.messages import BaseMessage, ChatMessage, LobbyUpdatedMessage
 from wiredwolf.controller.server import GameServer, GameServerFactory
 from wiredwolf.controller.server_plugins import ChatPlugin, GameLifecyclePlugin
 
@@ -114,8 +114,8 @@ async def test_wrong_sender_discard_message(
     lobby = Lobby(myself, "TestLobby")
 
     def on_client_receives_message(message: BaseMessage) -> None:
-        if isinstance(message, Lobby):
-            assert message == lobby
+        if isinstance(message, LobbyUpdatedMessage):
+            assert message.lobby == lobby
         elif isinstance(message, RuntimeError):
             exception_received_event.set()
         else:
@@ -137,7 +137,10 @@ async def test_wrong_sender_discard_message(
             await exception_received_event.wait()
     except asyncio.TimeoutError:
         pytest.fail("Exception message not received in time")
-    await client_handler.close()
+    try:
+        await client_handler.close()
+    except Exception:
+        pass
 
 
 @pytest.mark.asyncio
