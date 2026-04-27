@@ -698,6 +698,7 @@ class SearchLobbyScreen(AbstractScreen):
         #Delete current panels and creates them again
         self._panel_handler.delete_panels(self._screen_id)
         self._create_lobby_panel()
+        self._create_button_back_panel()
         self._lobby_to_join=None
         self._password=""
         self._start_search=False #Reset start search
