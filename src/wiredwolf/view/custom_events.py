@@ -395,7 +395,7 @@ class EventSender(ABC):
         raise NotImplementedError("Please implement this method")
 
     @abstractmethod
-    def players_to_nominate_for_execution(self, players:list[Peer])->None: #TODO: consider renaming to start_nomination_for_execution
+    def start_nomination_for_execution(self, players:list[Peer])->None: 
         """The list of players possible to choose from when nominating for execution and starts voting"""
         raise NotImplementedError("Please implement this method")
     
@@ -463,7 +463,12 @@ class EventSender(ABC):
     def error_ended_go_to_screen(self, next_screen:Screens)->None:
         """Sends the end of error to the view and changes screen to the given one"""
         raise NotImplementedError("Please implement this method")
-    
+
+    @abstractmethod
+    def error_ended_go_to_home(self)->None:
+        """Sends the end of error to the view and changes screen to the home screen. Controller needs to call view.reset to properly reset the view"""
+        raise NotImplementedError("Please implement this method")
+
     @abstractmethod
     def player_is_dead(self)->None:
         """Triggers ghost player view, called after player is executed or if player is killed by werewolves at night"""
@@ -591,7 +596,7 @@ class CustomEventSender(EventSender):
     def game_started_by_master(self) -> None:
         self.send_event_to_screen(Screens.ROLE_DISPLAY)
 
-    def players_to_nominate_for_execution(self, players: list[Peer]) -> None:
+    def start_nomination_for_execution(self, players: list[Peer]) -> None:
         for elem in players:
             self.send_event_add_user(elem)
         self.start_voting_for_nominations()
@@ -653,6 +658,9 @@ class CustomEventSender(EventSender):
 
     def error_ended_go_to_screen(self, next_screen:Screens)->None:
         self.send_event_end_error(next_screen)
+    
+    def error_ended_go_to_home(self)->None:
+        self.send_event_end_error(Screens.HOME)
 
     def player_is_dead(self)->None:
         self.send_event_dead_player()
