@@ -300,6 +300,20 @@ class GameInfoDecorator(AbstractGameInfo):
     @abstractmethod
     def get_decorator_data(self) -> GameActionData:
         """Returns a GameActionData specific to this decorator."""
+        
+    @abstractmethod
+    def _compare_decorator(self, other: AbstractGameInfo) -> bool:
+        """Utility method to compare the specific data of this decorator.
+        
+        Args:
+            other (AbstractGameInfo): The other game info to compare against.
+            
+        Returns:
+            bool: True if the specific data of this decorator matches the other, False otherwise.
+            
+        Note:
+            This method is used by the __eq__ method.
+        """
 
     @property
     def accusation_votes(self) -> dict[Player, Player]:
@@ -352,3 +366,26 @@ class GameInfoDecorator(AbstractGameInfo):
 
         if duplicate_roles:
             raise ValueError("Decorator roles already handled in wrapped game info.")
+    
+    @final
+    def __eq__(self, other: object) -> bool:
+        
+        if not isinstance(other, AbstractGameInfo):
+            return False
+        
+        if not super().__eq__(other):
+            return False
+        
+        checking = self
+        
+        while isinstance(checking, GameInfoDecorator):
+            other_decorator = self._find_decorator(type(checking), other)
+            if other_decorator is None:
+                return False
+
+            if not checking._compare_decorator(other_decorator):
+                return False
+            
+            checking = checking._wrapped
+
+        return True

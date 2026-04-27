@@ -1,4 +1,5 @@
 from wiredwolf.model.game_phases import GamePhase, NightActionResult
+from wiredwolf.model.game_template import AbstractGameInfo
 from wiredwolf.model.player import Player, Status, Role
 from wiredwolf.model.exceptions import *
 from wiredwolf.model.game_template import *
@@ -56,19 +57,11 @@ class ClairvoyantDecorator(GameInfoDecorator):
         if role == BasicRole.CLAIRVOYANT:
             return [player for player in players if player.is_alive()]
         return self._wrapped.get_possible_targets(role, players)
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, AbstractGameInfo):
+    
+    def _compare_decorator(self, other: AbstractGameInfo) -> bool:
+        if not isinstance(other, ClairvoyantDecorator):
             return False
-
-        other_clairvoyant = self._find_decorator(ClairvoyantDecorator, other)
-        if other_clairvoyant is None:
-            return False
-
-        if self._clairvoyant_acted != other_clairvoyant._clairvoyant_acted:
-            return False
-
-        return super().__eq__(other)
+        return self._clairvoyant_acted == other._clairvoyant_acted
 
 
 class EscortDecorator(GameInfoDecorator):
@@ -143,22 +136,14 @@ class EscortDecorator(GameInfoDecorator):
         if role == BasicRole.ESCORT:
             return [player for player in players if player.is_alive()]
         return self._wrapped.get_possible_targets(role, players)
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, AbstractGameInfo):
+    
+    def _compare_decorator(self, other: AbstractGameInfo) -> bool:
+        if not isinstance(other, EscortDecorator):
             return False
-
-        other_escort = self._find_decorator(EscortDecorator, other)
-        if other_escort is None:
-            return False
-
-        if (
-            self._escort_acted != other_escort._escort_acted
-            or self._protected_player != other_escort._protected_player
-        ):
-            return False
-
-        return super().__eq__(other)
+        return (
+            self._escort_acted == other._escort_acted
+            and self._protected_player == other._protected_player
+        )
 
 
 class MediumDecorator(GameInfoDecorator):
@@ -213,19 +198,12 @@ class MediumDecorator(GameInfoDecorator):
         if role == BasicRole.MEDIUM:
             return [player for player in players if not player.is_alive()]
         return self._wrapped.get_possible_targets(role, players)
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, AbstractGameInfo):
+    
+    def _compare_decorator(self, other: AbstractGameInfo) -> bool:
+        if not isinstance(other, MediumDecorator):
             return False
+        return self._medium_acted == other._medium_acted
 
-        other_medium = self._find_decorator(MediumDecorator, other)
-        if other_medium is None:
-            return False
-
-        if self._medium_acted != other_medium._medium_acted:
-            return False
-
-        return super().__eq__(other)
 
 
 class BasicGameInfoBuilder:
