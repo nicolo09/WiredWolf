@@ -28,7 +28,7 @@ async def _register_service(service_manager: ServiceManager, service_name: str) 
 
 
 @pytest.mark.asyncio
-async def test_service_registration_dont_raise(service_manager):
+async def test_service_registration_dont_raise(service_manager: ServiceManager):
     NAME = "WiredWolfTest1"
     try:
         serviceInfo = await _register_service(service_manager, NAME)
@@ -38,7 +38,7 @@ async def test_service_registration_dont_raise(service_manager):
 
 
 @pytest.mark.asyncio
-async def test_service_discovery(service_manager):
+async def test_service_discovery(service_manager: ServiceManager):
     services: dict[str, dict[str, str]] = {}
     service_manager.get_service_browser(
         listener=service_manager.get_service_listener(
@@ -76,7 +76,7 @@ async def lobby_browser():
 
 
 @pytest.mark.asyncio
-async def test_lobby_publish_and_discovery(lobby_browser):
+async def test_lobby_publish_and_discovery(lobby_browser: LobbyBrowser):
     discovered_lobbies: list[LobbyInfo] = []
 
     def on_lobby_found(lobby_info: LobbyInfo):
