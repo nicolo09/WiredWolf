@@ -1,3 +1,5 @@
+#GAME EXCEPTIONS
+
 class GamePhaseError(Exception):
     """Raised when an action is attempted in an invalid game phase."""
     
@@ -11,3 +13,8 @@ class PlayerStatusError(Exception):
 
 class InvalidActionError(Exception):
     """Raised when a player attempts to perform an action they are not allowed to."""
+
+#GAME BUILDER EXCEPTIONS
+
+class GameDecoratorError(Exception):
+    """Raised when there is an error related to game decorators, such as missing or incompatible decorators."""

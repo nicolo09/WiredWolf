@@ -38,10 +38,10 @@ class Status(Enum):
 
 
 class Player:
-    """Represents a player in the game with an ID, name, role, and status."""
+    """Represents a player in the game with an ID, name, role and status."""
 
     def __init__(self, id: str, name: str, role: Role):
-        """Initializes a new player with the given ID, name, and role.
+        """Initializes a new player with the given ID, name and role.
            All players start with the status set to ALIVE.
         Args:
             id (str): The unique identifier for the player.

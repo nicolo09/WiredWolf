@@ -107,6 +107,10 @@ class AbstractGameInfo(ABC):
         """Returns a set of roles handled by this game."""
         
     @abstractmethod
+    def get_game_modules(self) -> set[str]:
+        """Returns a set of module names that contain the components for this game."""
+        
+    @abstractmethod
     def get_possible_targets(self, role: Role, players: list[Player]) -> list[Player]:
         """Returns a list of possible targets for a given role."""
 
@@ -143,12 +147,9 @@ class AbstractGameInfo(ABC):
             == sorted(role.value for role in other.get_all_handled_roles())
         )
 
-
-class SimpleGameInfo(AbstractGameInfo):
+class GameInfoBase(AbstractGameInfo):
     """
-    Basic game template supporting Villager and Werewolf roles.
-
-    This is the foundation template that handles the core game mechanics
+    The base for every game info implementation. Handles the core game mechanics
     without any special roles. It can be extended using decorators to
     add support for additional roles.
     """
@@ -161,14 +162,15 @@ class SimpleGameInfo(AbstractGameInfo):
         Args:
             game_data (GameActionData | None): Pre-existing game data to initialize from.
         """
-        self._accusation_votes: dict[Player, Player] = {}
-        self._ballot_votes: dict[Player, bool] = {}
-        self._werewolves_votes: dict[Player, Player] = {}
-
         if game_data is not None:
             self._accusation_votes = game_data.data.get("accusation_votes", {})
             self._ballot_votes = game_data.data.get("ballot_votes", {})
             self._werewolves_votes = game_data.data.get("werewolves_votes", {})
+        else:
+            self._accusation_votes: dict[Player, Player] = {}
+            self._ballot_votes: dict[Player, bool] = {}
+            self._werewolves_votes: dict[Player, Player] = {}
+
 
     @property
     def accusation_votes(self) -> dict[Player, Player]:
@@ -266,6 +268,9 @@ class SimpleGameInfo(AbstractGameInfo):
     def get_all_handled_roles(self) -> set[Role]:
         return {BasicRole.VILLAGER, BasicRole.WEREWOLF}
     
+    def get_game_modules(self) -> set[str]:
+        return set()  # Base game has no specific modules, decorators will add their own
+    
     def get_possible_targets(self, role: Role, players: list[Player]) -> list[Player]:
         if role == BasicRole.WEREWOLF:
             return [player for player in players if player.is_alive() and player.role != BasicRole.WEREWOLF]
@@ -350,6 +355,9 @@ class GameInfoDecorator(AbstractGameInfo):
 
     def get_all_handled_roles(self) -> set[Role]:
         return self._wrapped.get_all_handled_roles() | self.get_decorator_roles()
+    
+    def get_game_modules(self) -> set[str]:
+        return self._wrapped.get_game_modules() | {self.__class__.__module__}
 
     def _check_roles_duplicates(self, wrapped: AbstractGameInfo) -> None:
         """Checks for duplicate roles between this decorator and the wrapped game info.

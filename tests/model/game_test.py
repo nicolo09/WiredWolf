@@ -2,11 +2,9 @@ import unittest
 from wiredwolf.model.game import Game, GameStatus
 from wiredwolf.model.game_phases import GamePhase
 from wiredwolf.model.game_template import AbstractGameInfo
-from wiredwolf.model.role_extensions import (
-    create_standard_game,
-    BasicGameInfoBuilder,
-    MediumDecorator,
-)
+from wiredwolf.model.role_extensions import MediumDecorator
+from wiredwolf.model.game_builder import GameInfoBuilder
+
 from wiredwolf.model.player import Player, BasicRole, Status
 
 
@@ -27,7 +25,7 @@ def populate_players() -> list[Player]:
 
 
 def create_game_info() -> AbstractGameInfo:
-    return create_standard_game()
+    return GameInfoBuilder.new().with_roles({BasicRole.CLAIRVOYANT, BasicRole.MEDIUM, BasicRole.ESCORT}).build()
 
 #FIXME: remove and make it better
 def get_index_by_name(players: list[Player], name: str) -> int:
@@ -44,10 +42,8 @@ class GameInfoTest(unittest.TestCase):
 
     def test_game_info_equals(self):
         game_info_comparison: AbstractGameInfo = (
-            BasicGameInfoBuilder.default()
-            .with_medium()
-            .with_clairvoyant()
-            .with_escort()
+            GameInfoBuilder.new()
+            .with_roles({BasicRole.MEDIUM, BasicRole.CLAIRVOYANT, BasicRole.ESCORT})
             .build()
         )
 
@@ -55,14 +51,14 @@ class GameInfoTest(unittest.TestCase):
 
     def test_game_info_not_equals(self):
         game_info_different: AbstractGameInfo = (
-            BasicGameInfoBuilder.default().with_medium().with_clairvoyant().build()
+            GameInfoBuilder.new().with_roles({BasicRole.MEDIUM, BasicRole.CLAIRVOYANT}).build()
         )
 
         self.assertNotEqual(create_game_info(), game_info_different)
 
     def test_duplicate_roles_error(self):
         base_game_info: AbstractGameInfo = (
-            BasicGameInfoBuilder.default().with_medium().build()
+            GameInfoBuilder.new().with_roles({BasicRole.MEDIUM}).build()
         )
         with self.assertRaises(ValueError):
             _ = MediumDecorator(base_game_info)
@@ -127,6 +123,7 @@ class GameStatusTest(unittest.TestCase):
         test_status: GameStatus = GameStatus(
             test_players,
             test_game_info.get_all_handled_roles(),
+            test_game_info.get_game_modules(),
             test_game_info.get_game_data(),
             GamePhase.NIGHT,
         )

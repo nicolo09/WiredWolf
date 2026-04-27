@@ -4,6 +4,13 @@ from wiredwolf.model.player import Player, Status, Role
 from wiredwolf.model.exceptions import *
 from wiredwolf.model.game_template import *
 
+####################################################################################################################################
+# This module contains decorators for adding support for specific roles to the game info.                                          #
+# To add support for a new role, create a new decorator class that extends GameInfoDecorator and implements the required methods.  #
+# The class must be named <RoleName>Decorator otherwise it won't be automatically used by the builder.                             #
+# The builder will automatically add the correct decorators based on the specified roles when building the game info.              #
+# Variaton of already existing role decorators should be considered as new roles and implemented as new decorators.                #                                                             # 
+####################################################################################################################################
 
 class ClairvoyantDecorator(GameInfoDecorator):
     """
@@ -72,10 +79,17 @@ class EscortDecorator(GameInfoDecorator):
     """
 
     def __init__(
-        self, wrapped: AbstractGameInfo, game_data: GameActionData | None = None, players: list[Player] = []
+        self,
+        wrapped: AbstractGameInfo,
+        game_data: GameActionData | None = None,
+        players: list[Player] = [],
     ) -> None:
         super().__init__(wrapped)
-        if game_data is not None and len(players) > 0 and "protected_player" in game_data.data:
+        if (
+            game_data is not None
+            and len(players) > 0
+            and "protected_player" in game_data.data
+        ):
             self._escort_acted: bool = True
             protected_id = game_data.data["protected_player"]
             self._protected_player: Player | None = next(
@@ -204,119 +218,3 @@ class MediumDecorator(GameInfoDecorator):
             return False
         return self._medium_acted == other._medium_acted
 
-
-
-class BasicGameInfoBuilder:
-    """
-    Builder for creating game configurations with specific role support.
-    """
-
-    def __init__(
-        self, game_info: AbstractGameInfo, game_data: GameActionData | None = None, players: list[Player] = []
-    ) -> None:
-        self._game_info: AbstractGameInfo = game_info
-        self._game_data: GameActionData | None = game_data
-        self._players: list[Player] = players
-
-    @classmethod
-    def default(cls) -> "BasicGameInfoBuilder":
-        """
-        Create a builder with basic game support (Villager and Werewolf).
-
-        Returns:
-            BasicGameInfoBuilder: A new builder with basic functionality.
-        """
-        return cls(SimpleGameInfo())
-
-    @classmethod
-    def with_game_data(cls, game_data: GameActionData, players: list[Player]) -> "BasicGameInfoBuilder":
-        """
-        Create a builder with a given game data which will be used to initialize the game.
-
-        Args:
-            game_data (GameActionData): The game data to use.
-
-        Returns:
-            BasicGameInfoBuilder: A new builder with the specified game data.
-        """
-        return cls(SimpleGameInfo(game_data), game_data, players)
-
-    def with_clairvoyant(self) -> "BasicGameInfoBuilder":
-        """
-        Add Clairvoyant role support.
-
-        Returns:
-            BasicGameInfoBuilder: This builder.
-        """
-        if BasicRole.CLAIRVOYANT not in self._game_info.get_all_handled_roles():
-            self._game_info = ClairvoyantDecorator(self._game_info, self._game_data)
-        return self
-
-    def with_escort(self) -> "BasicGameInfoBuilder":
-        """
-        Add Escort role support.
-
-        Returns:
-            BasicGameInfoBuilder: This builder.
-        """
-        if BasicRole.ESCORT not in self._game_info.get_all_handled_roles():
-            self._game_info = EscortDecorator(
-                self._game_info, self._game_data, self._players
-            )
-        return self
-
-    def with_medium(self) -> "BasicGameInfoBuilder":
-        """
-        Add Medium role support.
-
-        Returns:
-            BasicGameInfoBuilder: This builder.
-        """
-        if BasicRole.MEDIUM not in self._game_info.get_all_handled_roles():
-            self._game_info = MediumDecorator(self._game_info, self._game_data)
-        return self
-
-    def with_roles(self, roles: set[Role]) -> "BasicGameInfoBuilder":
-        """
-        Add multiple roles at once.
-
-        Args:
-            *roles: Variable number of Role enum values to add.
-
-        Returns:
-            BasicGameInfoBuilder: This builder.
-        """
-        for role in roles:
-            if role == BasicRole.CLAIRVOYANT:
-                self.with_clairvoyant()
-            elif role == BasicRole.ESCORT:
-                self.with_escort()
-            elif role == BasicRole.MEDIUM:
-                self.with_medium()
-
-        return self
-
-    def build(self) -> AbstractGameInfo:
-        """
-        Build and return the configured game instance.
-
-        Returns:
-            AbstractGameInfo: The configured game with all requested roles.
-        """
-        return self._game_info
-
-
-def create_standard_game() -> AbstractGameInfo:
-    """
-    Create a new standard game with all available roles.
-
-    Returns:
-        AbstractGameInfo: A game supporting all roles.
-    """
-    return (
-        BasicGameInfoBuilder.default()
-        .with_clairvoyant()
-        .with_escort()
-        .with_medium()
-        .build()
-    )

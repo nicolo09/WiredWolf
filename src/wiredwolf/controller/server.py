@@ -28,9 +28,9 @@ from wiredwolf.controller.lobbies import Lobby
 import abc
 
 from wiredwolf.model.game_phases import GamePhase, GamePhaseOutcome
-from wiredwolf.model.player import create_players
+from wiredwolf.model.player import BasicRole, Role, create_players
 from wiredwolf.model.game import Game
-from wiredwolf.model.role_extensions import BasicGameInfoBuilder
+from wiredwolf.model.game_builder import GameInfoBuilder
 
 
 class ServerPlugin(abc.ABC):
@@ -203,14 +203,14 @@ class GameServer:
             raise ValueError("Not enough players to start the game.")
         if len(self._lobby.peers) > MAX_PLAYERS:
             raise ValueError("Too many players to start the game.")
-        game_info_builder = BasicGameInfoBuilder.default().with_clairvoyant()
+        roles: set[Role] = {BasicRole.CLAIRVOYANT}
         if len(self._lobby.peers) >= PLAYERS_TO_ADD_MEDIUM:
             # Add Medium for 9+ players
-            game_info_builder = game_info_builder.with_medium()
+            roles.add(BasicRole.MEDIUM)
         if len(self._lobby.peers) >= PLAYERS_TO_ADD_ESCORT:
             # Add Escort and an extra werewolf for 16+ players
-            game_info_builder = game_info_builder.with_escort()
-        game_info = game_info_builder.build()
+            roles.add(BasicRole.ESCORT)
+        game_info = GameInfoBuilder.new().with_roles(roles).build()
         players = create_players(
             {peer.uuid: peer.name for peer in self._lobby.peers},
             game_info.get_all_handled_roles(),

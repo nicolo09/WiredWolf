@@ -2,7 +2,7 @@ from wiredwolf.model.game_phases import *
 from wiredwolf.model.player import *
 from wiredwolf.model.exceptions import *
 from wiredwolf.model.game_template import AbstractGameInfo, GameActionData
-from wiredwolf.model.role_extensions import BasicGameInfoBuilder
+from wiredwolf.model.game_builder import GameInfoBuilder
 
 
 @dataclass(frozen=True)
@@ -13,6 +13,7 @@ class GameStatus:
 
     players: list[Player]
     roles: set[Role]
+    modules: set[str] 
     game_data: GameActionData
     phase: GamePhase
 
@@ -59,9 +60,10 @@ class Game:
         """
         return cls(
             game_status.players,
-            BasicGameInfoBuilder.with_game_data(
+            GameInfoBuilder.with_game_data(
                 game_status.game_data, game_status.players
             )
+            .add_decorator_module(*game_status.modules)
             .with_roles(game_status.roles)
             .build(),
             game_status.phase,
@@ -87,6 +89,7 @@ class Game:
         return GameStatus(
             self._players.copy(),
             self._game_info.get_all_handled_roles(),
+            self._game_info.get_game_modules(),
             self._game_info.get_game_data(),
             self._phase,
         )
@@ -337,7 +340,7 @@ def can_perform_action_on(player: Player, game_status: GameStatus) -> list[Playe
     """
 
     game_info: AbstractGameInfo = (
-        BasicGameInfoBuilder.with_game_data(game_status.game_data, game_status.players)
+        GameInfoBuilder.with_game_data(game_status.game_data, game_status.players)
         .with_roles(game_status.roles)
         .build()
     )
