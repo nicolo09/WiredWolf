@@ -456,7 +456,7 @@ class EventSender(ABC):
     
     @abstractmethod
     def error_ended(self)->None:
-        """Sends the end of error to the view"""
+        """Sends the end of error to the view. Gets from the controller the game phase and decides which screen to go to"""
         raise NotImplementedError("Please implement this method")
     
     @abstractmethod
