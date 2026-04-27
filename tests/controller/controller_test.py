@@ -37,6 +37,9 @@ async def test_controller_initialization(
     assert game_controller.lobby is None
 
 
+
+
+
 @pytest.mark.asyncio
 async def test_controller_publish_discover_lobby(
     controller: tuple[GameController, EventSender],

@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import logging
 
 from wiredwolf.controller.connections import ClientConnectionHandler
@@ -62,11 +63,11 @@ class GameController:
 
     @property
     def lobby(self) -> Lobby | None:
-        """Gets the current lobby.
+        """Gets the current lobby (this is a copy, changes are not reflected in the controller).
         Returns:
             Lobby: The current lobby.
         """
-        return self._lobby
+        return copy.deepcopy(self._lobby)
 
     def set_username(self, username: str):
         """Sets the username for the local player.
@@ -90,21 +91,24 @@ class GameController:
             Lobby: The created lobby.
         """
         self._lobby = Lobby(self._my_self, name=name, password=password)
-        (
-            self._server,
-            self._client_connection_handler,
-        ) = await GameServerFactory.get_game_server(self._lobby)
-        self._client_connection_handler.set_on_message(self._on_message)
-        await self._client_connection_handler.start_receiving()
-        await self._server.start_listening()
-        self._lobby_browser = LobbyBrowserFactory.get_lobby_browser()
-        await self._lobby_browser.publish_lobby(
-            self._lobby.lobby_info(), DEFAULT_SERVER_PORT
-        )
-        return self._lobby
+        if self.lobby is not None:
+            (
+                self._server,
+                self._client_connection_handler,
+            ) = await GameServerFactory.get_game_server(self.lobby)
+            self._client_connection_handler.set_on_message(self._on_message)
+            await self._client_connection_handler.start_receiving()
+            await self._server.start_listening()
+            self._lobby_browser = LobbyBrowserFactory.get_lobby_browser()
+            await self._lobby_browser.publish_lobby(
+                self._lobby.lobby_info(), DEFAULT_SERVER_PORT
+            )
+            return self.lobby
+        else:
+            raise RuntimeError("Failed to create lobby.")
 
     async def leave(self) -> None:
-        """Leaves the current lobby and shuts down the server."""
+        """Leaves the current lobby and shuts down the server if applicable."""
         #Checks if this controller has a server to shut down
         if self._server:
             await self._server.close()
