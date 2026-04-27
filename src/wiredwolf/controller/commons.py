@@ -27,7 +27,7 @@ class Peer:
 
 @dataclass(frozen=False)
 class PasswordRequest:
-    """Represents a password request message."""
+    """Represents a password request sent by the server to a client who wants to join a lobby."""
 
     password: str | None = None
     id: str = field(default_factory=lambda: str(uuid.uuid4()))

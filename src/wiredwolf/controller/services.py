@@ -47,8 +47,9 @@ class ServiceManager:
     def __init__(self, service_type: str):
         self._zeroconf: Zeroconf = Zeroconf()
         self._service_type: str = service_type
+        self._closed: bool = False
 
-    def register_service(self, name: str, receiverPort: int, properties: dict[str, str]) -> ServiceInfo:
+    async def register_service(self, name: str, receiverPort: int, properties: dict[str, str]) -> ServiceInfo:
         self.__logger.info(f"Registering service {name} on port {receiverPort}...")
         service_info = ServiceInfo(
             type_=self._service_type,
@@ -59,13 +60,17 @@ class ServiceManager:
                 key: value.encode("utf-8") for key, value in properties.items()
             },
         )
-        self._zeroconf.register_service(service_info)
+        try:
+            await self._zeroconf.async_register_service(service_info)
+        except Exception as e:
+            self.__logger.error(f"Failed to register service {name}: {e}")
+            raise RuntimeError(f"Failed to register service {name}: {e}") from e
         self.__logger.info(f"Service {name} registered successfully.")
         return service_info
 
-    def unregister_service(self, info: ServiceInfo) -> None:
+    async def unregister_service(self, info: ServiceInfo) -> None:
         self.__logger.info(f"Unregistering service {info.name}...")
-        self._zeroconf.unregister_service(info)
+        await self._zeroconf.async_unregister_service(info)
         self.__logger.info(f"Service {info.name} unregistered successfully.")
 
     def get_service_listener(
@@ -98,7 +103,7 @@ class ServiceManager:
             tuple[str, int]: A tuple containing the IP address and port of the service.
         """
         service_info = await self._zeroconf.async_get_service_info(
-            self._service_type, service_name
+            type_=self._service_type, name=service_name+"." + self._service_type
         )
         if service_info and service_info.addresses[0] and service_info.port:
             return str(
@@ -109,3 +114,12 @@ class ServiceManager:
                 f"Service {service_name} not found or informations incomplete."
             )
             raise TimeoutError(f"Service {service_name} not found.")
+
+    def close(self) -> None:
+        """Closes the underlying Zeroconf instance."""
+        try:
+            self._zeroconf.close()
+            self.__logger.info("Zeroconf instance closed.")
+        except Exception as e:
+            self.__logger.warning(f"Error while closing Zeroconf: {e}")
+

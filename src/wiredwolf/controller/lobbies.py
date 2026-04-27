@@ -3,6 +3,7 @@ import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass, field
 import dataclasses
+import logging
 from wiredwolf.controller.connections import (
     AsyncTCPClientConnectionHandler,
     AsyncTCPMessageHandler,
@@ -19,6 +20,7 @@ from wiredwolf.controller.commons import (
     id_generator,
 )
 from wiredwolf.controller.commons import PasswordRequest
+from wiredwolf.controller.messages import LobbyUpdatedMessage
 from wiredwolf.controller.services import CallbackServiceListener, ServiceManager
 
 
@@ -84,7 +86,7 @@ class LobbyBrowser(abc.ABC):
     def start_lobby_browser(
         self,
         on_lobby_found: Callable[[LobbyInfo], None],
-        on_lobby_lost: Callable[[str], None],
+        on_lobby_lost: Callable[[LobbyInfo], None],
         on_lobby_updated: Callable[[LobbyInfo], None],
     ) -> None:
         """Starts the lobby browser to discover available lobbies.
@@ -92,7 +94,7 @@ class LobbyBrowser(abc.ABC):
 
         args:
             on_lobby_found (Callable[[LobbyInfo], None]): Callback invoked when a new lobby is found.
-            on_lobby_lost (Callable[[str], None]): Callback invoked when a lobby is lost.
+            on_lobby_lost (Callable[[LobbyInfo], None]): Callback invoked when a lobby is lost.
             on_lobby_updated (Callable[[LobbyInfo], None]): Callback invoked when a lobby is updated.
         """
         raise NotImplementedError
@@ -103,13 +105,18 @@ class LobbyBrowser(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def publish_lobby(self, lobby_info: LobbyInfo, receiver_port: int) -> None:
+    async def publish_lobby(self, lobby_info: LobbyInfo, receiver_port: int) -> None:
         """Publishes a lobby to be discovered by other players."""
         raise NotImplementedError
 
     @abc.abstractmethod
-    def stop_publishing_lobby(self) -> None:
+    async def stop_publishing_lobby(self) -> None:
         """Stops publishing the lobby."""
+        raise NotImplementedError
+
+    @property
+    def is_publishing_lobby(self) -> bool:
+        """Returns whether a lobby is currently being published."""
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -134,17 +141,26 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
     Handles the discovery and creations/publishment of game lobbies through mDNS.
     """
 
+    __logger = logging.getLogger(__name__)
+
     # TODO Handle same lobby name collisions
 
     def __init__(self):
         self._service_manager: ServiceManager = ServiceManager(SERVICE_TYPE)
         self._browser = None
         self._published_lobby_service_info = None
+        # We keep track of found lobbies to be able to remove them when they are lost
+        self._found_lobbies: dict[str, LobbyInfo] = {}  # Maps lobby UUIDs to their info
+
+    @property
+    def is_publishing_lobby(self) -> bool:
+        """Returns whether a lobby is currently being published."""
+        return self._published_lobby_service_info is not None
 
     def start_lobby_browser(
         self,
         on_lobby_found: Callable[[LobbyInfo], None],
-        on_lobby_lost: Callable[[str], None],
+        on_lobby_lost: Callable[[LobbyInfo], None],
         on_lobby_updated: Callable[[LobbyInfo], None],
     ) -> None:
         """Starts the lobby browser to discover available lobbies.
@@ -152,18 +168,35 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
 
         args:
             on_lobby_found (Callable[[LobbyInfo], None]): Callback invoked when a new lobby is found.
-            on_lobby_lost (Callable[[str], None]): Callback invoked when a lobby is lost.
+            on_lobby_lost (Callable[[LobbyInfo], None]): Callback invoked when a lobby is lost.
             on_lobby_updated (Callable[[LobbyInfo], None]): Callback invoked when a lobby is updated.
         """
+
+        def on_lobby_found_cb(name: str, props: dict[str, str]) -> None:
+            """Callback invoked when a new lobby is found. This is used to add the lobby to the discovered lobbies list."""
+            self._found_lobbies[name] = self._get_lobby_info_from_service_properties(
+                props
+            )
+            on_lobby_found(self._found_lobbies[name])
+
+        def on_lobby_lost_cb(name: str) -> None:
+            """Callback invoked when a lobby is lost. This is used to remove the lobby from the discovered lobbies list."""
+            if name in self._found_lobbies:
+                on_lobby_lost(self._found_lobbies.pop(name))
+
+        def on_lobby_updated_cb(name: str, props: dict[str, str]) -> None:
+            """Callback invoked when a lobby is updated. This is used to update the lobby information in the discovered lobbies list."""
+            if name in self._found_lobbies:
+                self._found_lobbies[name] = (
+                    self._get_lobby_info_from_service_properties(props)
+                )
+                on_lobby_updated(self._found_lobbies[name])
+
         if not self._browser:
             listener = CallbackServiceListener(
-                on_service_added=lambda name, props: on_lobby_found(
-                    self._get_lobby_info_from_service_properties(props)
-                ),
-                on_service_removed=on_lobby_lost,
-                on_service_updated=lambda name, props: on_lobby_updated(
-                    self._get_lobby_info_from_service_properties(props)
-                ),
+                on_service_added=on_lobby_found_cb,
+                on_service_removed=on_lobby_lost_cb,
+                on_service_updated=on_lobby_updated_cb,
             )
             self._browser = self._service_manager.get_service_browser(listener)
         else:
@@ -201,12 +234,12 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
         else:
             raise RuntimeError("Lobby browser is not running.")
 
-    def publish_lobby(
+    async def publish_lobby(
         self, lobby_info: LobbyInfo, receiver_port: int
     ) -> None:  # TODO Move receiver_port to constructor
         """Publishes a lobby to the network so that it can be discovered by other players."""
         if not self._published_lobby_service_info:
-            self._published_lobby_service_info = self._service_manager.register_service(
+            self._published_lobby_service_info = await self._service_manager.register_service(
                 name=lobby_info.uuid,  # Using lobby UUID as service name to avoid name collisions
                 receiverPort=receiver_port,
                 properties=self._get_service_properties_from_lobby_info(lobby_info),
@@ -214,11 +247,17 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
         else:
             raise RuntimeError("There is already a lobby being published.")
 
-    def stop_publishing_lobby(self) -> None:
+    async def stop_publishing_lobby(self) -> None:
         """Stops publishing the lobby."""
         if self._published_lobby_service_info:
-            self._service_manager.unregister_service(self._published_lobby_service_info)
+            await self._service_manager.unregister_service(self._published_lobby_service_info)
             self._published_lobby_service_info = None
+            # Close zeroconf resources used by the service manager
+            try:
+                self._service_manager.close()
+            except Exception:
+                # Be tolerant: closing zeroconf is best-effort
+                self.__logger.warning("Failed to close ServiceManager Zeroconf instance.")
         else:
             raise RuntimeError("No lobby is currently being published.")
 
@@ -233,7 +272,7 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
                 reader, writer = await asyncio.open_connection(endpoint[0], endpoint[1])
                 # Sending my peer info to the server
                 await msg_handler.send_obj(writer, my_self)
-                # Expecting PasswordRequest or lobby
+                # Expecting PasswordRequest or LobbyUpdatedMessage (in case no password is required) in response
                 recv_msg = await msg_handler.receive_obj(reader)
                 if isinstance(recv_msg, PasswordRequest):
                     # Server requested a password...
@@ -245,17 +284,22 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
                         if isinstance(lobby, Exception):
                             # The server returned an error
                             writer.close()
+                            self.__logger.error("Error received from server after sending password: %s", lobby)
                             raise lobby
-                        else:
-                            # The server returned a lobby, successfully joined
+                        elif isinstance(lobby, LobbyUpdatedMessage):
+                            # The server returned a lobby update, successfully joined
                             return AsyncTCPClientConnectionHandler(
                                 my_self, reader, writer
-                            ), lobby
+                            ), lobby.lobby
+                        else:
+                            writer.close()
+                            self.__logger.error("Unexpected message received after sending password: %s", lobby)
+                            raise RuntimeError("Unexpected message received during connection.")
                     else:
                         # ...but no password was provided
                         writer.close()
                         raise ValueError("Lobby requires a password.")
-                elif isinstance(recv_msg, Lobby):
+                elif isinstance(recv_msg, LobbyUpdatedMessage):
                     if lobby_password:
                         # Password was provided but not needed
                         writer.close()
@@ -263,7 +307,7 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
                     # Successfully joined the lobby
                     return AsyncTCPClientConnectionHandler(
                         my_self, reader, writer
-                    ), recv_msg
+                    ), recv_msg.lobby
                 else:
                     writer.close()
                     raise RuntimeError("Unexpected message received.")

@@ -174,7 +174,8 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
             raise RuntimeError("Already receiving messages.")
         self._receiving_task = asyncio.create_task(
             self._receive_loop()
-        ).add_done_callback(self._handle_receive_loop_closed)
+        )
+        self._receiving_task.add_done_callback(self._handle_receive_loop_closed)
 
     def _handle_receive_loop_closed(self, task: asyncio.Task[None]) -> None:
         """Handle the completion of the receive loop task.
@@ -184,17 +185,29 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
         """
         if self._writer.is_closing():
             # Since I want to close the connection myself, ignore errors from receive loop and just exit
-            self._logger.info(
-                "Writer is closing, ignoring receive loop task exit status."
-            )
-        elif isinstance(task.exception(), ConnectionClosedError):
-            # Receive loop ended without errors (server closed its connection gracefully, do not try to reconnect)
+            self._logger.info("Writer is closing, ignoring receive loop task exit status.")
+            return
+
+        # If the task was cancelled, treat it as a normal shutdown
+        if task.cancelled():
+            self._logger.info("Receive loop task was cancelled.")
+            return
+
+        try:
+            exc = task.exception()
+        except asyncio.CancelledError:
+            self._logger.info("Receive loop task was cancelled.")
+            return
+        except Exception as e:
+            self._logger.error("Error while retrieving receive loop task during close: %s", e)
+            return
+
+        if exc is None or isinstance(exc, ConnectionClosedError):
+            # No exception or graceful connection closed
             self._logger.info("Receive loop task completed successfully.")
         else:
-            self._logger.error(
-                "Receive loop task encountered an error: %s", task.exception()
-            )
-            # TODO: Implement reconnection logic here
+            self._logger.error("Receive loop task encountered an error: %s", exc)
+    # TODO: Implement reconnection logic here
 
     async def _receive_loop(self) -> None:
         """Internal method to continuously receive messages.
@@ -211,6 +224,9 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
                     self._logger.warning(
                         "Received message but no on_message callback is set."
                     )
+            except asyncio.CancelledError:
+                self._logger.info("Receive loop cancelled.")
+                return
             except Exception as e:
                 raise e
 
@@ -350,6 +366,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
         self._status: dict[Peer, ConnectionStatus] = {}
         self._receiving_tasks: dict[Peer, asyncio.Task[None]] = {}
         self._server: asyncio.Server | None = None
+        self._server_task: asyncio.Task[None] | None = None
         if owner_connection is not None:
             peer, reader, writer = owner_connection
             self._endpoints[peer] = (reader, writer)
@@ -372,7 +389,8 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 bind_address[0],
                 bind_address[1],
             )
-            asyncio.create_task(self._server.serve_forever())
+            # keep a reference to the serve_forever task so it can be awaited/cancelled on close
+            self._server_task = asyncio.create_task(self._server.serve_forever())
 
     async def _client_connected_cb(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
@@ -474,18 +492,55 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
 
     async def close(self):
         """Stops receiving new connections, closes all the open peer connections to this server and reset its status"""
+        # Stop accepting new connections if server exists
         try:
             self.stop_new_connections()
+        except Exception as e:
+            self._logger.error("Error while stopping new server connections during close: %s", e)
         finally:
-            awaitables: list[CoroutineType[Any, Any, None]] = []
-            for peer, (_, writer) in self._endpoints.items():
-                writer.close()
-                awaitables.append(writer.wait_closed())
-                self._logger.info("Closed connection with peer: %s", peer)
-            await asyncio.gather(*awaitables)
+            # Cancel any receiving tasks and wait for them to finish
+            receiving_tasks = list(self._receiving_tasks.values())
+            if receiving_tasks:
+                for task in receiving_tasks:
+                    try:
+                        task.cancel()
+                    except Exception:
+                        pass
+                await asyncio.gather(*receiving_tasks, return_exceptions=True)
+
+            # Close all endpoint writers
+            wait_closed_awaitables: list[CoroutineType[Any, Any, None]] = []
+            for peer, (_, writer) in list(self._endpoints.items()):
+                try:
+                    writer.close()
+                    wait_closed_awaitables.append(writer.wait_closed())
+                    self._logger.info("Closed connection with peer: %s", peer)
+                except Exception as e:
+                    self._logger.warning("Error closing writer for %s: %s", peer, e)
+
+            if wait_closed_awaitables:
+                await asyncio.gather(*wait_closed_awaitables, return_exceptions=True)
+
+            # Wait for the server to be fully closed and the serve_forever task to complete
+            if self._server:
+                try:
+                    await self._server.wait_closed()
+                except Exception as e:
+                    self._logger.warning("Error while waiting for server to close: %s", e)
+
+            if self._server_task:
+                try:
+                    self._server_task.cancel()
+                    await self._server_task
+                except Exception | asyncio.CancelledError:
+                    pass
+
+            # Clear internal state
             self._endpoints.clear()
             self._status.clear()
             self._receiving_tasks.clear()
+            self._server = None
+            self._server_task = None
             self._logger.info("All connections closed.")
 
 

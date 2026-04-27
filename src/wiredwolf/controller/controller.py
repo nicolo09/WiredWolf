@@ -1,14 +1,16 @@
 import asyncio
+import copy
 import logging
 
 from wiredwolf.controller.connections import ClientConnectionHandler
-from wiredwolf.controller.lobbies import LobbyBrowser, LobbyInfo
+from wiredwolf.controller.lobbies import LobbyBrowser, LobbyBrowserFactory, LobbyInfo
 from wiredwolf.controller.lobbies import Lobby
 from wiredwolf.controller.messages import (
     AcknowledgeMessage,
     BaseMessage,
     ChatMessage,
     GameStartedMessage,
+    LobbyUpdatedMessage,
     NotAcknowledgeMessage,
     PhaseAdvanceMessage,
     StartGameMessage,
@@ -61,11 +63,11 @@ class GameController:
 
     @property
     def lobby(self) -> Lobby | None:
-        """Gets the current lobby.
+        """Gets the current lobby (this is a copy, changes are not reflected in the controller).
         Returns:
             Lobby: The current lobby.
         """
-        return self._lobby
+        return copy.deepcopy(self._lobby)
 
     def set_username(self, username: str):
         """Sets the username for the local player.
@@ -89,17 +91,46 @@ class GameController:
             Lobby: The created lobby.
         """
         self._lobby = Lobby(self._my_self, name=name, password=password)
-        (
-            self._server,
-            self._client_connection_handler,
-        ) = await GameServerFactory.get_game_server(self._lobby)
-        self._client_connection_handler.set_on_message(self._on_message)
-        await self._client_connection_handler.start_receiving()
-        await self._server.start_listening()
-        self._lobby_browser.publish_lobby(self._lobby.lobby_info(), DEFAULT_SERVER_PORT)
-        return self._lobby
+        if self.lobby is not None:
+            (
+                self._server,
+                self._client_connection_handler,
+            ) = await GameServerFactory.get_game_server(self.lobby)
+            self._client_connection_handler.set_on_message(self._on_message)
+            await self._client_connection_handler.start_receiving()
+            await self._server.start_listening()
+            self._lobby_browser = LobbyBrowserFactory.get_lobby_browser()
+            await self._lobby_browser.publish_lobby(
+                self._lobby.lobby_info(), DEFAULT_SERVER_PORT
+            )
+            return self.lobby
+        else:
+            raise RuntimeError("Failed to create lobby.")
 
-    async def join_lobby(self, lobby_name: LobbyInfo, lobby_password: str | None) -> Lobby:
+    async def leave(self) -> None:
+        """Leaves the current lobby and shuts down the server if applicable."""
+        #Checks if this controller has a server to shut down
+        if self._server:
+            await self._server.close()
+            self._server = None
+        #Checks if this controller is publishing a lobby
+        if self._lobby_browser.is_publishing_lobby:
+            await self.stop_publishing_lobby()
+        #Checks if this controller has a client connection to close
+        if self._client_connection_handler:
+            await self._client_connection_handler.close()
+            self._client_connection_handler = None
+        #Reset the lobby status
+        self._lobby = None
+
+    async def stop_publishing_lobby(self):
+        """Stops publishing the lobby."""
+        if self._lobby:
+            await self._lobby_browser.stop_publishing_lobby()
+
+    async def join_lobby(
+        self, lobby_name: LobbyInfo, lobby_password: str | None
+    ) -> Lobby:
         """Joins a lobby by its name.
 
         Args:
@@ -116,21 +147,21 @@ class GameController:
         await self._client_connection_handler.start_receiving()
         return self._lobby
 
-    def start_listening_for_lobbies(self):
+    def start_listening_for_lobbies(self) -> None:
         def remove_and_readd_lobby(lobby_info: LobbyInfo):
             """Removes and re-adds a lobby to the discovered lobbies list. This is used to update the
             lobby information when it changes."""
-            self._event_sender.remove_discovered_lobby(lobby_info.uuid)
-            self._event_sender.new_discovered_lobby(lobby_info.uuid)
+            self._event_sender.remove_discovered_lobby(lobby_info)
+            self._event_sender.new_discovered_lobby(lobby_info)
 
         """Starts listening for available lobbies."""
         self._lobby_browser.start_lobby_browser(
             lambda lobby_info: self._event_sender.new_discovered_lobby(lobby_info),
-            lambda lobby_uuid: self._event_sender.remove_discovered_lobby(lobby_uuid),
+            lambda lobby_info: self._event_sender.remove_discovered_lobby(lobby_info),
             lambda lobby_info: remove_and_readd_lobby(lobby_info),
         )
 
-    def stop_listening_for_lobbies(self):
+    def stop_listening_for_lobbies(self) -> None:
         """Stops listening for available lobbies."""
         self._lobby_browser.stop_lobby_browser()
 
@@ -148,6 +179,18 @@ class GameController:
                 )
                 if message.id in self._waiting_for_ack:
                     self._waiting_for_ack[message.id][0].set()
+            case LobbyUpdatedMessage():
+                self._logger.info("Lobby information updated.")
+                old_lobby = self._lobby
+                self._lobby = message.lobby
+                if old_lobby:
+                    #If it's an update and not the first time lobby is sent, notify the view about who left or joined the lobby
+                    joined_users = self._lobby.peers - old_lobby.peers
+                    left_users = old_lobby.peers - self._lobby.peers
+                    for user in joined_users:
+                        self._event_sender.new_user_in_lobby(user)
+                    for user in left_users:
+                        self._event_sender.remove_user_in_lobby(user)
             case GameStartedMessage():
                 self._logger.info("Game has started.")
                 self._game_status = message.status
@@ -174,7 +217,24 @@ class GameController:
                         else:
                             self._logger.error("Game status is not available.")
                     case GamePhase.DAY_BALLOT:
-                        self._event_sender.start_voting_for_ballot()
+                        accused_player = message.outcome.get_accused_player()
+                        if (
+                            self._game_status is not None
+                            and self.lobby is not None
+                            and accused_player is not None
+                        ):
+                            peer = next(
+                                (
+                                    peer
+                                    for peer in self.lobby.peers
+                                    if peer.uuid == accused_player.id
+                                )
+                            )
+                            self._event_sender.user_to_nominated_for_ballot(peer)
+                        else:
+                            self._logger.error(
+                                "Game status, lobby, or accused player is not available."
+                            )
                     case GamePhase.NIGHT:
                         if self._game_status is not None:
                             my_self = next(
@@ -236,7 +296,12 @@ class GameController:
 
     async def start_game(self):
         """Sends a request to start the game. This method may be called only by the lobby owner."""
-        await self._send_message_and_wait_for_ack(StartGameMessage(self._my_self))
+        try:
+            await self._send_message_and_wait_for_ack(StartGameMessage(self._my_self))
+            await self.stop_publishing_lobby()
+        except Exception as e:
+            self._logger.error("Failed to start game: %s", e)
+            raise
 
     async def choose_player(self, player: Peer):
         """Chooses a player in the lobby. This method may be called only during a voting phase or during the night phase if the player can do an action.

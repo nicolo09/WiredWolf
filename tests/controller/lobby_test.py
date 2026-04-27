@@ -22,12 +22,12 @@ async def server(lobby: Lobby):
     await server.close()
 
 
-@pytest.fixture()
-def tcp_mdns_lobby_browser():
+@pytest_asyncio.fixture()
+async def tcp_mdns_lobby_browser():
     browser = TcpMdnsLobbyBrowser()
     yield browser
     try:
-        browser.stop_publishing_lobby()
+        await browser.stop_publishing_lobby()
         browser.stop_lobby_browser()
     except RuntimeError:
         pass
@@ -57,16 +57,20 @@ async def test_peer_connect(
     # Start the lobby browser
     lobbies: list[LobbyInfo] = []
 
-    def remove_lobby(lobby_name: str):
+    def remove_lobby(lobby_info: LobbyInfo):
         nonlocal lobbies
-        lobbies = [lobby for lobby in lobbies if lobby.name != lobby_name]
+        lobbies = [lobby for lobby in lobbies if lobby.name != lobby_info.name]
 
     tcp_mdns_lobby_browser.start_lobby_browser(
         on_lobby_found=lobbies.append,
         on_lobby_lost=remove_lobby,
         on_lobby_updated=lambda x: None,
     )  # type: ignore
-    tcp_mdns_lobby_browser.publish_lobby(lobby.lobby_info(), DEFAULT_SERVER_PORT)
+    try:
+        async with asyncio.timeout(5):
+            await tcp_mdns_lobby_browser.publish_lobby(lobby.lobby_info(), DEFAULT_SERVER_PORT)
+    except asyncio.TimeoutError:
+        pytest.fail("Failed to publish the lobby within the timeout period.")
     # Wait for the lobby to be discovered
     try:
         async with asyncio.timeout(5):
@@ -74,7 +78,7 @@ async def test_peer_connect(
                 await asyncio.sleep(0.1)
     except asyncio.TimeoutError:
         pytest.fail("Lobby was not discovered within the timeout period.")
-    tcp_mdns_lobby_browser.stop_publishing_lobby()
+    await tcp_mdns_lobby_browser.stop_publishing_lobby()
     tcp_mdns_lobby_browser.stop_lobby_browser()
 
 
@@ -85,16 +89,16 @@ async def test_receive_correct_lobby_info(
     # Start the lobby browser
     lobbies: list[LobbyInfo] = []
 
-    def remove_lobby(lobby_name: str):
+    def remove_lobby(lobby_info: LobbyInfo):
         nonlocal lobbies
-        lobbies = [lobby for lobby in lobbies if lobby.name != lobby_name]
+        lobbies = [lobby for lobby in lobbies if lobby.name != lobby_info.name]
 
     tcp_mdns_lobby_browser.start_lobby_browser(
         on_lobby_found=lobbies.append,
         on_lobby_lost=remove_lobby,
         on_lobby_updated=lambda x: None,
     )
-    tcp_mdns_lobby_browser.publish_lobby(lobby.lobby_info(), DEFAULT_SERVER_PORT)
+    await tcp_mdns_lobby_browser.publish_lobby(lobby.lobby_info(), DEFAULT_SERVER_PORT)
     # Wait for the lobby to be discovered (with timeout to avoid infinite loop in case of failure)
     try:
         async with asyncio.timeout(5):
@@ -103,5 +107,6 @@ async def test_receive_correct_lobby_info(
     except asyncio.TimeoutError:
         pytest.fail("Lobby was not discovered within the timeout period.")
     assert lobbies[0] == lobby.lobby_info()
-    tcp_mdns_lobby_browser.stop_publishing_lobby()
+    await tcp_mdns_lobby_browser.stop_publishing_lobby()
     tcp_mdns_lobby_browser.stop_lobby_browser()
+
