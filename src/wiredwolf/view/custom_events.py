@@ -395,7 +395,7 @@ class EventSender(ABC):
         raise NotImplementedError("Please implement this method")
 
     @abstractmethod
-    def players_to_nominate_for_execution(self, players:list[Peer])->None: #TODO: consider renaming to start_nomination_for_execution
+    def start_nomination_for_execution(self, players:list[Peer])->None: 
         """The list of players possible to choose from when nominating for execution and starts voting"""
         raise NotImplementedError("Please implement this method")
     
@@ -591,7 +591,7 @@ class CustomEventSender(EventSender):
     def game_started_by_master(self) -> None:
         self.send_event_to_screen(Screens.ROLE_DISPLAY)
 
-    def players_to_nominate_for_execution(self, players: list[Peer]) -> None:
+    def start_nomination_for_execution(self, players: list[Peer]) -> None:
         for elem in players:
             self.send_event_add_user(elem)
         self.start_voting_for_nominations()
