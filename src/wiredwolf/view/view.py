@@ -553,16 +553,16 @@ class NewLobbyScreen(AbstractScreen):
 
     def _on_lobby_created(self, future: Future[Lobby])->None:
         """The callback function called when the controller has actually created the lobby"""
-        if future.exception() is None:
+        e=future.exception()
+        if e is None:
             #Lobby created ok
             self._global_state.is_master=True #Master is true because you created the lobby
             self._game_state_manager.change_screen(Screens.LOBBY_WAITING)
             self._global_state.lobby=future.result()
         else:
-            #Go to error screen
-            self._game_state_manager.error_screen_handler.set_error("Error", str(future.exception()))
-            self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
-            self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
+            messagebox.showwarning('Error', 'Something went wrong when creating the lobby, try again')
+            #Display error, go back to home screen
+            self._game_state_manager.change_screen(Screens.HOME)
 
     def _create_input_panel(self)->None:
         self._panel=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(0,-100,LARGE_BTN_WIDTH,LARGE_BTN_WIDTH*6), anchors={'centerx':'centerx', 'centery': 'centery'}, enabled_even_for_dead=True)
@@ -756,12 +756,12 @@ class SearchLobbyScreen(AbstractScreen):
         else:
             if e is ValueError():
                 messagebox.showwarning('Password error', str(e))
-                #TODO: and where do you go from here?
+                #Go back to lobby selector
+                self._game_state_manager.change_screen(Screens.SEARCH_LOBBY)
             else:
-                #Go to error screen
-                self._game_state_manager.error_screen_handler.set_error("Error", str(e))
-                self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
-                self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
+                messagebox.showwarning('Error', "Something went wrong when joining the lobby, try again")
+                #Display error, go back to home screen
+                self._game_state_manager.change_screen(Screens.HOME)
 
     def _create_lobby_panel(self)->None:
         """Creates the scrolling panel containing all lobbies buttons"""
@@ -944,10 +944,8 @@ class WaitingLobbyScreen(AbstractScreen):
             #Game started ok
             self._game_state_manager.change_screen(Screens.ROLE_DISPLAY)
         else:
-            #Go to error screen
-            self._game_state_manager.error_screen_handler.set_error("Error", str(future.exception()))
-            self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
-            self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
+            #Display exception, remain here
+            messagebox.showwarning('Error', str(future.exception()))
 
 class LoadingGameScreen(AbstractScreen):
     """A simple loading screen shown when a game is being started"""
@@ -1153,18 +1151,15 @@ class DayVotingScreen(AbstractScreen):
     def _check_if_message_ok(self, future: Future[None])->None:
         """The callback function called when the message is sent"""
         if future.exception() is not None:
-            #Go to error screen
-            self._game_state_manager.error_screen_handler.set_error("Error", str(future.exception()))
-            self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
-            self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
-    
+            messagebox.showwarning('Error', "Message not sent, try again")
+        
     def _check_voted_player(self, future: Future[None])->None:
         """The callback function called when the player is voted"""
         if future.exception() is not None:
-            #Go to error screen
-            self._game_state_manager.error_screen_handler.set_error("Error", str(future.exception()))
-            self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
-            self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
+            #Player not voted, retry
+            messagebox.showwarning('Error', "Player not voted, try again")
+            self._voting_panel.enable()
+            self._voted_text.text="Start voting for execution!"
 
     def _create_voting_panel(self)->None:
         """Creates the scrolling panel containing all player buttons"""
@@ -1185,7 +1180,7 @@ class DayVotingScreen(AbstractScreen):
 
     def _create_input_panel(self)->None:
         """Creates the text box panel"""
-        self._input_panel=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(-MEDIUM_PANEL,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'top_target': self._chat_panel}, hidden_for_dead=True) #TODO: is it ok if it's hidden for dead players? 
+        self._input_panel=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(-MEDIUM_PANEL,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'top_target': self._chat_panel}, hidden_for_dead=True) #Hidden for dead players
         #Positioning is: below chat panel, same distance from right side as chat panel
         #Panel shown to everybody
         self._text_input=pygame_gui.elements.UITextEntryLine(relative_rect=(0,0,MEDIUM_BTN_WIDTH, AUTO_SIZING), manager=self._gui_manager, initial_text="",container=self._input_panel)
@@ -1289,10 +1284,11 @@ class DayExecutionScreen(AbstractScreen):
     def _on_executed_or_spared(self, future: Future[None])->None:
         """The callback function called when the user is executed or spared"""
         if future.exception() is not None:
-            #Go to error screen
-            self._game_state_manager.error_screen_handler.set_error("Error", str(future.exception()))
-            self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
-            self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
+            #Player not voted, retry
+            messagebox.showwarning('Error', "Player not voted, try again")
+            self._vote_to_execute=None
+            self._execute_button.enable()
+            self._spare_button.enable()
 
     def _create_chat_panel(self)->None:
         """Creates the chat panel"""
@@ -1313,7 +1309,7 @@ class DayExecutionScreen(AbstractScreen):
 
     def _create_input_panel(self)->None:
         """Creates the text box panel"""
-        self._input_panel=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(-MEDIUM_PANEL,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'top_target': self._chat_panel}, hidden_for_dead=True) #TODO: is it ok if it's hidden for dead players? 
+        self._input_panel=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(-MEDIUM_PANEL,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'top_target': self._chat_panel}, hidden_for_dead=True) #Hidden for dead players
         #Positioning is: below chat panel, same distance from right side as chat panel
         self._text_input=pygame_gui.elements.UITextEntryLine(relative_rect=(0,0,MEDIUM_BTN_WIDTH, AUTO_SIZING), manager=self._gui_manager, initial_text="",container=self._input_panel)
 
@@ -1345,10 +1341,7 @@ class DayExecutionScreen(AbstractScreen):
     def _check_if_message_ok(self, future: Future[None])->None:
         """The callback function called when the message is sent"""
         if future.exception() is not None:
-            #Go to error screen
-            self._game_state_manager.error_screen_handler.set_error("Error", str(future.exception()))
-            self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
-            self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
+            messagebox.showwarning('Error', "Message not sent, try again")
         
     def reset_screen(self) -> None:
         #Resets outcome of voting
@@ -1438,8 +1431,6 @@ class NightRoleScreen(AbstractScreen):
                 else:
                     self._chat_panel.show()
                     self._input_panel.hide()
-            
-
         
         #Event handling
         self._gui_manager.process_events(event) #processes pygame_gui events
@@ -1496,10 +1487,10 @@ class NightRoleScreen(AbstractScreen):
     def _check_voted_player(self, future: Future[None])->None:
         """The callback function called when the player is acted on"""
         if future.exception() is not None:
-            #Go to error screen
-            self._game_state_manager.error_screen_handler.set_error("Error", str(future.exception()))
-            self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
-            self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
+            #Player not acted on, retry
+            messagebox.showwarning('Error', "Player not voted, try again")
+            self._voting_panel.enable() 
+            
 
     def _create_users_panel(self)->None:
         """Creates the scrolling panel containing all player buttons"""
@@ -1521,7 +1512,7 @@ class NightRoleScreen(AbstractScreen):
 
     def _create_input_panel(self)->None:
         """Creates the text box panel"""
-        self._input_panel=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(-MEDIUM_PANEL,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'top_target': self._chat_panel}, always_on=False, hidden_for_dead=True) #TODO: is it ok if it's hidden for dead players? 
+        self._input_panel=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(-MEDIUM_PANEL,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'top_target': self._chat_panel}, always_on=False, hidden_for_dead=True) #Hidden for dead players
         #Positioning is: below chat panel, same distance from right side as chat panel
         #Panel default hidden unless werewolf role is set
         self._text_input=pygame_gui.elements.UITextEntryLine(relative_rect=(0,0,MEDIUM_BTN_WIDTH, AUTO_SIZING), manager=self._gui_manager, initial_text="",container=self._input_panel)
@@ -1555,9 +1546,7 @@ class NightRoleScreen(AbstractScreen):
         """The callback function called when the message is sent"""
         if future.exception() is not None:
             #Go to error screen
-            self._game_state_manager.error_screen_handler.set_error("Error", str(future.exception()))
-            self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
-            self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
+            messagebox.showwarning('Error', "Message not sent, try again")
 
     def reset_screen(self) -> None:
         #reset player list
