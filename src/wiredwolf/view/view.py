@@ -10,7 +10,7 @@ from wiredwolf.controller.lobbies import Lobby, LobbyInfo, TcpMdnsLobbyBrowser
 from wiredwolf.model.game_phases import GamePhase
 from wiredwolf.view.custom_events import ChangeScreenType, ChatMessageType, CustomEventSender, DeadPlayerType, EndErrorType, ErrorType, LobbyType, EventSender, GameRoleType, TimeOutType, UsersType, create_custom_event_from_dict
 from wiredwolf.view.components import CallbackButton, VContainer, HContainer, EnabledButton, Text, TextField, DrawableComponent
-from wiredwolf.view.constants import FontSize, Screens, game_phase_screens_dict
+from wiredwolf.view.constants import FontSize, Screens
 from functools import partial
 from wiredwolf.view.view_constants import AUTO_SIZING, HORIZONTAL_SPACE_FOR_SCROLLBAR, MEDIUM_BTN_HEIGHT, MEDIUM_PANEL, ROLE_PANEL_X, ROLE_PANEL_Y, SMALL_PANEL, PANEL_Y, SINGLE_ELEMENT_DIV, SMALL_BTN_WIDTH, MEDIUM_ELEMENT_DIV, LARGE_ELEMENT_DIV, LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, MEDIUM_BTN_WIDTH, BACKGROUND_COLOR, SMALL_ELEMENT_DIV
 from pygame_gui.core.interfaces import IUIElementInterface
@@ -1647,24 +1647,13 @@ class ErrorMessageScreen(AbstractScreen):
             e=create_custom_event_from_dict(event.dict)
             if isinstance(e, EndErrorType):
                 #Error ended, the controller found a way to keep consistency.
-                if e.next_screen==Screens.NONE:
-                    #Find out where to go based on the game_phase given by the controller
-                    self.reset_screen()
-                    current=self._controller.current_game_phase()
-                    screens=game_phase_screens_dict[current]
-                    if current is GamePhase.NIGHT:
-                        #Night screen changes based on role
-                        if self._global_state.role_name==BasicRole.VILLAGER.role_name:
-                            self._game_state_manager.change_screen(Screens.NIGHT_VILLAGER)
-                        else:
-                            self._game_state_manager.change_screen(Screens.NIGHT_ROLE)
-                    else:
-                        #All other screens
-                        self._game_state_manager.change_screen(screens)
-                else:
-                    #If a specific screen is given, go to it
-                    self.reset_screen()
-                    self._game_state_manager.change_screen(e.next_screen)
+                #If a specific screen is given, go to it
+                self.reset_screen()
+                self._game_state_manager.change_screen(e.next_screen)
+            if isinstance(e, ChangeScreenType):
+                #Go to next screen, as called by the controller
+                self.reset_screen()
+                self._game_state_manager.change_screen(e.next_screen)
         
     def reset_screen(self) -> None:
         #Reset values that were sent via custom event
