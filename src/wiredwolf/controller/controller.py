@@ -211,7 +211,7 @@ class GameController:
                                 for player in self._game_status.players
                                 if player.is_alive() and player.id != self._my_self.uuid
                             ]
-                            self._event_sender.players_to_nominate_for_execution(
+                            self._event_sender.start_nomination_for_execution(
                                 votable_peers
                             )
                         else:

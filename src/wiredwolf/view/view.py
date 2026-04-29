@@ -396,6 +396,8 @@ class View:
             #closes the window
             self._running = False
             pygame.quit()
+            if self._controller is not None:
+                asyncio.create_task(self._controller.leave())
         else:
             if event.type == pygame.WINDOWRESIZED:
                 #when the window is resized, the local variable value is changed
@@ -939,6 +941,7 @@ class WaitingLobbyScreen(AbstractScreen):
         """Function called by go home lobby"""
         self._game_state_manager.change_screen(Screens.HOME)
         self._global_state.is_master=False
+        asyncio.create_task(self._controller.leave())
 
     def _on_game_started(self, future: Future[None])->None:
         """The callback function called when the controller has actually started the game"""
