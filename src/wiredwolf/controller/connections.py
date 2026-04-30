@@ -245,6 +245,10 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
                     self._logger.info("Waiting for receiving task to finish...")
                     async with asyncio.timeout(RECEIVING_TASK_CLOSE_TIMEOUT):
                         await self._receiving_task
+                except asyncio.CancelledError:
+                    self._logger.info("Receiving task was cancelled during close.")
+                except ConnectionClosedError:
+                    self._logger.info("Connection closed from other side while closing from this side.")
                 except TimeoutError:
                     self._logger.warning(
                         "Receiving task didn't finish within timeout, cancelling it."
@@ -346,14 +350,18 @@ class AsyncTCPMessageHandler:  # TODO: Make this implement a MessageHandler inte
 
 
 class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
+    """Server connection handler implementation using asyncio and TCP sockets.
+    """
     def __init__(
         self,
         on_new_peer: Callable[[Peer], CoroutineType[Any, Any, None]],
+        on_peer_disconnected: Callable[[Peer], CoroutineType[Any, Any, None]],
         on_new_message: Callable[[BaseMessage], CoroutineType[Any, Any, None]],
         owner_connection: tuple[Peer, asyncio.StreamReader, asyncio.StreamWriter] | None = None
     ):
         super().__init__()
         self._on_new_peer: Callable[[Peer], CoroutineType[Any, Any, None]] = on_new_peer
+        self._on_peer_disconnected: Callable[[Peer], CoroutineType[Any, Any, None]] = on_peer_disconnected
         self._on_new_message: Callable[[BaseMessage], CoroutineType[Any, Any, None]] = (
             on_new_message
         )
@@ -400,13 +408,13 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
         async with asyncio.timeout(CONNECTION_TIMEOUT):
             try:
                 # First thing peer sends is their identification (serialized peer object)
-                peer: Peer = await self._async_message_handler.receive_obj(reader)
+                peer: Peer = await self._async_message_handler.receive_obj(reader) #TODO: Change this to a message containing the peer info instead of just the peer object
                 self._logger.info("Identified new peer: %s", peer)
                 self._endpoints[peer] = (reader, writer)
                 self._status[peer] = ConnectionStatus.CONNECTED
                 await self._on_new_peer(peer)
-                # TODO Start listening for messages from this peer
             except ConnectionClosedError:
+                # Peer tried to connect but closed the connection before ending the handshake
                 self._logger.warning(
                     "Connection from %s closed before identification.", client_address
                 )
@@ -414,6 +422,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 await writer.wait_closed()
                 return
             except TimeoutError:
+                # Peer did not identify in time
                 self._logger.warning(
                     "Connection from %s timed out during identification.",
                     client_address,
@@ -460,11 +469,12 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 self._logger.info("Connection closed by peer: %s", peer)
                 self._endpoints.pop(peer)
                 self._status.pop(peer)
+                await self._on_peer_disconnected(peer)
                 return
             except Exception as e:
                 self._logger.error("Error receiving message from %s: %s", peer, e)
                 self._status[peer] = ConnectionStatus.ERROR
-                # TODO: Implement reconnection logic
+                await self._on_peer_disconnected(peer)
                 return
 
     def stop_new_connections(self):
@@ -560,6 +570,7 @@ class ConnectionHandlerFactory:
     @staticmethod
     def get_server_connection_handler(
         on_new_peer: Callable[[Peer], CoroutineType[Any, Any, None]],
+        on_peer_disconnected: Callable[[Peer], CoroutineType[Any, Any, None]],
         on_new_message: Callable[[BaseMessage], CoroutineType[Any, Any, None]],
         owner_connection: tuple[Peer, asyncio.StreamReader, asyncio.StreamWriter] | None = None,
     ) -> ServerConnectionHandler:
@@ -567,12 +578,18 @@ class ConnectionHandlerFactory:
 
         Args:
             on_new_peer (Callable[[Peer], CoroutineType[Any, Any, None]]): The callback for new peer connections.
+            on_peer_disconnected (Callable[[Peer], CoroutineType[Any, Any, None]]): The callback for peer disconnections.
             on_new_message (Callable[[BaseMessage], CoroutineType[Any, Any, None]]): The callback for new messages.
 
         Returns:
             ServerConnectionHandler: The created server connection handler.
         """
-        return AsyncTCPServerConnectionHandler(on_new_peer, on_new_message, owner_connection)
+        return AsyncTCPServerConnectionHandler(
+            on_new_peer=on_new_peer,
+            on_peer_disconnected=on_peer_disconnected,
+            on_new_message=on_new_message,
+            owner_connection=owner_connection
+        )
 
     @staticmethod
     def get_client_connection_handler(

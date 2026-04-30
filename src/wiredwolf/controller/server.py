@@ -100,10 +100,9 @@ class GameServer:
         self._game: Game | None = None  # Placeholder for game instance
         self._server_conn_handler: ServerConnectionHandler = (
             ConnectionHandlerFactory.get_server_connection_handler(
-                self._on_new_peer, self.process_incoming_message, owner_connection
+                on_new_peer=self._on_new_peer, on_peer_disconnected=self._on_peer_disconnected, on_new_message=self.process_incoming_message, owner_connection=owner_connection
             )
         )
-        self._players: dict[Peer, ClientConnectionHandler] = {}
         self._plugins: list[ServerPlugin] = []
         self._game_actual_phase_task: Task[GamePhaseOutcome] | None = None
 
@@ -166,17 +165,30 @@ class GameServer:
         except Exception as e:
             self.__logger.error("Error handling new peer %s: %s", peer, e)
 
-    async def _add_peer_and_notify_updates(self, peer: Peer):
-        # Update lobby
-        self._lobby.peers.add(peer)
-        # Notify other peers of the updated lobby sending the updated lobby object
+    async def _on_peer_disconnected(self, peer: Peer):
+        self.__logger.info("Peer disconnected: %s", peer)
+        if peer in self._lobby.peers:
+            self._lobby.peers.remove(peer)
+            await self._notify_updated_lobby()
+        else:
+            self.__logger.warning(
+                "Received disconnection for unknown peer: %s", peer
+            )
+
+    async def _notify_updated_lobby(self):
         for p in self._lobby.peers:
             await self._server_conn_handler.send_obj(
                 p, LobbyUpdatedMessage(self._lobby)
             )
         self.__logger.info(
-            "Peer %s joined the lobby. Current peers: %s", peer, self._lobby.peers
+            "Lobby updated. Current peers: %s", self._lobby.peers
         )
+
+    async def _add_peer_and_notify_updates(self, peer: Peer):
+        # Update lobby
+        self._lobby.peers.add(peer)
+        # Notify other peers of the updated lobby sending the updated lobby object
+        await self._notify_updated_lobby()
 
     async def send_to_all(self, message: BaseMessage):
         """Sends a message to all connected peers in the lobby."""
