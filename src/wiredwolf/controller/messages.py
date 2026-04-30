@@ -1,4 +1,5 @@
 import abc
+from dataclasses import dataclass
 import uuid
 from wiredwolf.controller.commons import Peer
 from typing import TYPE_CHECKING
@@ -8,7 +9,7 @@ if TYPE_CHECKING:
 from wiredwolf.model.game import GameStatus
 from wiredwolf.model.game_phases import GamePhaseOutcome
 
-
+@dataclass
 class BaseMessage(abc.ABC):
     """Abstract base class for messages exchanged between peers."""
 
