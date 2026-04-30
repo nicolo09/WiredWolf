@@ -1,7 +1,8 @@
 from asyncio import StreamReader, StreamWriter, timeout
 import asyncio
 from socket import socketpair
-from typing import Any
+from typing import Any, AsyncGenerator
+from unittest import mock
 import pytest
 import pytest_asyncio
 from wiredwolf.controller.commons import DEFAULT_SERVER_PORT, Peer
@@ -17,14 +18,17 @@ async def check_is_instance(obj: Any, cls: type):
 
 
 @pytest_asyncio.fixture
-async def server_conn_handler():
+async def server_conn_handler() -> AsyncGenerator[
+    tuple[connections.AsyncTCPServerConnectionHandler, mock.Mock], None
+]:
 
+    mocked = mock.AsyncMock()
     serverConnHandler = connections.AsyncTCPServerConnectionHandler(
-        lambda peer: check_is_instance(peer, Peer),
-        lambda msg: check_is_instance(msg, BaseMessage),
+        on_new_peer=lambda peer: mocked.on_new_peer(peer),
+        on_peer_disconnected=lambda peer: mocked.on_peer_disconnected(peer),
+        on_new_message=lambda msg: mocked.on_new_message(msg),
     )
-    await serverConnHandler.start_listening(("127.0.0.1", DEFAULT_SERVER_PORT))
-    yield serverConnHandler
+    yield serverConnHandler, mocked
     await serverConnHandler.close()
 
 
@@ -43,8 +47,10 @@ async def client_conn_handler():
     )
 
     yield handler
-    await handler.close()
-
+    try:
+        await handler.close()
+    except connections.ConnectionClosedError:
+        pass
 
 @pytest_asyncio.fixture
 async def server():
@@ -75,7 +81,7 @@ def test_base_connection_handler():
     handler = connections.AsyncTCPMessageHandler(connections.PickleSerializer())
     assert handler.add_length_prefix(b"test") == b"0004test"
 
-
+#TODO: Change this to asyncio_pytest
 def test_send_and_receive():
     handler = connections.AsyncTCPMessageHandler(connections.PickleSerializer())
 
@@ -150,3 +156,44 @@ async def test_double_call_to_start_receiving(
     with pytest.raises(RuntimeError):
         await client_conn_handler.start_receiving()
         await client_conn_handler.start_receiving()
+
+@pytest.mark.asyncio
+async def test_server_connection_handler_callbacks(
+    server_conn_handler: tuple[connections.AsyncTCPServerConnectionHandler, mock.Mock]
+):
+    handler, mocked = server_conn_handler
+    myself = Peer("Client1")
+    await handler.start_listening(("127.0.0.1", DEFAULT_SERVER_PORT))
+    reader, writer = await asyncio.open_connection("127.0.0.1", DEFAULT_SERVER_PORT)
+    handler = connections.ConnectionHandlerFactory.get_client_connection_handler(
+        my_self=myself,
+        reader=reader,
+        writer=writer,
+    )
+    handler.set_on_message(lambda msg: mocked.on_new_client_message(msg))
+    await handler.start_receiving()
+    await handler.send_obj(myself)
+    try:
+        async with timeout(5):
+            while not mocked.on_new_peer.called:
+                await asyncio.sleep(0.1)
+    except asyncio.TimeoutError:
+        pytest.fail("on_new_peer callback was not called in time")
+    assert mocked.on_new_peer.call_count == 1, "on_new_peer should be called once"
+    peer_arg = mocked.on_new_peer.call_args.args[0]
+    assert peer_arg == myself, "on_new_peer should be called with the correct Peer instance"
+    msg = ChatMessage(sender=myself, message="Hello")
+    await handler.send_obj(msg)
+    try:
+        async with timeout(5):
+            while not mocked.on_new_message.called:
+                await asyncio.sleep(0.1)
+    except asyncio.TimeoutError:
+        pytest.fail("on_new_message callback was not called in time")
+    assert mocked.on_new_message.call_count == 1, "on_new_message should be called once"
+    msg_arg = mocked.on_new_message.call_args.args[0]
+    assert msg_arg == msg, "on_new_message should be called with the correct message"
+    try:
+        await handler.close()
+    except connections.ConnectionClosedError:
+        pass

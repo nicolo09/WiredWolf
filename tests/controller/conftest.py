@@ -6,6 +6,8 @@ import pytest_asyncio
 
 from wiredwolf.controller.lobbies import TcpMdnsLobbyBrowser
 
+TIMEOUT = 5
+
 
 @pytest_asyncio.fixture
 async def browser():
