@@ -12,6 +12,7 @@ from wiredwolf.controller.commons import (
 )
 from wiredwolf.controller.messages import BaseMessage
 import asyncio
+from asyncio import CancelledError
 
 
 SELECT_TIMEOUT: float = 1.0  # Timeout for select calls in seconds
@@ -261,6 +262,9 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
 
 
 class AsyncTCPMessageHandler:  # TODO: Make this implement a MessageHandler interface
+    """Message handler that uses a length-prefixed protocol to send and receive messages over asyncio TCP connections modeled with writers and readers.
+    """
+
     PREFIX_LEN: int = 4
 
     def __init__(self, serializer: Serializer):
@@ -542,7 +546,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 try:
                     self._server_task.cancel()
                     await self._server_task
-                except Exception | asyncio.CancelledError:
+                except (Exception, CancelledError):
                     pass
 
             # Clear internal state
