@@ -100,7 +100,6 @@ class GlobalState:
     def __init__(self) -> None:
         self._username:str=""
         self._custom_event:int=0
-        self._lobby:Lobby
         self._is_master:bool=False
         self._role_name:str=""
         self._role_description:str=""
@@ -110,7 +109,6 @@ class GlobalState:
         """Resets the global state"""
         self._username=""
         self._custom_event=0
-        self._lobby:Lobby
         self._is_master=False
         self._role_name=""
         self._role_description=""
@@ -135,16 +133,6 @@ class GlobalState:
     def custom_event(self, custom_event:int)->None:
         """Sets the custom event id"""
         self._custom_event=custom_event
-
-    @property
-    def lobby(self)->Lobby:
-        """Returns the lobby joined (if any is joined)"""
-        return self._lobby
-    
-    @lobby.setter
-    def lobby(self, lobby:Lobby)->None:
-        """Returns the lobby joined"""
-        self._lobby=lobby
 
     @property
     def is_master(self)->bool:
@@ -562,7 +550,6 @@ class NewLobbyScreen(AbstractScreen):
             #Lobby created ok
             self._global_state.is_master=True #Master is true because you created the lobby
             self._game_state_manager.change_screen(Screens.LOBBY_WAITING)
-            self._global_state.lobby=future.result()
         else:
             messagebox.showwarning('Error', 'Something went wrong when creating the lobby, try again')
             #Display error, go back to home screen
@@ -621,7 +608,7 @@ class LoadingLobbyScreen(AbstractScreen):
     def _create_loading_panel(self)->None:
         """Creates the panel containing the loading element"""
         self._loading_container=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(0,0, 200, 200), anchors={'centerx':'centerx', 'centery': 'centery'}, enabled_even_for_dead=True)
-        self._loading_text=pygame_gui.elements.UILabel(relative_rect=pygame.Rect((0, 0), (-1, -1)), text="Creating a new lobby...", manager=self._gui_manager, anchors={'centery': 'centery', 'centerx':'centerx'}, container=self._loading_container)
+        self._loading_text=pygame_gui.elements.UILabel(relative_rect=pygame.Rect((0, 0), (-1, -1)), text="Loading the lobby...", manager=self._gui_manager, anchors={'centery': 'centery', 'centerx':'centerx'}, container=self._loading_container)
         self._loading_bar=pygame_gui.elements.UIStatusBar(pygame.rect.Rect(0,10, 100, 50), manager=self._gui_manager, container=self._loading_container, anchors={'top_target': self._loading_text, 'centerx':'centerx'})
         self._current_progress=2 #For some reason if current progress is 1 there's a display error
         self._loading_bar.percent_full=self._current_progress
@@ -756,7 +743,6 @@ class SearchLobbyScreen(AbstractScreen):
             #Lobby joined ok
             self._global_state.is_master=False #Joined lobby, not created lobby
             self._game_state_manager.change_screen(Screens.LOBBY_WAITING)
-            self._global_state.lobby=future.result()
         else:
             if e is ValueError():
                 messagebox.showwarning('Password error', str(e))
@@ -784,7 +770,7 @@ class WaitingLobbyScreen(AbstractScreen):
     """The waiting room after joining a lobby"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler, global_state:GlobalState) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler, global_state)
-        self._local_lobby:Lobby=Lobby(Peer(""), "Lobby Test")
+        self._local_lobby:Lobby|None=None
         self._title=Text("Waiting for other players to join "+" lobby")
         self._title_container=VContainer(SINGLE_ELEMENT_DIV, [self._title], self._display.get_size(), (50,20))
         self._text_number=Text("1 player connected...", font=FontSize.H2) #Updated count via custom events
@@ -799,12 +785,12 @@ class WaitingLobbyScreen(AbstractScreen):
         
     def run(self,event:pygame.event.Event)->None:
         """A simple waiting screen"""
-        if self._global_state.lobby!=self._local_lobby:
+        if self._local_lobby==None and self._controller.lobby!=None:
             #Since this screen is started before the lobby is chosen, this updates the display
-            self._local_lobby=self._global_state.lobby
+            self._local_lobby=self._controller.lobby
             self._title.text="Waiting for other players to join "+self._local_lobby.name+" lobby"
             self._title_container.update_on_next_draw() #Once this component is drawn the size of the text box has yet to change, so a manual update after draw is needed
-            for elem in self._global_state.lobby.peers:
+            for elem in self._local_lobby.peers:
                 #Add players connected initially to the display
                 self._add_player(elem)
             if self._global_state.is_master:
@@ -903,7 +889,7 @@ class WaitingLobbyScreen(AbstractScreen):
     
     def reset_screen(self) -> None:
         #Reset lobby name
-        self._local_lobby:Lobby
+        self._local_lobby=None
         self._title.text="Waiting for other players to join lobby"
         self._title_container.update_on_next_draw()
         #Reset number of connected players
