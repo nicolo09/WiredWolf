@@ -390,6 +390,11 @@ class EventSender(ABC):
         raise NotImplementedError("Please implement this method")
     
     @abstractmethod
+    def game_started_by_master_with_role(self, role:str, role_desc:str)->None:
+        """Communicates to the other players that the game was started by the master of the lobby, goes to role screen and gives information about the role"""
+        raise NotImplementedError("Please implement this method")
+    
+    @abstractmethod
     def start_first_day(self)->None:
         """After displaying the role screen, starts the game by displaying the first day screen"""
         raise NotImplementedError("Please implement this method")
@@ -595,6 +600,10 @@ class CustomEventSender(EventSender):
 
     def game_started_by_master(self) -> None:
         self.send_event_to_screen(Screens.ROLE_DISPLAY)
+
+    def game_started_by_master_with_role(self, role:str, role_desc:str) -> None:
+        self.send_event_to_screen(Screens.ROLE_DISPLAY)
+        self.send_event_game_role(role, role_desc)
 
     def start_nomination_for_execution(self, players: list[Peer]) -> None:
         for elem in players:
