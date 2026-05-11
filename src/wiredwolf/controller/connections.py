@@ -10,7 +10,7 @@ from wiredwolf.controller.commons import (
     RECEIVING_TASK_CLOSE_TIMEOUT,
     Peer,
 )
-from wiredwolf.controller.messages import BaseMessage
+from wiredwolf.controller.messages import AcknowledgeMessage, BaseMessage, NotAcknowledgeMessage
 import asyncio
 from asyncio import CancelledError
 
@@ -464,11 +464,16 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 else:
                     try:
                         await self._on_new_message(msg)
+                        await self.send_obj(peer, AcknowledgeMessage(
+                            msg.id, msg.sender, "")
+                        )
                     except Exception as e:
                         self._logger.error(
                             "Error handling message from %s: %s", peer, e
                         )
-                        await self.send_obj(peer, e)
+                        await self.send_obj(peer, NotAcknowledgeMessage(
+                            msg.id, msg.sender, e
+                        ))
             except ConnectionClosedError:
                 self._logger.info("Connection closed by peer: %s", peer)
                 self._endpoints.pop(peer)

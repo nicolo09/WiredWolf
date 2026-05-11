@@ -125,3 +125,12 @@ class NightActionsPlugin(ServerPlugin):
                 await server.connection_handler.send_obj(message.sender, e)
                 return True
         return False
+
+@staticmethod
+async def get_plugins_list() -> list[ServerPlugin]:
+    """Returns a list of server plugins.
+
+    Returns:
+        list[ServerPlugin]: The list of plugins.
+    """
+    return [ChatPlugin(), GameLifecyclePlugin(), VotingPlugin(), NightActionsPlugin()]

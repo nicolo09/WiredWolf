@@ -136,6 +136,7 @@ async def test_controller_leave_lobby(
     client_game_controller, client_event_sender = client_controller
     assert isinstance(host_event_sender, mock.Mock)
     assert isinstance(client_event_sender, mock.Mock)
+    host_event_sender.remove_user_in_lobby.assert_not_called()
     await client_game_controller.leave()
     assert client_game_controller.lobby is None
     assert host_game_controller.lobby is not None

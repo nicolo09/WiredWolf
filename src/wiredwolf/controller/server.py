@@ -100,7 +100,10 @@ class GameServer:
         self._game: Game | None = None  # Placeholder for game instance
         self._server_conn_handler: ServerConnectionHandler = (
             ConnectionHandlerFactory.get_server_connection_handler(
-                on_new_peer=self._on_new_peer, on_peer_disconnected=self._on_peer_disconnected, on_new_message=self.process_incoming_message, owner_connection=owner_connection
+                on_new_peer=self._on_new_peer,
+                on_peer_disconnected=self._on_peer_disconnected,
+                on_new_message=self.process_incoming_message,
+                owner_connection=owner_connection,
             )
         )
         self._plugins: list[ServerPlugin] = []
@@ -171,18 +174,14 @@ class GameServer:
             self._lobby.peers.remove(peer)
             await self._notify_updated_lobby()
         else:
-            self.__logger.warning(
-                "Received disconnection for unknown peer: %s", peer
-            )
+            self.__logger.warning("Received disconnection for unknown peer: %s", peer)
 
     async def _notify_updated_lobby(self):
         for p in self._lobby.peers:
             await self._server_conn_handler.send_obj(
                 p, LobbyUpdatedMessage(self._lobby)
             )
-        self.__logger.info(
-            "Lobby updated. Current peers: %s", self._lobby.peers
-        )
+        self.__logger.info("Lobby updated. Current peers: %s", self._lobby.peers)
 
     async def _add_peer_and_notify_updates(self, peer: Peer):
         # Update lobby
@@ -291,15 +290,23 @@ class GameServer:
         Args:
             message (BaseMessage): The message to handle.
         """
+        handled = False
         for plugin in self._plugins:
             if type(message) in plugin.handled_messages:
+                handled = True
                 should_stop: bool = await plugin.handle_message(message)
                 self.__logger.info(
                     "Message of type %s handled by plugin %s", type(message), plugin
                 )
                 if should_stop:
                     return
-        # self.__logger.warning("No plugin found to handle message of type %s", type(message))
+        if not handled:
+            self.__logger.error(
+                "No plugin found to handle message of type %s", type(message)
+            )
+            raise ValueError(
+                f"No plugin found to handle message of type {type(message)}"
+            )
 
 
 class GameServerFactory:
@@ -314,12 +321,15 @@ class GameServerFactory:
         Returns:
             tuple[GameServer, ClientConnectionHandler]: The created GameServer and the owner's ClientConnectionHandler.
         """
+        from wiredwolf.controller.server_plugins import get_plugins_list
         client_socket, server_socket = socketpair()
         client_reader, client_writer = await asyncio.open_connection(sock=client_socket)
         server_reader, server_writer = await asyncio.open_connection(sock=server_socket)
         server = GameServer(
             lobby, owner_connection=(lobby.owner, server_reader, server_writer)
         )
+        for plugin in await get_plugins_list():
+            server.add_plugin(plugin)
         client_conn_handler = ConnectionHandlerFactory.get_client_connection_handler(
             lobby.owner, client_reader, client_writer
         )
