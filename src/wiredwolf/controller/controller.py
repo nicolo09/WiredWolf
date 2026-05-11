@@ -21,7 +21,7 @@ from wiredwolf.controller.server import GameServer, GameServerFactory
 from wiredwolf.controller.commons import ACK_TIMEOUT_SECONDS, DEFAULT_SERVER_PORT, Peer
 from wiredwolf.model.game import GameStatus
 from wiredwolf.model.game_phases import GamePhase
-from wiredwolf.model.player import BasicRole
+from wiredwolf.model.player import BasicRole, Player
 from wiredwolf.view.custom_events import EventSender
 
 # TODO: Check if the lobby is removed from advertisement when the game starts
@@ -68,6 +68,20 @@ class GameController:
             Lobby: The current lobby.
         """
         return copy.deepcopy(self._lobby)
+
+    def my_self_as_player(self) -> Player | None:
+        """Gets the local player as a Player object if the lobby and game status are available.
+
+        Returns:
+            Player | None: The local player as a Player object, or None if the lobby or game status is not available.
+        """
+        if self._lobby and self._game_status:
+            return next(
+                        player
+                        for player in self._game_status.players
+                        if player.id == self._my_self.uuid
+                    )
+        return None
 
     def set_username(self, username: str):
         """Sets the username for the local player.
@@ -195,7 +209,9 @@ class GameController:
                 self._logger.info("Game has started.")
                 self._game_status = message.status
                 self._event_sender.game_started_by_master()
-                #TODO: Notify the view about the player role
+                myself = self.my_self_as_player()
+                if myself is not None:
+                    self._event_sender.user_role(myself.role.name, "") #TODO: Add role description
                 self._event_sender.start_first_day() #TODO: Shouldn't this be view logic?
             case PhaseAdvanceMessage():
                 self._logger.info("Game phase has advanced.")
@@ -203,7 +219,8 @@ class GameController:
                     self._logger.info("A player has died this phase.")
                     for player in message.outcome.deaths:
                         self._event_sender.display_chat_message(f"{player} has died.")
-                        #TODO: Notify the view about the death
+                        if self.my_self.uuid == player.id:
+                            self._event_sender.player_is_dead()
                 match message.outcome.new_phase:
                     case GamePhase.DAY_DISCUSSION:
                         self._event_sender.end_night()
@@ -240,14 +257,11 @@ class GameController:
                             )
                     case GamePhase.NIGHT:
                         if self._game_status is not None:
-                            my_self = next(
-                                player
-                                for player in self._game_status.players
-                                if player.id == self._my_self.uuid
-                            )
-                            self._event_sender.start_night(
-                                my_self.role is BasicRole.VILLAGER
-                            )
+                            my_self = self.my_self_as_player()
+                            if my_self is not None:
+                                self._event_sender.start_night(
+                                    my_self.role is BasicRole.VILLAGER
+                                )
                     case GamePhase.VILLAGERS_VICTORY | GamePhase.WEREWOLVES_VICTORY:
                         self._logger.info("Game has ended with a victory.")
                         if message.outcome.new_phase == GamePhase.VILLAGERS_VICTORY:
