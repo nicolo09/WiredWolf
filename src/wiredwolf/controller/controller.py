@@ -77,10 +77,10 @@ class GameController:
         """
         if self._lobby and self._game_status:
             return next(
-                        player
-                        for player in self._game_status.players
-                        if player.id == self._my_self.uuid
-                    )
+                player
+                for player in self._game_status.players
+                if player.id == self._my_self.uuid
+            )
         return None
 
     def set_username(self, username: str):
@@ -123,18 +123,18 @@ class GameController:
 
     async def leave(self) -> None:
         """Leaves the current lobby and shuts down the server if applicable."""
-        #Checks if this controller has a server to shut down
+        # Checks if this controller has a server to shut down
         if self._server:
             await self._server.close()
             self._server = None
-        #Checks if this controller is publishing a lobby
+        # Checks if this controller is publishing a lobby
         if self._lobby_browser.is_publishing_lobby:
             await self.stop_publishing_lobby()
-        #Checks if this controller has a client connection to close
+        # Checks if this controller has a client connection to close
         if self._client_connection_handler:
             await self._client_connection_handler.close()
             self._client_connection_handler = None
-        #Reset the lobby status
+        # Reset the lobby status
         self._lobby = None
 
     async def stop_publishing_lobby(self):
@@ -198,7 +198,7 @@ class GameController:
                 old_lobby = self._lobby
                 self._lobby = message.lobby
                 if old_lobby:
-                    #If it's an update and not the first time lobby is sent, notify the view about who left or joined the lobby
+                    # If it's an update and not the first time lobby is sent, notify the view about who left or joined the lobby
                     joined_users = self._lobby.peers - old_lobby.peers
                     left_users = old_lobby.peers - self._lobby.peers
                     for user in joined_users:
@@ -211,8 +211,10 @@ class GameController:
                 self._event_sender.game_started_by_master()
                 myself = self.my_self_as_player()
                 if myself is not None:
-                    self._event_sender.user_role(myself.role.name, "") #TODO: Add role description
-                self._event_sender.start_first_day() #TODO: Shouldn't this be view logic?
+                    self._event_sender.user_role(
+                        myself.role.name, ""
+                    )  # TODO: Add role description
+                self._event_sender.start_first_day()  # TODO: Shouldn't this be view logic?
             case PhaseAdvanceMessage():
                 self._logger.info("Game phase has advanced.")
                 if message.outcome.someone_died():
@@ -269,11 +271,17 @@ class GameController:
                         elif message.outcome.new_phase == GamePhase.WEREWOLVES_VICTORY:
                             self._event_sender.werewolf_win()
             case ChatMessage():
-                self._logger.info("Chat message received from %s: %s", message.sender, message.message)
+                self._logger.info(
+                    "Chat message received from %s: %s", message.sender, message.message
+                )
                 if message.sender and message.message:
-                    self._event_sender.display_chat_message(f"{message.sender.name}: {message.message}")
+                    self._event_sender.display_chat_message(
+                        f"{message.sender.name}: {message.message}"
+                    )
                 else:
-                    self._logger.warning("Received chat message with missing sender or message content.")
+                    self._logger.warning(
+                        "Received chat message with missing sender or message content."
+                    )
             case _:
                 self._logger.warning("Unhandled message type: %s", type(message))
 
