@@ -1,0 +1,30 @@
+{
+    "version": "0.1.0",
+    "configurations": [
+        {
+            "name": "wiredwolf",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "module": "wiredwolf",
+            "args": [],
+            "suppressMultipleSessionWarning": true
+        },
+    ],
+    "compounds": [
+        {
+            "name": "wiredwolf x8",
+            "configurations": [
+                "wiredwolf",
+                "wiredwolf",
+                "wiredwolf",
+                "wiredwolf",
+                "wiredwolf",
+                "wiredwolf",
+                "wiredwolf",
+                "wiredwolf"
+            ],
+            "suppressMultipleSessionWarning": true
+        }
+    ]
+}
