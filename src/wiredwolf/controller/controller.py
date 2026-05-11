@@ -195,12 +195,15 @@ class GameController:
                 self._logger.info("Game has started.")
                 self._game_status = message.status
                 self._event_sender.game_started_by_master()
+                #TODO: Notify the view about the player role
+                self._event_sender.start_first_day() #TODO: Shouldn't this be view logic?
             case PhaseAdvanceMessage():
                 self._logger.info("Game phase has advanced.")
                 if message.outcome.someone_died():
                     self._logger.info("A player has died this phase.")
                     for player in message.outcome.deaths:
                         self._event_sender.display_chat_message(f"{player} has died.")
+                        #TODO: Notify the view about the death
                 match message.outcome.new_phase:
                     case GamePhase.DAY_DISCUSSION:
                         self._event_sender.end_night()
@@ -251,6 +254,12 @@ class GameController:
                             self._event_sender.villager_win()
                         elif message.outcome.new_phase == GamePhase.WEREWOLVES_VICTORY:
                             self._event_sender.werewolf_win()
+            case ChatMessage():
+                self._logger.info("Chat message received from %s: %s", message.sender, message.message)
+                if message.sender and message.message:
+                    self._event_sender.display_chat_message(f"{message.sender.name}: {message.message}")
+                else:
+                    self._logger.warning("Received chat message with missing sender or message content.")
             case _:
                 self._logger.warning("Unhandled message type: %s", type(message))
 
