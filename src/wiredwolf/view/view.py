@@ -935,9 +935,9 @@ class WaitingLobbyScreen(AbstractScreen):
             #Game started ok
             self._game_state_manager.change_screen(Screens.ROLE_DISPLAY)
         else:
-            #Display exception, remain here
+            #Display exception, go back to waiting lobby
             messagebox.showwarning('Error', str(future.exception()))
-
+            self._game_state_manager.change_screen(Screens.LOBBY_WAITING)
 class LoadingGameScreen(AbstractScreen):
     """A simple loading screen shown when a game is being started"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler, global_state:GlobalState) -> None:
