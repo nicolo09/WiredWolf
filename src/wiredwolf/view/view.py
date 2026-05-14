@@ -910,6 +910,8 @@ class WaitingLobbyScreen(AbstractScreen):
             game_started.add_done_callback(self._on_game_started)
             self.reset_screen()
             self._game_state_manager.change_screen(Screens.LOADING_GAME)
+            #TODO: when master starts game, is this the correct behaviour? 
+            # Or should the master simply ask the controller to start the game, then the controller sends the custom event back like all other peers?
         else:
             #error message
             tkinter.Tk().wm_withdraw() #to hide the main window
@@ -1244,8 +1246,9 @@ class DayExecutionScreen(AbstractScreen):
                     self._executed_user=e.user
                     self._execute_button.set_text("Vote to execute "+self._executed_user.name)
                     self._spare_button.set_text("Vote to spare "+self._executed_user.name)
-                    self._execute_button.enable()
-                    self._spare_button.enable()
+                    if self._global_state.is_dead==False:
+                        self._execute_button.enable()
+                        self._spare_button.enable()
             if isinstance(e, ErrorType):
                 #If it's an error event, show error message
                 self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
