@@ -15,38 +15,55 @@ USER2_NAME = "SecondUser"
 
 
 @pytest_asyncio.fixture
-async def host_controller(
-    browser: TcpMdnsLobbyBrowser,
-) -> AsyncGenerator[tuple[GameController, EventSender], None]:
-    event_sender = mock.Mock()
-    controller = GameController(browser=browser, event_sender=event_sender)
-    controller.set_username(USER1_NAME)
-    yield controller, event_sender
-    try:
-        await controller.leave()  # TODO: Change this to a more robust method that ensures the controller is properly cleaned up after each test
-    except Exception:
-        pass
+async def controllers(
+    request,
+) -> AsyncGenerator[list[tuple[GameController, EventSender]], None]:
+    """
+    Return a list of (GameController, EventSender) tuples.
 
+    To parametrize the number of controllers, decorate the test with:
+    - `@pytest.mark.parametrize("controllers", [n], indirect=True)` where `n` is the number of controllers to create.
 
-client_controller = host_controller
+    Defaults to 2 controllers when no parameter is provided.
+    """
+    # Prefer indirect parametrization value when present
+    num = getattr(request, "param", None)
+    if num is None:
+        num = 2
+
+    controllers = []
+    for i in range(num):
+        event_sender = mock.Mock()
+        controller = GameController(
+            browser=TcpMdnsLobbyBrowser(), event_sender=event_sender
+        )
+        controller.set_username(f"TestUser{i}")
+        controllers.append((controller, event_sender))
+
+    yield controllers
+
+    for controller, _ in controllers:
+        try:
+            await controller.leave()  # TODO: Change this to a more robust method that ensures the controller is properly cleaned up after each test
+        except Exception:
+            pass
 
 
 @pytest.mark.asyncio
 async def test_controller_initialization(
-    host_controller: tuple[GameController, EventSender],
+    controllers: list[tuple[GameController, EventSender]],
 ):
-    host_game_controller, event_sender = host_controller
+    host_game_controller, event_sender = controllers[0]
     assert isinstance(host_game_controller, GameController)
     assert host_game_controller.lobby is None
 
 
 @pytest.mark.asyncio
 async def test_controller_publish_discover_lobby(
-    host_controller: tuple[GameController, EventSender],
-    client_controller: tuple[GameController, EventSender],
+    controllers: list[tuple[GameController, EventSender]],
 ):
-    host_game_controller, host_event_sender = host_controller
-    client_game_controller, client_event_sender = client_controller
+    host_game_controller, host_event_sender = controllers[0]
+    client_game_controller, client_event_sender = controllers[1]
     client_game_controller.start_listening_for_lobbies()
 
     if isinstance(client_event_sender, mock.Mock):
@@ -67,12 +84,27 @@ async def test_controller_publish_discover_lobby(
 
 @pytest.mark.asyncio
 async def test_controller_join_lobby(
-    host_controller: tuple[GameController, EventSender],
-    client_controller: tuple[GameController, EventSender],
+    controllers: list[tuple[GameController, EventSender]],
 ):
-    host_game_controller, host_event_sender = host_controller
-    client_game_controller, client_event_sender = client_controller
+    host_game_controller, host_event_sender = controllers[0]
+    client_game_controller, client_event_sender = controllers[1]
     await host_game_controller.create_lobby(name=LOBBY_NAME, password=None)
+    await make_client_join_host(
+        host_game_controller,
+        host_event_sender,
+        client_game_controller,
+        client_event_sender,
+    )
+    assert client_game_controller.lobby is not None
+    assert len(client_game_controller.lobby.peers) == 2
+
+
+async def make_client_join_host(
+    host_game_controller: GameController,
+    host_event_sender: EventSender,
+    client_game_controller: GameController,
+    client_event_sender: EventSender,
+):
     assert host_game_controller.lobby is not None
     client_game_controller.start_listening_for_lobbies()
 
@@ -123,17 +155,15 @@ async def test_controller_join_lobby(
             "First controller did not update its lobby state after the second controller joined within the timeout period."
         )
     assert host_game_controller.lobby == client_game_controller.lobby
-    assert len(client_game_controller.lobby.peers) == 2
 
 
 @pytest.mark.asyncio
 async def test_controller_leave_lobby(
-    host_controller: tuple[GameController, EventSender],
-    client_controller: tuple[GameController, EventSender],
+    controllers: list[tuple[GameController, EventSender]],
 ):
-    await test_controller_join_lobby(host_controller, client_controller)
-    host_game_controller, host_event_sender = host_controller
-    client_game_controller, client_event_sender = client_controller
+    await test_controller_join_lobby(controllers)
+    host_game_controller, host_event_sender = controllers[0]
+    client_game_controller, client_event_sender = controllers[1]
     assert isinstance(host_event_sender, mock.Mock)
     assert isinstance(client_event_sender, mock.Mock)
     host_event_sender.remove_user_in_lobby.assert_not_called()
@@ -141,10 +171,10 @@ async def test_controller_leave_lobby(
     assert client_game_controller.lobby is None
     assert host_game_controller.lobby is not None
     try:
-    # Wait for the first controller to update its lobby state after the second controller leaves
+        # Wait for the first controller to update its lobby state after the second controller leaves
         async with asyncio.timeout(TIMEOUT):
-                while len(host_game_controller.lobby.peers) != 1:
-                    await asyncio.sleep(0.1)
+            while len(host_game_controller.lobby.peers) != 1:
+                await asyncio.sleep(0.1)
     except asyncio.TimeoutError:
         pytest.fail(
             "First controller did not update its lobby state after the second controller left within the timeout period."
@@ -153,3 +183,13 @@ async def test_controller_leave_lobby(
     assert any(peer.name == USER1_NAME for peer in host_game_controller.lobby.peers)
     assert not any(peer.name == USER2_NAME for peer in host_game_controller.lobby.peers)
     host_event_sender.remove_user_in_lobby.assert_called_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("controllers", [8], indirect=True)
+async def test_start_game(
+    controllers: list[tuple[GameController, EventSender]],
+):
+    assert len(controllers) == 8, "Expected 8 controllers for this test"
+    await test_controller_join_lobby(controllers)
+    host_game_controller, host_event_sender = controllers[0]
