@@ -7,7 +7,6 @@ from abc import ABC, abstractmethod
 from wiredwolf.controller.commons import Peer
 from wiredwolf.controller.controller import GameController
 from wiredwolf.controller.lobbies import Lobby, LobbyInfo, TcpMdnsLobbyBrowser
-from wiredwolf.model.game_phases import GamePhase
 from wiredwolf.view.custom_events import ChangeScreenType, ChatMessageType, CustomEventSender, DeadPlayerType, EndErrorType, ErrorType, LobbyType, EventSender, GameRoleType, TimeOutType, UsersType, create_custom_event_from_dict
 from wiredwolf.view.components import CallbackButton, VContainer, HContainer, EnabledButton, Text, TextField, DrawableComponent
 from wiredwolf.view.constants import FontSize, Screens
@@ -1593,7 +1592,7 @@ class RoleDisplayScreen(AbstractScreen):
                 self._global_state.role_name=e.role
                 self._global_state.role_description=e.role_description
                 self._global_state.is_dead=False
-                self._panel_handler.role_panel.set_content(e.role, e.role_description)
+                self._panel_handler.role_panel.set_content(self._global_state.username+" ("+e.role+")", e.role_description)
                 self._panel_handler.role_panel.show()
             if isinstance(e, ErrorType):
                 #If it's an error event, show error message
