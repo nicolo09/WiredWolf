@@ -6,12 +6,23 @@ import pytest
 import pytest_asyncio
 from tests.controller.conftest import TIMEOUT
 from wiredwolf.controller.controller import GameController
-from wiredwolf.controller.lobbies import TcpMdnsLobbyBrowser
+from wiredwolf.controller.lobbies import LobbyInfo, TcpMdnsLobbyBrowser
 from wiredwolf.view.custom_events import EventSender
 
 LOBBY_NAME = "Test Lobby"
 USER1_NAME = "TestUser"
 USER2_NAME = "SecondUser"
+
+"""
+This test suite verifies the functionality of the entire game except for the view which is modeled only by the EventSender mock. 
+
+Every test in this suite advances a step further in the game flow, starting from controller initialization, to lobby discovery, 
+joining, leaving, starting the game and finally the game flow itself. Every test also uses part of the previous test's flow as
+a prerequisite, SO THE TESTS ARE NOT INDEPENDENT, even though they can be run in any order. 
+
+The tests in this suite uses mock.Mock which cannot easily be type checked, the mocked methods name cannot be verified, double 
+check that in case of errors.
+"""
 
 
 @pytest_asyncio.fixture
@@ -108,7 +119,7 @@ async def make_client_join_host(
     assert host_game_controller.lobby is not None
     client_game_controller.start_listening_for_lobbies()
 
-    lobby_info = None
+    lobby_info: LobbyInfo|None = None
     if isinstance(client_event_sender, mock.Mock):
         try:
             async with asyncio.timeout(TIMEOUT):
@@ -137,7 +148,8 @@ async def make_client_join_host(
     assert lobby_info is not None, (
         "Lobby info was not received by the second controller."
     )
-    assert lobby_info == host_game_controller.lobby.lobby_info(), (
+    assert lobby_info is not None, "Lobby info was not received by the second controller."
+    assert lobby_info.uuid == host_game_controller.lobby.lobby_info().uuid, (
         "The discovered lobby info does not match the created lobby info."
     )
 
@@ -154,7 +166,14 @@ async def make_client_join_host(
         pytest.fail(
             "First controller did not update its lobby state after the second controller joined within the timeout period."
         )
-    assert host_game_controller.lobby == client_game_controller.lobby
+    try:
+        async with asyncio.timeout(TIMEOUT):
+            while host_game_controller.lobby != client_game_controller.lobby:
+                await asyncio.sleep(0.1)
+    except asyncio.TimeoutError:
+        pytest.fail(
+            "Lobbies do not match between controllers."
+        )
 
 
 @pytest.mark.asyncio
@@ -191,5 +210,33 @@ async def test_start_game(
     controllers: list[tuple[GameController, EventSender]],
 ):
     assert len(controllers) == 8, "Expected 8 controllers for this test"
-    await test_controller_join_lobby(controllers)
     host_game_controller, host_event_sender = controllers[0]
+    await host_game_controller.create_lobby(name=LOBBY_NAME, password=None)
+    client_game_controllers, client_event_senders = zip(*controllers[1:])
+    for controller, event_sender in controllers[1:]:
+        await make_client_join_host(
+            host_game_controller, host_event_sender, controller, event_sender
+        )
+    await host_game_controller.start_game()
+    if isinstance(host_event_sender, mock.Mock):
+        try:
+            async with asyncio.timeout(TIMEOUT):
+                while not host_event_sender.game_started_by_master.called:
+                    await asyncio.sleep(0.1)
+            host_event_sender.game_started_by_master.assert_called_once()
+        except asyncio.TimeoutError:
+            pytest.fail(
+                "Host controller did not receive game start message within the timeout period."
+            )
+    else:
+        pytest.fail("Host event sender is not a mock, cannot verify game start event.")
+    for client_event_sender in client_event_senders:
+        try:
+            async with asyncio.timeout(TIMEOUT):
+                while not client_event_sender.game_started_by_master.called:
+                    await asyncio.sleep(0.1)
+            client_event_sender.game_started_by_master.assert_called_once()
+        except asyncio.TimeoutError:
+            pytest.fail(
+                "A client controller did not receive game start message within the timeout period."
+            )
