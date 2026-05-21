@@ -69,7 +69,7 @@ class GameTest(unittest.TestCase):
 
     def setUp(self):
         self.players = populate_players()
-        self.game = Game(self.players, create_game_info())
+        self.game = Game(self.players, create_game_info(), GamePhase.DAY_DISCUSSION)
 
     def test_initial_state(self):
         self.assertEqual(self.game.phase, GamePhase.DAY_DISCUSSION)
@@ -103,7 +103,7 @@ class GameStatusTest(unittest.TestCase):
 
     def setUp(self):
         self.players = populate_players()
-        self.game = Game(self.players, create_game_info())
+        self.game = Game(self.players, create_game_info(), GamePhase.DAY_DISCUSSION)
         
     def test_game_status_equals(self):
 

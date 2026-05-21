@@ -10,7 +10,7 @@ class GameVotingTest(unittest.TestCase):
     
     def setUp(self):
         self.players = populate_players()
-        self.game = Game(self.players, create_game_info())
+        self.game = Game(self.players, create_game_info(), GamePhase.DAY_DISCUSSION)
 
     def test_double_vote(self):
         self.game.advance_phase()
