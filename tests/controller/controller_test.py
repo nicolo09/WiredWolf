@@ -1,5 +1,6 @@
 import asyncio
-from typing import AsyncGenerator
+from math import e
+from typing import AsyncGenerator, cast
 from unittest import mock
 
 import pytest
@@ -217,6 +218,7 @@ async def test_start_game(
         await make_client_join_host(
             host_game_controller, host_event_sender, controller, event_sender
         )
+    #Start the game and verify that all controllers receive the game start event
     await host_game_controller.start_game()
     if isinstance(host_event_sender, mock.Mock):
         try:
@@ -240,3 +242,24 @@ async def test_start_game(
             pytest.fail(
                 "A client controller did not receive game start message within the timeout period."
             )
+    #Check that everyone has their role assigned and the first day started
+    for controller, event_sender in controllers:
+        try:
+            if not isinstance(event_sender, mock.Mock):
+                pytest.fail("Event sender is not a mock, cannot verify role assignment event.")
+            async with asyncio.timeout(TIMEOUT):
+                while not event_sender.user_role.called and event_sender.start_first_day.called:
+                    await asyncio.sleep(0.1)
+            event_sender.user_role.assert_called_once()
+            event_sender.start_first_day.assert_called_once()
+        except asyncio.TimeoutError:
+            pytest.fail(
+                "A controller did not receive role assignment message within the timeout period."
+            )
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("controllers", [8], indirect=True)
+async def test_game_flow(
+    controllers: list[tuple[GameController, EventSender]],
+):
+    await test_start_game(controllers)
