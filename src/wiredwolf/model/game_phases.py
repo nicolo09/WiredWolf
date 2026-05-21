@@ -5,6 +5,7 @@ from wiredwolf.model.player import Player
 
 
 class GamePhase(Enum):
+    FIRST_DAY = 0
     DAY_DISCUSSION = 1
     DAY_ACCUSING = 2
     DAY_BALLOT = 3

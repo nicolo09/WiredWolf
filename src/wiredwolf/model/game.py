@@ -33,7 +33,7 @@ class Game:
         self,
         players: list[Player],
         game_info: AbstractGameInfo,
-        phase: GamePhase = GamePhase.DAY_DISCUSSION,
+        phase: GamePhase = GamePhase.FIRST_DAY,
     ):
         """
         Initialize a new game instance.
@@ -41,7 +41,7 @@ class Game:
         Args:
             players (list[Player]): List of Player objects participating in the game.
             game_info (AbstractGameInfo): The information to handle game rules, votes, and actions.
-            phase (GamePhase): The starting phase of the game. Defaults to DAY_DISCUSSION.
+            phase (GamePhase): The starting phase of the game. Defaults to FIRST_DAY.
         """
         self._players: list[Player] = players
         self._phase: GamePhase = phase
@@ -109,6 +109,9 @@ class Game:
         deaths: list[Player] = []
 
         match self._phase:
+            case GamePhase.FIRST_DAY:
+                self._phase = GamePhase.NIGHT
+            
             case GamePhase.DAY_DISCUSSION:
                 self._phase = GamePhase.DAY_ACCUSING
 

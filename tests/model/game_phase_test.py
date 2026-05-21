@@ -9,7 +9,25 @@ class GamePhaseTest(unittest.TestCase):
 
     def setUp(self):
         self.players: list[Player] = populate_players()
-        self.game: Game = Game(self.players, create_game_info())
+        self.game: Game = Game(self.players, create_game_info(), GamePhase.DAY_DISCUSSION)
+
+    def test_regular_phase_transitions(self):
+        
+        test_game: Game = Game(self.players, create_game_info())
+        outcome: GamePhaseOutcome
+        
+        outcome = test_game.advance_phase()
+        self.assertEqual(outcome.new_phase, GamePhase.NIGHT)
+        outcome = test_game.advance_phase()
+        self.assertEqual(outcome.new_phase, GamePhase.DAY_DISCUSSION)
+        outcome = test_game.advance_phase()
+        self.assertEqual(outcome.new_phase, GamePhase.DAY_ACCUSING)
+        test_game.accuse_player("Alice", "Bob")
+        outcome = test_game.advance_phase()
+        self.assertEqual(outcome.new_phase, GamePhase.DAY_BALLOT)
+        outcome = test_game.advance_phase()
+        self.assertEqual(outcome.new_phase, GamePhase.NIGHT)
+        
 
     def test_skip_ballot_vote_draw(self):
 

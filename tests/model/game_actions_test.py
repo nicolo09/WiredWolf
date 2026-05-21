@@ -1,5 +1,6 @@
 import unittest
 from wiredwolf.model.game import Game, can_perform_action_on
+from wiredwolf.model.game_phases import GamePhase
 from wiredwolf.model.player import Status, Alignment
 from wiredwolf.model.exceptions import *
 from tests.model.game_test import populate_players, get_index_by_name, create_game_info
@@ -9,7 +10,7 @@ class GameActionsTest(unittest.TestCase):
     
     def setUp(self):
         self.players = populate_players()
-        self.game = Game(self.players, create_game_info())
+        self.game = Game(self.players, create_game_info(), GamePhase.DAY_DISCUSSION)
 
     # Test Werewolves Actions
 
