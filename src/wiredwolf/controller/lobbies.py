@@ -4,6 +4,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 import dataclasses
 import logging
+
+from zeroconf import ServiceInfo
 from wiredwolf.controller.connections import (
     AsyncTCPClientConnectionHandler,
     AsyncTCPMessageHandler,
@@ -148,7 +150,7 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
     def __init__(self):
         self._service_manager: ServiceManager = ServiceManager(SERVICE_TYPE)
         self._browser = None
-        self._published_lobby_service_info = None
+        self._published_lobby_service_info: list[ServiceInfo] | None = None
         # We keep track of found lobbies to be able to remove them when they are lost
         self._found_lobbies: dict[str, LobbyInfo] = {}  # Maps lobby UUIDs to their info
 

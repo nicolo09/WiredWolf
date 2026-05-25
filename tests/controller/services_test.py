@@ -18,7 +18,7 @@ async def service_manager():
     yield ServiceManager(service_type=SERVICE_TYPE)
 
 
-async def _register_service(service_manager: ServiceManager, service_name: str) -> ServiceInfo:
+async def _register_service(service_manager: ServiceManager, service_name: str) -> list[ServiceInfo]:
     sck = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sck.bind(("localhost", 0))
     try:

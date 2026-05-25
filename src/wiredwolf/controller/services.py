@@ -45,33 +45,54 @@ class ServiceManager:
     __logger = logging.getLogger(__name__)
 
     def __init__(self, service_type: str):
-        self._zeroconf: Zeroconf = Zeroconf()
+        self._zeroconf_client: Zeroconf = Zeroconf()
+        self._zeroconf_server: dict[ServiceInfo, Zeroconf] = {}
         self._service_type: str = service_type
         self._closed: bool = False
 
-    async def register_service(self, name: str, receiverPort: int, properties: dict[str, str]) -> ServiceInfo:
-        self.__logger.info(f"Registering service {name} on port {receiverPort}...")
-        service_info = ServiceInfo(
-            type_=self._service_type,
-            name=name + "." + self._service_type,
-            addresses=[socket.inet_aton("127.0.0.1")],
-            port=receiverPort,
-            properties={
-                key: value.encode("utf-8") for key, value in properties.items()
-            },
-        )
-        try:
-            await self._zeroconf.async_register_service(service_info)
-        except Exception as e:
-            self.__logger.error(f"Failed to register service {name}: {e}")
-            raise RuntimeError(f"Failed to register service {name}: {e}") from e
-        self.__logger.info(f"Service {name} registered successfully.")
-        return service_info
+    def _get_all_local_ips(self) -> list[str]:
+        ips = []
+        hostname = socket.gethostname()
+        for info in socket.getaddrinfo(hostname, None):
+            family, _, _, _, sockaddr = info
+            if family == socket.AF_INET:          # solo IPv4
+                ip = str(sockaddr[0])
+                if not ip.startswith("127."):     # escludi loopback
+                    ips.append(ip)
+        return list(set(ips))   # deduplica
 
-    async def unregister_service(self, info: ServiceInfo) -> None:
-        self.__logger.info(f"Unregistering service {info.name}...")
-        await self._zeroconf.async_unregister_service(info)
-        self.__logger.info(f"Service {info.name} unregistered successfully.")
+    async def register_service(self, name: str, receiverPort: int, properties: dict[str, str]) -> list[ServiceInfo]:
+        self.__logger.info(f"Registering service {name} on port {receiverPort}...")
+        service_infos = []
+        for ip in self._get_all_local_ips():
+            self.__logger.debug(f"Local IP address found: {ip}")
+            service_info = ServiceInfo(
+                type_=self._service_type,
+                name=name + "." + self._service_type,
+                addresses=[socket.inet_aton(ip)],
+                port=receiverPort,
+                properties={
+                    key: value.encode("utf-8") for key, value in properties.items()
+                },
+            )
+            try:
+                zeroconf = Zeroconf(ip)
+                await zeroconf.async_register_service(service_info)
+                self._zeroconf_server[service_info] = zeroconf
+                service_infos.append(service_info)
+            except Exception as e:
+                self.__logger.error(f"Failed to register service {name}: {e}")
+                raise RuntimeError(f"Failed to register service {name}: {e}") from e
+            self.__logger.info(f"Service {name} registered successfully.")
+        return service_infos
+
+    async def unregister_service(self, info: list[ServiceInfo]) -> None:
+        self.__logger.info(f"Unregistering service {info[0].name}...")
+        for service_info in info:
+            zeroconf = self._zeroconf_server.get(service_info)
+            if zeroconf:
+                await zeroconf.async_unregister_service(service_info)
+                self.__logger.info(f"Service {service_info.name} unregistered successfully.")
 
     def get_service_listener(
         self,
@@ -88,7 +109,7 @@ class ServiceManager:
         )
 
     def get_service_browser(self, listener: ServiceListener) -> ServiceBrowser:
-        return ServiceBrowser(self._zeroconf, self._service_type, listener)
+        return ServiceBrowser(self._zeroconf_client, self._service_type, listener)
 
     async def get_service_endpoint(self, service_name: str) -> tuple[str, int]:
         """Returns the endpoint associated with the provided service name by means of service discovery.
@@ -102,7 +123,7 @@ class ServiceManager:
         Returns:
             tuple[str, int]: A tuple containing the IP address and port of the service.
         """
-        service_info = await self._zeroconf.async_get_service_info(
+        service_info = await self._zeroconf_client.async_get_service_info(
             type_=self._service_type, name=service_name+"." + self._service_type
         )
         if service_info and service_info.addresses[0] and service_info.port:
@@ -117,8 +138,14 @@ class ServiceManager:
 
     def close(self) -> None:
         """Closes the underlying Zeroconf instance."""
+        for server in self._zeroconf_server.values():
+            try:
+                server.close()
+                self.__logger.info("Zeroconf server instance closed.")
+            except Exception as e:
+                self.__logger.warning(f"Error while closing Zeroconf server: {e}")
         try:
-            self._zeroconf.close()
+            self._zeroconf_client.close()
             self.__logger.info("Zeroconf instance closed.")
         except Exception as e:
             self.__logger.warning(f"Error while closing Zeroconf: {e}")
