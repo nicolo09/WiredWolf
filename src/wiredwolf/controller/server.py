@@ -227,7 +227,7 @@ class GameServer:
             game_info.get_all_handled_roles(),
         )
         self._game = Game(players, game_info)
-        assert self._game.phase is GamePhase.DAY_DISCUSSION
+        assert self._game.phase is GamePhase.FIRST_DAY
         self.__logger.info("Game started with players: %s", players)
         await self.send_to_all(GameStartedMessage(self._game.get_game_status()))
         self._game_actual_phase_task = asyncio.create_task(

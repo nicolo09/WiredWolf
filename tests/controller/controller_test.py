@@ -6,6 +6,7 @@ from unittest import mock
 import pytest
 import pytest_asyncio
 from tests.controller.conftest import TIMEOUT
+from wiredwolf.controller.commons import FIRST_DAY_PHASE_DURATION_SECONDS, PHASE_DURATION_SECONDS
 from wiredwolf.controller.controller import GameController
 from wiredwolf.controller.lobbies import LobbyInfo, TcpMdnsLobbyBrowser
 from wiredwolf.view.custom_events import EventSender
@@ -263,3 +264,32 @@ async def test_game_flow(
     controllers: list[tuple[GameController, EventSender]],
 ):
     await test_start_game(controllers)
+    #Wait for the first day phase to end
+    await asyncio.sleep(FIRST_DAY_PHASE_DURATION_SECONDS) #TODO: Mock this to avoid waiting for the actual duration
+    #Verify that the phase advancement message is received by all controllers and that the first night starts 
+    for controller, event_sender in controllers:
+        try:
+            if not isinstance(event_sender, mock.Mock):
+                pytest.fail("Event sender is not a mock, cannot verify phase advancement event.")
+            async with asyncio.timeout(TIMEOUT):
+                while not event_sender.start_night.called:
+                    await asyncio.sleep(0.1)
+            event_sender.start_night.assert_called_once()
+        except asyncio.TimeoutError:
+            pytest.fail(
+                "A controller did not receive first night phase advancement message within the timeout period."
+            )
+    await asyncio.sleep(PHASE_DURATION_SECONDS) #TODO: Mock this to avoid waiting for the actual duration
+    #Verify that the second day starts
+    for controller, event_sender in controllers:
+        try:
+            if not isinstance(event_sender, mock.Mock):
+                pytest.fail("Event sender is not a mock, cannot verify phase advancement event.")
+            async with asyncio.timeout(TIMEOUT):
+                while not event_sender.end_night.called:
+                    await asyncio.sleep(0.1)
+            event_sender.end_night.assert_called_once()
+        except asyncio.TimeoutError:
+            pytest.fail(
+                "A controller did not receive second day phase advancement message within the timeout period."
+            )
