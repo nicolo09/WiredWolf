@@ -2,6 +2,7 @@ import asyncio
 import logging
 import pytest
 import pytest_asyncio
+from tests.controller.conftest import TEST_TIMEOUT
 from tests.controller.utils import TestFactory
 from wiredwolf.controller.commons import FIRST_DAY_PHASE_DURATION_SECONDS, Peer
 from wiredwolf.controller.connections import ClientConnectionHandler
@@ -9,6 +10,7 @@ from wiredwolf.controller.lobbies import Lobby
 from wiredwolf.controller.messages import (
     BaseMessage,
     GameStartedMessage,
+    NotAcknowledgeMessage,
     PhaseAdvanceMessage,
     StartGameMessage,
 )
@@ -49,14 +51,14 @@ async def test_start_game_with_too_few_or_too_many_players(
             pytest.fail(
                 "GameStartedMessage should not be received with too few players"
             )
-        elif isinstance(msg, Exception):
+        elif isinstance(msg, NotAcknowledgeMessage):
             event.set()
 
     for handler in handlers:
         handler.set_on_message(on_message)
     await handlers[0].send_obj(StartGameMessage(owner))
     try:
-        async with asyncio.timeout(50):
+        async with asyncio.timeout(TEST_TIMEOUT):
             await event.wait()
     except TimeoutError:
         logger.info("Test timed out waiting for event")
@@ -85,7 +87,7 @@ async def test_start_game_success(
         handler.set_on_message(on_message)
     await handlers[0].send_obj(StartGameMessage(owner))
     try:
-        async with asyncio.timeout(5):
+        async with asyncio.timeout(TEST_TIMEOUT):
             await event.wait()
     except TimeoutError:
         logger.info("Test timed out waiting for event")
@@ -104,7 +106,7 @@ async def test_non_owner_cannot_start_game(
     def on_message(msg: BaseMessage) -> None:
         if isinstance(msg, GameStartedMessage):
             pytest.fail("GameStartedMessage should not be received from non-owner")
-        elif isinstance(msg, Exception):
+        elif isinstance(msg, NotAcknowledgeMessage):
             logger.info(msg)
             event.set()
 
@@ -113,7 +115,7 @@ async def test_non_owner_cannot_start_game(
     # Use a non-owner peer to attempt to start the game
     await handlers[1].send_obj(StartGameMessage(handlers[1].my_self))
     try:
-        async with asyncio.timeout(5):
+        async with asyncio.timeout(TEST_TIMEOUT):
             await event.wait()
     except TimeoutError:
         logger.info("Test timed out waiting for event")
@@ -152,8 +154,8 @@ async def test_start_game_multiple_times(
     def on_second_message(msg: BaseMessage) -> None:
         if isinstance(msg, GameStartedMessage):
             pytest.fail("GameStartedMessage should not be received on second start")
-        elif isinstance(msg, Exception):
-            logger.info("Correctly received Exception on second start")
+        elif isinstance(msg, NotAcknowledgeMessage):
+            logger.info("Correctly received NotAcknowledgeMessage on second start")
             event.set()
     for handler in handlers:
         handler.set_on_message(on_second_message)
@@ -171,7 +173,6 @@ async def test_game_phase_advancement(
         Lobby, Peer, GameServer, list[ClientConnectionHandler]
     ]
 ):
-    #TODO: Change wiredwolf.controller.commons.FIRST_DAY_PHASE_DURATION_SECONDS to a lower value for testing, better to make a factory function that creates a server with custom phase duration
     event = asyncio.Event()
     _, owner, _, handlers = lobby_owner_server_clients
 
