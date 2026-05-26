@@ -4,7 +4,7 @@ from unittest import mock
 
 import pytest
 import pytest_asyncio
-from tests.controller.conftest import TIMEOUT
+from tests.controller.conftest import TEST_TIMEOUT
 from wiredwolf.controller.commons import FIRST_DAY_PHASE_DURATION_SECONDS, PHASE_DURATION_SECONDS
 from wiredwolf.controller.controller import GameController
 from wiredwolf.controller.lobbies import LobbyInfo, TcpMdnsLobbyBrowser
@@ -83,7 +83,7 @@ async def test_controller_publish_discover_lobby(
 
     if isinstance(client_event_sender, mock.Mock):
         try:
-            async with asyncio.timeout(TIMEOUT):
+            async with asyncio.timeout(TEST_TIMEOUT):
                 while not client_event_sender.new_discovered_lobby.called:
                     await asyncio.sleep(0.1)
                 client_event_sender.new_discovered_lobby.assert_called_once()
@@ -122,7 +122,7 @@ async def make_client_join_host(
     lobby_info: LobbyInfo|None = None
     if isinstance(client_event_sender, mock.Mock):
         try:
-            async with asyncio.timeout(TIMEOUT):
+            async with asyncio.timeout(TEST_TIMEOUT):
                 # Wait until the second controller discovers the lobby and captures the lobby info from the call arguments
                 while (
                     not client_event_sender.new_discovered_lobby.called
@@ -158,7 +158,7 @@ async def make_client_join_host(
     assert client_game_controller.lobby is not None
 
     try:
-        async with asyncio.timeout(TIMEOUT):
+        async with asyncio.timeout(TEST_TIMEOUT):
             # Wait for the first controller to update its lobby state
             while len(host_game_controller.lobby.peers) < 2:
                 await asyncio.sleep(0.1)
@@ -167,7 +167,7 @@ async def make_client_join_host(
             "First controller did not update its lobby state after the second controller joined within the timeout period."
         )
     try:
-        async with asyncio.timeout(TIMEOUT):
+        async with asyncio.timeout(TEST_TIMEOUT):
             while host_game_controller.lobby != client_game_controller.lobby:
                 await asyncio.sleep(0.1)
     except asyncio.TimeoutError:
@@ -191,7 +191,7 @@ async def test_controller_leave_lobby(
     assert host_game_controller.lobby is not None
     try:
         # Wait for the first controller to update its lobby state after the second controller leaves
-        async with asyncio.timeout(TIMEOUT):
+        async with asyncio.timeout(TEST_TIMEOUT):
             while len(host_game_controller.lobby.peers) != 1:
                 await asyncio.sleep(0.1)
     except asyncio.TimeoutError:
@@ -221,7 +221,7 @@ async def test_start_game(
     await host_game_controller.start_game()
     if isinstance(host_event_sender, mock.Mock):
         try:
-            async with asyncio.timeout(TIMEOUT):
+            async with asyncio.timeout(TEST_TIMEOUT):
                 while not host_event_sender.game_started_by_master.called:
                     await asyncio.sleep(0.1)
             host_event_sender.game_started_by_master.assert_called_once()
@@ -233,7 +233,7 @@ async def test_start_game(
         pytest.fail("Host event sender is not a mock, cannot verify game start event.")
     for client_event_sender in client_event_senders:
         try:
-            async with asyncio.timeout(TIMEOUT):
+            async with asyncio.timeout(TEST_TIMEOUT):
                 while not client_event_sender.game_started_by_master.called:
                     await asyncio.sleep(0.1)
             client_event_sender.game_started_by_master.assert_called_once()
@@ -246,7 +246,7 @@ async def test_start_game(
         try:
             if not isinstance(event_sender, mock.Mock):
                 pytest.fail("Event sender is not a mock, cannot verify role assignment event.")
-            async with asyncio.timeout(TIMEOUT):
+            async with asyncio.timeout(TEST_TIMEOUT):
                 while not event_sender.user_role.called and event_sender.start_first_day.called:
                     await asyncio.sleep(0.1)
             event_sender.user_role.assert_called_once()
@@ -269,7 +269,7 @@ async def test_game_flow(
         try:
             if not isinstance(event_sender, mock.Mock):
                 pytest.fail("Event sender is not a mock, cannot verify phase advancement event.")
-            async with asyncio.timeout(TIMEOUT):
+            async with asyncio.timeout(TEST_TIMEOUT):
                 while not event_sender.start_night.called:
                     await asyncio.sleep(0.1)
             event_sender.start_night.assert_called_once()
@@ -283,7 +283,7 @@ async def test_game_flow(
         try:
             if not isinstance(event_sender, mock.Mock):
                 pytest.fail("Event sender is not a mock, cannot verify phase advancement event.")
-            async with asyncio.timeout(TIMEOUT):
+            async with asyncio.timeout(TEST_TIMEOUT):
                 while not event_sender.end_night.called:
                     await asyncio.sleep(0.1)
             event_sender.end_night.assert_called_once()
