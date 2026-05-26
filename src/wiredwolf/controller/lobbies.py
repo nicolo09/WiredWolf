@@ -23,7 +23,7 @@ from wiredwolf.controller.commons import (
 )
 from wiredwolf.controller.commons import PasswordRequest
 from wiredwolf.controller.messages import LobbyUpdatedMessage
-from wiredwolf.controller.services import CallbackServiceListener, ServiceManager
+from wiredwolf.controller.services import CallbackCachedServiceListener, ServiceManager
 
 
 SERVICE_TYPE: str = "_wiredwolflobby._tcp.local."
@@ -195,7 +195,7 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
                 on_lobby_updated(self._found_lobbies[name])
 
         if not self._browser:
-            listener = CallbackServiceListener(
+            listener = CallbackCachedServiceListener(
                 on_service_added=on_lobby_found_cb,
                 on_service_removed=on_lobby_lost_cb,
                 on_service_updated=on_lobby_updated_cb,

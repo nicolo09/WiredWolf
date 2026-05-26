@@ -1,6 +1,5 @@
 import asyncio
-from math import e
-from typing import AsyncGenerator, cast
+from typing import AsyncGenerator
 from unittest import mock
 
 import pytest

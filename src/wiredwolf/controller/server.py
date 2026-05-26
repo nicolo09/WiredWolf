@@ -111,7 +111,7 @@ class GameServer:
 
     async def start_listening(self):
         await self._server_conn_handler.start_listening(
-            ("127.0.0.1", DEFAULT_SERVER_PORT)
+            (None, DEFAULT_SERVER_PORT)
         )
 
     @property

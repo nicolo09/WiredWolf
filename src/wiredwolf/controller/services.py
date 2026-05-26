@@ -2,11 +2,11 @@ from collections.abc import Callable
 import ipaddress
 import logging
 import socket
-from zeroconf import ServiceBrowser, ServiceInfo, ServiceListener, Zeroconf
+from zeroconf import NonUniqueNameException, ServiceBrowser, ServiceInfo, ServiceListener, Zeroconf
 from netifaces import interfaces, ifaddresses, AF_INET
 
 
-class CallbackServiceListener(ServiceListener):
+class CallbackCachedServiceListener(ServiceListener):
     def __init__(
         self,
         on_service_added: Callable[[str, dict[str, str]], None],
@@ -14,6 +14,7 @@ class CallbackServiceListener(ServiceListener):
         on_service_updated: Callable[[str, dict[str, str]], None],
     ) -> None:
         super().__init__()
+        self.cache: dict[str, dict[str, str]] = {}
         self.__on_service_added = on_service_added
         self.__on_service_removed = on_service_removed
         self.__on_service_updated = on_service_updated
@@ -35,13 +36,36 @@ class CallbackServiceListener(ServiceListener):
 
     def add_service(self, zc: Zeroconf, type_: str, name: str) -> None:
         # Retrieve service properties and pass them to the callback
-        self.__on_service_added(name, self.decode_properties(zc, type_, name))
+        if name not in self.cache:
+            # If not in cache, decode properties and call the added callback
+            self.cache[name] = self.decode_properties(zc, type_, name)
+            self.__on_service_added(name, self.cache[name])
+        elif self.cache[name] != self.decode_properties(zc, type_, name):
+            # If in cache but properties have changed, update cache and call the updated callback
+            self.cache[name] = self.decode_properties(zc, type_, name)
+            self.__on_service_updated(name, self.cache[name])
+        else:
+            # If in cache and properties have not changed, do nothing
+            pass
 
     def remove_service(self, zc: Zeroconf, type_: str, name: str) -> None:
-        self.__on_service_removed(name)
+        if name in self.cache:
+            # Remove the service from cache and call the removed callback
+            del self.cache[name]
+            self.__on_service_removed(name)
+        else:
+            # If the service is not in cache do nothing
+            pass
+
 
     def update_service(self, zc: Zeroconf, type_: str, name: str) -> None:
-        self.__on_service_updated(name, self.decode_properties(zc, type_, name))
+        # If the service is in cache and properties have changed, update cache and call the updated callback
+        if name in self.cache and self.cache[name] != self.decode_properties(zc, type_, name):
+            self.cache[name] = self.decode_properties(zc, type_, name)
+            self.__on_service_updated(name, self.cache[name])
+        else:
+            # If the service is not in cache or properties have not changed, do nothing
+            pass 
 
 
 class ServiceManager:
@@ -83,9 +107,12 @@ class ServiceManager:
             )
             try:
                 zeroconf = Zeroconf(intface_ips)
-                await zeroconf.async_register_service(service_info)
+                await zeroconf.async_register_service(service_info, cooperating_responders=True)
                 self._zeroconf_server[service_info] = zeroconf
                 service_infos.append(service_info)
+            except NonUniqueNameException as e:
+                self.__logger.error(f"Service name {name} is already in use.")
+                raise RuntimeError(f"Service name {name} is already in use.") from e
             except Exception as e:
                 self.__logger.error(f"Failed to register service {name}: {e}")
                 raise RuntimeError(f"Failed to register service {name}: {e}") from e
@@ -108,9 +135,9 @@ class ServiceManager:
         on_service_added: Callable[[str, dict[str, str]], None],
         on_service_removed: Callable[[str], None],
         on_service_updated: Callable[[str, dict[str, str]], None],
-    ) -> CallbackServiceListener:
+    ) -> CallbackCachedServiceListener:
         self.__logger.info("Starting service listener for type" + service_type + "...")
-        return CallbackServiceListener(
+        return CallbackCachedServiceListener(
             on_service_added=on_service_added,
             on_service_removed=on_service_removed,
             on_service_updated=on_service_updated,

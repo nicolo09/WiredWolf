@@ -87,7 +87,7 @@ class ServerConnectionHandler(abc.ABC):
         pass
 
     @abc.abstractmethod
-    async def start_listening(self, bind_address: tuple[str, int]) -> None:
+    async def start_listening(self, bind_address: tuple[str|None, int]) -> None:
         pass
 
     @abc.abstractmethod
@@ -387,7 +387,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 self._handle_peer_message(peer)
             )
 
-    async def start_listening(self, bind_address: tuple[str, int]) -> None:
+    async def start_listening(self, bind_address: tuple[str|None, int]) -> None:
         if self._server:
             raise RuntimeError("Server is already listening for new connections.")
         else:
