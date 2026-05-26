@@ -3,6 +3,7 @@ import ipaddress
 import logging
 import socket
 from zeroconf import ServiceBrowser, ServiceInfo, ServiceListener, Zeroconf
+from netifaces import interfaces, ifaddresses, AF_INET
 
 
 class CallbackServiceListener(ServiceListener):
@@ -23,7 +24,9 @@ class CallbackServiceListener(ServiceListener):
             info = zc.get_service_info(type_, name)
             if info and info.properties:
                 service_properties = {
-                    key.decode("utf-8"): value.decode("utf-8") if isinstance(value, bytes) else ""
+                    key.decode("utf-8"): value.decode("utf-8")
+                    if isinstance(value, bytes)
+                    else ""
                     for key, value in info.properties.items()
                 }
         except Exception as e:
@@ -50,33 +53,36 @@ class ServiceManager:
         self._service_type: str = service_type
         self._closed: bool = False
 
-    def _get_all_local_ips(self) -> list[str]:
-        ips = []
-        hostname = socket.gethostname()
-        for info in socket.getaddrinfo(hostname, None):
-            family, _, _, _, sockaddr = info
-            if family == socket.AF_INET:          # solo IPv4
-                ip = str(sockaddr[0])
-                if not ip.startswith("127."):     # escludi loopback
-                    ips.append(ip)
-        return list(set(ips))   # deduplica
+    def _get_all_local_ips(self) -> list[list[str]]:
+        intface_ips = []
+        for iface_name in interfaces():
+            ips = []
+            ifaddresses(iface_name)
+            for info in ifaddresses(iface_name).get(AF_INET, []):
+                ip = str(info["addr"])
+                # if not ip.startswith("127."):     # exclude loopback
+                ips.append(ip)
+            intface_ips.append(ips)
+        return intface_ips
 
-    async def register_service(self, name: str, receiverPort: int, properties: dict[str, str]) -> list[ServiceInfo]:
+    async def register_service(
+        self, name: str, receiverPort: int, properties: dict[str, str]
+    ) -> list[ServiceInfo]:
         self.__logger.info(f"Registering service {name} on port {receiverPort}...")
         service_infos = []
-        for ip in self._get_all_local_ips():
-            self.__logger.debug(f"Local IP address found: {ip}")
+        for intface_ips in self._get_all_local_ips():
+            self.__logger.debug(f"Local IP address found: {intface_ips}")
             service_info = ServiceInfo(
                 type_=self._service_type,
                 name=name + "." + self._service_type,
-                addresses=[socket.inet_aton(ip)],
+                addresses=[socket.inet_aton(ip) for ip in intface_ips],
                 port=receiverPort,
                 properties={
                     key: value.encode("utf-8") for key, value in properties.items()
                 },
             )
             try:
-                zeroconf = Zeroconf(ip)
+                zeroconf = Zeroconf(intface_ips)
                 await zeroconf.async_register_service(service_info)
                 self._zeroconf_server[service_info] = zeroconf
                 service_infos.append(service_info)
@@ -92,7 +98,9 @@ class ServiceManager:
             zeroconf = self._zeroconf_server.get(service_info)
             if zeroconf:
                 await zeroconf.async_unregister_service(service_info)
-                self.__logger.info(f"Service {service_info.name} unregistered successfully.")
+                self.__logger.info(
+                    f"Service {service_info.name} unregistered successfully."
+                )
 
     def get_service_listener(
         self,
@@ -124,7 +132,7 @@ class ServiceManager:
             tuple[str, int]: A tuple containing the IP address and port of the service.
         """
         service_info = await self._zeroconf_client.async_get_service_info(
-            type_=self._service_type, name=service_name+"." + self._service_type
+            type_=self._service_type, name=service_name + "." + self._service_type
         )
         if service_info and service_info.addresses[0] and service_info.port:
             return str(
@@ -149,4 +157,3 @@ class ServiceManager:
             self.__logger.info("Zeroconf instance closed.")
         except Exception as e:
             self.__logger.warning(f"Error while closing Zeroconf: {e}")
-
