@@ -11,8 +11,7 @@ from wiredwolf.controller.lobbies import LobbyInfo, TcpMdnsLobbyBrowser
 from wiredwolf.view.custom_events import EventSender
 
 LOBBY_NAME = "Test Lobby"
-USER1_NAME = "TestUser"
-USER2_NAME = "SecondUser"
+TEST_USER_BASE = "TestUser"
 
 """
 This test suite verifies the functionality of the entire game except for the view which is modeled only by the EventSender mock. 
@@ -49,7 +48,7 @@ async def controllers(
         controller = GameController(
             browser=TcpMdnsLobbyBrowser(), event_sender=event_sender
         )
-        controller.set_username(f"TestUser{i}")
+        controller.set_username(f"{TEST_USER_BASE}{i}")
         controllers.append((controller, event_sender))
 
     yield controllers
@@ -200,8 +199,8 @@ async def test_controller_leave_lobby(
             "First controller did not update its lobby state after the second controller left within the timeout period."
         )
     assert len(host_game_controller.lobby.peers) == 1
-    assert any(peer.name == USER1_NAME for peer in host_game_controller.lobby.peers)
-    assert not any(peer.name == USER2_NAME for peer in host_game_controller.lobby.peers)
+    assert any(peer == host_game_controller.my_self for peer in host_game_controller.lobby.peers)
+    assert not any(peer == client_game_controller.my_self for peer in host_game_controller.lobby.peers)
     host_event_sender.remove_user_in_lobby.assert_called_once()
 
 
