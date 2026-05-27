@@ -909,8 +909,6 @@ class WaitingLobbyScreen(AbstractScreen):
             game_started.add_done_callback(self._on_game_started)
             self.reset_screen()
             self._game_state_manager.change_screen(Screens.LOADING_GAME)
-            #TODO: when master starts game, is this the correct behaviour? 
-            # Or should the master simply ask the controller to start the game, then the controller sends the custom event back like all other peers?
         else:
             #error message
             tkinter.Tk().wm_withdraw() #to hide the main window
@@ -932,10 +930,8 @@ class WaitingLobbyScreen(AbstractScreen):
 
     def _on_game_started(self, future: Future[None])->None:
         """The callback function called when the controller has actually started the game"""
-        if future.exception() is None:
-            #Game started ok
-            self._game_state_manager.change_screen(Screens.ROLE_DISPLAY)
-        else:
+        if future.exception() is not None:
+            #Game started didn't start correctly
             #Display exception, go back to waiting lobby
             messagebox.showwarning('Error', str(future.exception()))
             self._game_state_manager.change_screen(Screens.LOBBY_WAITING)
@@ -970,6 +966,10 @@ class LoadingGameScreen(AbstractScreen):
                 self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
                 self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
                 self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
+            if isinstance(e, ChangeScreenType):
+                #Should go to Role Screen
+                self._game_state_manager.change_screen(e.next_screen)
+                self.reset_screen() #resets current screen for next time this is used
 
     def reset_screen(self) -> None:
         #Delete panel and create it new
