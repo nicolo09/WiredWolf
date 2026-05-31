@@ -1040,6 +1040,12 @@ class DayVotingScreen(AbstractScreen):
                 if self._global_state.is_dead==False:
                     #Starts voting, if player is alive
                     self._voting_panel.enable()
+                #Add non-votable peers
+                all_players=self._controller.lobby.peers # type: ignore 
+                all_active_players= [item[1] for item in self._player_list] #Get all players with buttons in the panel, which are the active players
+                disabled_players=list(set(all_players)-set(all_active_players)) #Get all non-alive players
+                for elem in disabled_players:
+                    self._add_player(elem, False) #Add non-alive players to the panel, keeping them disabled
                 self._voted_text.text="Start voting for execution!"
             if isinstance(e, ChangeScreenType):
                 #End of voting, changing screen to DayExecutionScreen
@@ -1059,21 +1065,27 @@ class DayVotingScreen(AbstractScreen):
                 self._global_state.is_dead=True
                 self._game_state_manager.change_screen(self._screen_id) #Reload screen to disable panels properly
 
-    def _add_player(self, user:Peer)->None:
-        """Adds a new button username to the panel"""
+    def _add_player(self, user:Peer, disabled:bool=True)->None:
+        """Adds a new button username to the panel, with the option to disable the panel after each addition"""
         #Add new button username
         length=len(self._player_list)
         if length==0:
             #First element, absolute positioning inside the container
-            self._player_list.insert(length, (pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=user.name, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._voting_panel), user))
+            button=pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=user.name, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._voting_panel)
+            self._player_list.insert(length, (button, user))
+            button.disable() #All buttons start as disabled, they will be enabled when the voting starts
         else:
             #Second element, relative positioning (below previous button)
-            self._player_list.insert(length, (pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=user.name, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._player_list[length-1][0]}, container=self._voting_panel), user))
+            button=pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=user.name, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._player_list[length-1][0]}, container=self._voting_panel)
+            self._player_list.insert(length, (button, user))
+            button.disable() #All buttons start as disabled, they will be enabled when the voting starts
         if length>self._elements_before_scrollbar_players:
             #Increase scrollbar size, up to 2 buttons can fit without a scrollbar
             self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
             self._voting_panel.set_scrollable_area_dimensions(self._increased_size)
-        self._voting_panel.disable() #All buttons start as disabled
+        if disabled==True:
+            #Some buttons will be added when the panel is enabled but must be kept disabled, so don't enable again voting panel
+            self._voting_panel.disable() #All buttons start as disabled, also the panel starts out as disabled
 
     def _delete_player(self, user:Peer)->None:
         """Remove a player username to the panel if present"""
@@ -1452,18 +1464,9 @@ class NightRoleScreen(AbstractScreen):
                 self.reset_screen() #resets current screen for next time this is used
             if isinstance(e, UsersType):
                 if e.action==UsersType.s_action_add:
-                #Add username to users you can act on (ex: werewolves can only kill non werewolves ecc)
-                    length=len(self._players_list)
-                    if length==0:
-                        #First element, absolute positioning inside the container
-                        self._players_list.insert(length, (pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.user.name, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._voting_panel), e.user))
-                    else:
-                        #Second element, relative positioning (below previous button)
-                        self._players_list.insert(length, (pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.user.name, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._players_list[length-1][0]}, container=self._voting_panel), e.user))
-                    if length>self._elements_before_scrollbar_players:
-                        #Increase scrollbar size, up to 2 buttons can fit without a scrollbar
-                        self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
-                        self._voting_panel.set_scrollable_area_dimensions(self._increased_size)
+                    self._add_player(e.user)
+                #TODO: all non-sent players are disabled but shown
+                
             if isinstance(e, ChatMessageType):
                 self._send_message(e.message)
             if isinstance(e, ErrorType):
@@ -1484,6 +1487,19 @@ class NightRoleScreen(AbstractScreen):
             messagebox.showwarning('Error', "Player not voted, try again")
             self._voting_panel.enable() 
             
+    def _add_player(self, user:Peer)->None:
+        #Add username to users you can act on (ex: werewolves can only kill non werewolves ecc)
+        length=len(self._players_list)
+        if length==0:
+            #First element, absolute positioning inside the container
+            self._players_list.insert(length, (pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=user.name, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._voting_panel), user))
+        else:
+            #Second element, relative positioning (below previous button)
+            self._players_list.insert(length, (pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=user.name, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._players_list[length-1][0]}, container=self._voting_panel), user))
+        if length>self._elements_before_scrollbar_players:
+            #Increase scrollbar size, up to 2 buttons can fit without a scrollbar
+            self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
+            self._voting_panel.set_scrollable_area_dimensions(self._increased_size)
 
     def _create_users_panel(self)->None:
         """Creates the scrolling panel containing all player buttons"""
