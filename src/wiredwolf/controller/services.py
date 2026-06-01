@@ -146,7 +146,7 @@ class ServiceManager:
     def get_service_browser(self, listener: ServiceListener) -> ServiceBrowser:
         return ServiceBrowser(self._zeroconf_client, self._service_type, listener)
 
-    async def get_service_endpoint(self, service_name: str) -> tuple[str, int]:
+    async def get_service_endpoints(self, service_name: str) -> list[tuple[str, int]]:
         """Returns the endpoint associated with the provided service name by means of service discovery.
 
         Args:
@@ -156,15 +156,16 @@ class ServiceManager:
             RuntimeError: If the service cannot be found or is not properly configured.
 
         Returns:
-            tuple[str, int]: A tuple containing the IP address and port of the service.
+            list[tuple[str, int]]: A list of tuples containing the IP addresses and ports of the service.
         """
         service_info = await self._zeroconf_client.async_get_service_info(
             type_=self._service_type, name=service_name + "." + self._service_type
         )
         if service_info and service_info.addresses[0] and service_info.port:
-            return str(
-                ipaddress.ip_address(service_info.addresses[0])
-            ), service_info.port
+            return [(
+                str(ipaddress.ip_address(ip)),
+                service_info.port
+            ) for ip in service_info.addresses]
         else:
             self.__logger.warning(
                 f"Service {service_name} not found or informations incomplete."

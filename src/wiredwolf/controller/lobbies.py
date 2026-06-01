@@ -346,11 +346,18 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
             tuple[ClientConnectionHandler, Lobby]: The connected client handler and the joined lobby.
         """
         try:
-            ip, port = await self._service_manager.get_service_endpoint(lobby_id)
+            endpoints = await self._service_manager.get_service_endpoints(lobby_id)
         except TimeoutError:
             raise LobbyNotFoundError(f"Could not find lobby '{lobby_id}'.")
 
-        return await self._connect((ip, port), my_self, lobby_password)
+        for ip, port in endpoints:
+            try:
+                return await self._connect((ip, port), my_self, lobby_password)
+            except (ConnectionError, TimeoutError):
+                self.__logger.warning(f"Failed to connect to lobby {lobby_id} at {ip}:{port}, trying next endpoint if available...")
+                continue
+        self.__logger.error(f"All connection attempts to lobby {lobby_id} failed.")
+        raise LobbyNotFoundError(f"Could not connect to lobby '{lobby_id}'.")
 
     # TODO: This should also handle reconnection to previously joined lobbies in case of crash/network issues
 
