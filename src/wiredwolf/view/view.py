@@ -1428,6 +1428,8 @@ class NightRoleScreen(AbstractScreen):
             self._role_name=self._global_state.role_name
             self._role_text.text="Use your power, "+self._role_name
             self._role_container.update_on_next_draw()
+            #TODO: This isn't working because role is sent as Werewolf, instead of WEREWOLF.
+            #The main issue is that the role the view recives is from a different obj than BasicRole, so a slightly different string
             if self._role_name==BasicRole.WEREWOLF.role_name:
                 if self._global_state.is_dead==False:
                     #Show panels to chat with other werewolves
@@ -1465,8 +1467,16 @@ class NightRoleScreen(AbstractScreen):
             if isinstance(e, UsersType):
                 if e.action==UsersType.s_action_add:
                     self._add_player(e.user)
-                #TODO: all non-sent players are disabled but shown
-                
+                #After timeout all non-sent players are disabled but shown
+            if isinstance(e, TimeOutType):
+                if self._global_state.is_dead==False:
+                    self._voting_panel.enable() #Enable panel so that non-votable players can be shown as disabled
+                #Add non-votable peers
+                all_players=self._controller.lobby.peers # type: ignore 
+                all_active_players= [item[1] for item in self._players_list] #Get all players with buttons in the panel, which are the active players
+                disabled_players=list(set(all_players)-set(all_active_players)) #Get all non-alive players
+                for elem in disabled_players:
+                    self._add_player(elem, False) #Add non-interactable players to the panel, keeping them disabled
             if isinstance(e, ChatMessageType):
                 self._send_message(e.message)
             if isinstance(e, ErrorType):
@@ -1487,15 +1497,27 @@ class NightRoleScreen(AbstractScreen):
             messagebox.showwarning('Error', "Player not voted, try again")
             self._voting_panel.enable() 
             
-    def _add_player(self, user:Peer)->None:
+    def _add_player(self, user:Peer, enabled:bool=True)->None:
         #Add username to users you can act on (ex: werewolves can only kill non werewolves ecc)
         length=len(self._players_list)
         if length==0:
             #First element, absolute positioning inside the container
-            self._players_list.insert(length, (pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=user.name, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._voting_panel), user))
+            button=pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=user.name, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._voting_panel)
+            self._players_list.insert(length, (button, user))
+            if enabled:
+                button.enable()
+            else:
+                #keep button disabled
+                button.disable()
         else:
             #Second element, relative positioning (below previous button)
-            self._players_list.insert(length, (pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=user.name, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._players_list[length-1][0]}, container=self._voting_panel), user))
+            button=pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=user.name, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._players_list[length-1][0]}, container=self._voting_panel)
+            self._players_list.insert(length, (button, user))
+            if enabled:
+                button.enable()
+            else:
+                #keep button disabled
+                button.disable()
         if length>self._elements_before_scrollbar_players:
             #Increase scrollbar size, up to 2 buttons can fit without a scrollbar
             self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)

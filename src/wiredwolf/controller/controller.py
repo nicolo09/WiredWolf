@@ -264,6 +264,12 @@ class GameController:
                                 self._event_sender.start_night(
                                     my_self.role is BasicRole.VILLAGER
                                 )
+                                #TODO: this is just a placeholder, copied from accusing phase
+                                self._event_sender.can_use_powers_on([
+                                    Peer(player.name, player.id)
+                                for player in self._game_status.players
+                                if player.is_alive() and player.id != self._my_self.uuid
+                                ])
                     case GamePhase.VILLAGERS_VICTORY | GamePhase.WEREWOLVES_VICTORY:
                         self._logger.info("Game has ended with a victory.")
                         if message.outcome.new_phase == GamePhase.VILLAGERS_VICTORY:
