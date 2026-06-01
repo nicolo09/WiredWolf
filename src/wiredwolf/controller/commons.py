@@ -3,6 +3,7 @@ import random
 import string
 import uuid
 
+DEFAULT_SERVER_HOST = "0.0.0.0"
 DEFAULT_SERVER_PORT = 12233
 CONNECTION_TIMEOUT = 100  # seconds
 
