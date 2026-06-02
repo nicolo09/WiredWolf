@@ -1018,7 +1018,7 @@ class DayVotingScreen(AbstractScreen):
                 if len(event.text)>0 and str.isspace(event.text)==False:
                     #Message isn't empty
                     self._text_input.clear() #Remove message
-                    message_sent=asyncio.create_task(self._controller.send_chat_message(self._global_state.username+":"+event.text))
+                    message_sent=asyncio.create_task(self._controller.send_chat_message(event.text))
                     message_sent.add_done_callback(self._check_if_message_ok)
             if event.type == pygame_gui.UI_BUTTON_PRESSED:
                 #A pygame_gui button is pressed
@@ -1239,7 +1239,7 @@ class DayExecutionScreen(AbstractScreen):
             if len(event.text)>0 and str.isspace(event.text)==False:
                 #Message isn't empty
                 self._text_input.clear() #Remove message
-                message_sent=asyncio.create_task(self._controller.send_chat_message(self._global_state.username+":"+event.text))
+                message_sent=asyncio.create_task(self._controller.send_chat_message(event.text))
                 message_sent.add_done_callback(self._check_if_message_ok)
         if event.type==self._global_state.custom_event:
             #parse the custom event into an object
@@ -1455,7 +1455,7 @@ class NightRoleScreen(AbstractScreen):
             if len(event.text)>0 and str.isspace(event.text)==False:
                 #Message isn't empty
                 self._text_input.clear() #Remove message
-                message_sent=asyncio.create_task(self._controller.send_chat_message(self._global_state.username+":"+event.text))
+                message_sent=asyncio.create_task(self._controller.send_chat_message(event.text))
                 message_sent.add_done_callback(self._check_if_message_ok)
         if event.type==self._global_state.custom_event:
             #parse the custom event into an object
