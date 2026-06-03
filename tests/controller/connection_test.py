@@ -5,7 +5,7 @@ from typing import Any, AsyncGenerator
 from unittest import mock
 import pytest
 import pytest_asyncio
-from tests.controller.conftest import TIMEOUT
+from tests.controller.conftest import TEST_TIMEOUT
 from wiredwolf.controller.commons import DEFAULT_SERVER_PORT, Peer
 import wiredwolf.controller.connections as connections
 from wiredwolf.controller.lobbies import Lobby, TcpMdnsLobbyBrowser
@@ -105,7 +105,7 @@ async def test_send_and_receive():
         await asyncio.start_server(lambda r, w: client_conn_cb(r, w), "127.0.0.1", 8888)
 
     try:
-        async with timeout(TIMEOUT):
+        async with timeout(TEST_TIMEOUT):
             await server()
             await client()
     except asyncio.TimeoutError:
@@ -140,7 +140,7 @@ async def test_wrong_sender_discard_message(
     msg = ChatMessage(sender=fake_sender, message="Hello")
     await client_handler.send_obj(msg)
     try:
-        async with timeout(TIMEOUT):
+        async with timeout(TEST_TIMEOUT):
             await exception_received_event.wait()
     except asyncio.TimeoutError:
         pytest.fail("Exception message not received in time")

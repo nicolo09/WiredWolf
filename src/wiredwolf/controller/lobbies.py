@@ -4,6 +4,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 import dataclasses
 import logging
+
+from zeroconf import ServiceInfo
 from wiredwolf.controller.connections import (
     AsyncTCPClientConnectionHandler,
     AsyncTCPMessageHandler,
@@ -21,7 +23,7 @@ from wiredwolf.controller.commons import (
 )
 from wiredwolf.controller.commons import PasswordRequest
 from wiredwolf.controller.messages import LobbyUpdatedMessage
-from wiredwolf.controller.services import CallbackServiceListener, ServiceManager
+from wiredwolf.controller.services import CallbackCachedServiceListener, ServiceManager
 
 
 SERVICE_TYPE: str = "_wiredwolflobby._tcp.local."
@@ -148,7 +150,7 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
     def __init__(self):
         self._service_manager: ServiceManager = ServiceManager(SERVICE_TYPE)
         self._browser = None
-        self._published_lobby_service_info = None
+        self._published_lobby_service_info: list[ServiceInfo] | None = None
         # We keep track of found lobbies to be able to remove them when they are lost
         self._found_lobbies: dict[str, LobbyInfo] = {}  # Maps lobby UUIDs to their info
 
@@ -193,7 +195,7 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
                 on_lobby_updated(self._found_lobbies[name])
 
         if not self._browser:
-            listener = CallbackServiceListener(
+            listener = CallbackCachedServiceListener(
                 on_service_added=on_lobby_found_cb,
                 on_service_removed=on_lobby_lost_cb,
                 on_service_updated=on_lobby_updated_cb,
@@ -344,11 +346,18 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
             tuple[ClientConnectionHandler, Lobby]: The connected client handler and the joined lobby.
         """
         try:
-            ip, port = await self._service_manager.get_service_endpoint(lobby_id)
+            endpoints = await self._service_manager.get_service_endpoints(lobby_id)
         except TimeoutError:
             raise LobbyNotFoundError(f"Could not find lobby '{lobby_id}'.")
 
-        return await self._connect((ip, port), my_self, lobby_password)
+        for ip, port in endpoints:
+            try:
+                return await self._connect((ip, port), my_self, lobby_password)
+            except (ConnectionError, TimeoutError):
+                self.__logger.warning(f"Failed to connect to lobby {lobby_id} at {ip}:{port}, trying next endpoint if available...")
+                continue
+        self.__logger.error(f"All connection attempts to lobby {lobby_id} failed.")
+        raise LobbyNotFoundError(f"Could not connect to lobby '{lobby_id}'.")
 
     # TODO: This should also handle reconnection to previously joined lobbies in case of crash/network issues
 

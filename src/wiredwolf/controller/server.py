@@ -3,6 +3,7 @@ import logging
 from asyncio import Task
 from socket import socketpair
 from wiredwolf.controller.commons import (
+    DEFAULT_SERVER_HOST,
     PHASE_DURATION_SECONDS,
     DEFAULT_SERVER_PORT,
     FIRST_DAY_PHASE_DURATION_SECONDS,
@@ -111,7 +112,7 @@ class GameServer:
 
     async def start_listening(self):
         await self._server_conn_handler.start_listening(
-            ("127.0.0.1", DEFAULT_SERVER_PORT)
+            (DEFAULT_SERVER_HOST, DEFAULT_SERVER_PORT)
         )
 
     @property

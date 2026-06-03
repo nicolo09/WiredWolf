@@ -643,6 +643,8 @@ class CustomEventSender(EventSender):
     def can_use_powers_on(self, player_list: list[Peer]) -> None:
         for elem in player_list:
             self.send_event_add_user(elem)
+        #Added timeout to signify the end of allowed players and the start of searching for disabled players
+        self.send_event_timeout()
 
     def villager_win(self) -> None:
        self.send_event_chat_message(self._status_messages.villager_win())
