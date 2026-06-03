@@ -19,7 +19,7 @@ from wiredwolf.controller.messages import (
 )
 from wiredwolf.controller.server import GameServer, GameServerFactory
 from wiredwolf.controller.commons import ACK_TIMEOUT_SECONDS, DEFAULT_SERVER_PORT, Peer
-from wiredwolf.model.game import GameStatus
+from wiredwolf.model.game import GameStatus, can_perform_action_on
 from wiredwolf.model.game_phases import GamePhase
 from wiredwolf.model.player import BasicRole, Player
 from wiredwolf.view.custom_events import EventSender
@@ -75,11 +75,20 @@ class GameController:
         Returns:
             Player | None: The local player as a Player object, or None if the lobby or game status is not available.
         """
+        return self._peer_as_player(self._my_self)
+
+    def _peer_as_player(self, peer: Peer) -> Player | None:
+        """Gets a Player object associated with the given peer if the lobby and game status are available.
+
+        Args:
+            peer (Peer): The peer to convert.
+
+        Returns:
+            Player | None: The Player object associated with the peer, or None if not found.
+        """
         if self._lobby and self._game_status:
             return next(
-                player
-                for player in self._game_status.players
-                if player.id == self._my_self.uuid
+                player for player in self._game_status.players if player.id == peer.uuid
             )
         return None
 
@@ -212,7 +221,7 @@ class GameController:
                 myself = self.my_self_as_player()
                 if myself is not None:
                     self._event_sender.user_role(
-                        myself.role.name, ""
+                        myself.role.role_name, ""
                     )  # TODO: Add role description
                 self._event_sender.start_first_day()  # TODO: Shouldn't this be view logic?
             case PhaseAdvanceMessage():
@@ -260,16 +269,20 @@ class GameController:
                     case GamePhase.NIGHT:
                         if self._game_status is not None:
                             my_self = self.my_self_as_player()
-                            if my_self is not None:
+                            if my_self is not None and self.lobby is not None:
                                 self._event_sender.start_night(
                                     my_self.role is BasicRole.VILLAGER
                                 )
-                                #TODO: this is just a placeholder, copied from accusing phase
-                                self._event_sender.can_use_powers_on([
-                                    Peer(player.name, player.id)
-                                for player in self._game_status.players
-                                if player.is_alive() and player.id != self._my_self.uuid
-                                ])
+                                self._event_sender.can_use_powers_on(
+                                    [
+                                        peer
+                                        for peer in self.lobby.peers
+                                        if self._peer_as_player(peer)
+                                        in can_perform_action_on(
+                                            my_self, self._game_status
+                                        )
+                                    ]
+                                )
                     case GamePhase.VILLAGERS_VICTORY | GamePhase.WEREWOLVES_VICTORY:
                         self._logger.info("Game has ended with a victory.")
                         if message.outcome.new_phase == GamePhase.VILLAGERS_VICTORY:
