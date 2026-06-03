@@ -400,7 +400,7 @@ class EventSender(ABC):
         raise NotImplementedError("Please implement this method")
 
     @abstractmethod
-    def start_nomination_for_execution(self, players:list[Peer])->None: 
+    def start_nomination_for_execution(self, players:list[Peer], number_day:int)->None: 
         """The list of players possible to choose from when nominating for execution and starts voting"""
         raise NotImplementedError("Please implement this method")
     
@@ -415,12 +415,12 @@ class EventSender(ABC):
         raise NotImplementedError("Please implement this method")
 
     @abstractmethod
-    def start_night(self, is_villager:bool)->None:
+    def start_night(self, is_villager:bool, number_night:int)->None:
         """Starts the night screens"""
         raise NotImplementedError("Please implement this method")
 
     @abstractmethod
-    def end_night(self)->None:
+    def end_night(self, number_day:int)->None:
         """Ends the night screens"""
         raise NotImplementedError("Please implement this method")
 
@@ -480,22 +480,17 @@ class EventSender(ABC):
         raise NotImplementedError("Please implement this method")
 
 class StatusMessages():
-    """A simple class that constructs messages sent by the server. It keeps count of days"""
+    """A simple class that constructs messages sent by the server, like winning and users killed"""
     def __init__(self, msg_sender:str="GameServer") -> None:
-        self._day_count=1
         self._msg_sender=msg_sender
     
-    def message_day(self)->str:
+    def message_day(self, day:int)->str:
         """Returns the message containing how many days have passed"""
-        return self._msg_sender+": Day "+str(self._day_count)
+        return self._msg_sender+": Day "+str(day)
     
-    def message_night(self)->str:
+    def message_night(self, night:int)->str:
         """Returns the message containing how many nights have passed"""
-        return self._msg_sender+": Night "+str(self._day_count)
-    
-    def next_day(self)->None:
-        """A function that increments the day counter"""
-        self._day_count=self._day_count+1
+        return self._msg_sender+": Night "+str(night)
 
     def wolf_win(self)->str:
         """Returns the message that werewolves have won"""
@@ -512,15 +507,6 @@ class StatusMessages():
     def user_killed_during_night(self, username:str)->str:
         """Returns the message that a user was killed during the night"""
         return self._msg_sender+": "+username+" was killed during the night"
-
-    @property
-    def day_count(self)->int:
-        """Returns the day count"""
-        return self._day_count
-    
-    def reset_day_count(self)->None:
-        """Resets the day count, starts at day 1"""
-        self._day_count=1
 
 class CustomEventSender(EventSender):
     """This class is used to send custom events to the GUI"""
@@ -605,7 +591,8 @@ class CustomEventSender(EventSender):
         self.send_event_to_screen(Screens.ROLE_DISPLAY)
         self.send_event_game_role(role, role_desc)
 
-    def start_nomination_for_execution(self, players: list[Peer]) -> None:
+    def start_nomination_for_execution(self, players: list[Peer], number_day:int) -> None:
+        self.day_message(number_day)
         for elem in players:
             self.send_event_add_user(elem)
         self.start_voting_for_nominations()
@@ -615,27 +602,27 @@ class CustomEventSender(EventSender):
         #TODO: message?
 
     def user_to_nominated_for_ballot(self, user:Peer) -> None:
+        #TODO: num day?
         self.send_event_to_screen(Screens.DAY_EXECUTION)
         self.send_event_add_user(user)
 
     def display_chat_message(self, message: str) -> None:
         self.send_event_chat_message(message)
 
-    def start_night(self, is_villager: bool) -> None:
+    def start_night(self, is_villager: bool, number_night:int) -> None:
         if is_villager==True:
             self.send_event_to_screen(Screens.NIGHT_VILLAGER)
         else:
-            self.send_event_chat_message(self._status_messages.message_night())
             self.send_event_to_screen(Screens.NIGHT_ROLE)
+        self.night_message(number_night)
 
-    def end_night(self) -> None:
+    def end_night(self, number_day:int) -> None:
         self.send_event_to_screen(Screens.DAY_VOTING)
-        self._status_messages.next_day()
-        self.day_message()
+        self.day_message(number_day)
     
     def start_first_day(self)->None:
         self.send_event_to_screen(Screens.DAY_VOTING)
-        self.day_message()
+        self.day_message(1) #Day inferred
 
     def user_role(self, role_name: str, role_description: str) -> None:
         self.send_event_game_role(role_name, role_description)
@@ -652,8 +639,11 @@ class CustomEventSender(EventSender):
     def werewolf_win(self) -> None:
         self.send_event_chat_message(self._status_messages.wolf_win())
 
-    def day_message(self)->None:
-        self.send_event_chat_message(self._status_messages.message_day())
+    def day_message(self, day:int)->None:
+        self.send_event_chat_message(self._status_messages.message_day(day))
+    
+    def night_message(self, night:int)->None:
+        self.send_event_chat_message(self._status_messages.message_night(night))
         
     def message_player_executed(self, user:str)->None:
         self.send_event_chat_message(self._status_messages.user_executed(user))
@@ -675,8 +665,4 @@ class CustomEventSender(EventSender):
 
     def player_is_dead(self)->None:
         self.send_event_dead_player()
-    
-    def reset_day_counter(self)->None:
-        """Resets the day count"""
-        self._status_messages.reset_day_count()
 

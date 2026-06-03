@@ -129,14 +129,6 @@ class TestCustomEvents(unittest.TestCase):
         self.assertRaises(TypeError, UsersType, ("Test", "Wrong action")) #fails because action can only be add or remove
         self.assertRaises(TypeError, LobbyType, ("Lobby", "Wrong action")) #fails because action can only be add or remove
 
-    def test_status_messages_consistency(self)->None:
-        """Test checking if day and night messages are correctly constructed"""
-        for i in range(1, 5):
-            self.assertEqual(self.status_messages.day_count, i)
-            self.assertTrue("Day "+str(i) in self.status_messages.message_day())#Message is something like ...: Day n
-            self.assertTrue("Night "+str(i) in self.status_messages.message_night()) #Message is something like ...: Night n
-            self.status_messages.next_day()
-
     def test_status_messages_win(self)->None:
         """Test checking if winning messages are correctly constructed"""
         self.assertTrue("Villagers won" in self.status_messages.villager_win())

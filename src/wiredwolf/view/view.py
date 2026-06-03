@@ -412,7 +412,6 @@ class View:
         self._global_state.reset()
         self._global_state.custom_event=self._event_sender.custom_event #restores custom event id
         self._panel_handler.role_panel.reset() #reset role panel (displays game role)
-        self._event_sender.reset_day_counter() #resets day count
         self._game_state_manager.change_screen(STARTING_SCREEN)
 
 class StartScreen(AbstractScreen):
