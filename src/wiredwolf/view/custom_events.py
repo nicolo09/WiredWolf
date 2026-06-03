@@ -573,8 +573,8 @@ class CustomEventSender(EventSender):
         self.send_event_to_screen(Screens.ROLE_DISPLAY)
         self.send_event_game_role()
 
-    def start_nomination_for_execution(self, players: list[Peer], number_day:int) -> None:
-        self.day_message(number_day)
+    def start_nomination_for_execution(self, players: list[Peer]) -> None:
+        #Day message not needed, as the chat is shared with day chat
         for elem in players:
             self.send_event_add_user(elem)
         self.start_voting_for_nominations()
