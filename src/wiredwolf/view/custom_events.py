@@ -212,29 +212,15 @@ class ChatMessageType(AbstractEventType):
         return {AbstractEventType.s_event:self._event, ChatMessageType.s_message:self._message}
 
 class GameRoleType(AbstractEventType):
-    """An event sent containing a the player role"""
+    """An event sent containing informing the view that the game role has been set"""
     #static field name to standardize the dictionary key
-    s_role_name="role_name"
-    s_role_descr="role_desc"
 
-    def __init__(self, role:str, description:str)->None:
+    def __init__(self)->None:
         self._event=EventType.GAME_ROLE
-        self._role=role
-        self._desc=description
-
-    @property
-    def role(self)->str:
-        """Returns the role name contained in the event"""
-        return self._role
-    
-    @property
-    def role_description(self)->str:
-        """Returns the role description contained in the event"""
-        return self._desc
     
     def as_dictionary(self) -> dict[Any, Any]:
         """Returns all the fields of the event as a dictionary, used when creating the event in pygame.event.Event()"""
-        return {AbstractEventType.s_event:self._event, GameRoleType.s_role_name:self._role, GameRoleType.s_role_descr: self._desc}
+        return {AbstractEventType.s_event:self._event}
 
 
 def create_change_screen_type(dict: dict[Any, Any])->ChangeScreenType:
@@ -302,11 +288,7 @@ def create_game_role_type(dict:dict[Any, Any])->GameRoleType:
     """Creates a game role type from a correct dictionary"""
     event=dict.get(GameRoleType.s_event)
     assert(event!=EventType.NONE and event!=None and event==EventType.GAME_ROLE)
-    role=dict.get(GameRoleType.s_role_name)
-    assert(role!=None)
-    desc=dict.get(GameRoleType.s_role_descr)
-    assert(desc!=None)
-    return GameRoleType(role, desc)
+    return GameRoleType()
 
 def create_error_type(dict:dict[Any, Any])->ErrorType:
     """Creates a error type from a correct dictionary"""
@@ -390,8 +372,8 @@ class EventSender(ABC):
         raise NotImplementedError("Please implement this method")
     
     @abstractmethod
-    def game_started_by_master_with_role(self, role:str, role_desc:str)->None:
-        """Communicates to the other players that the game was started by the master of the lobby, goes to role screen and gives information about the role"""
+    def game_started_by_master_with_role(self)->None:
+        """Communicates to the other players that the game was started by the master of the lobby, goes to role screen and fetches information about the role"""
         raise NotImplementedError("Please implement this method")
     
     @abstractmethod
@@ -400,7 +382,7 @@ class EventSender(ABC):
         raise NotImplementedError("Please implement this method")
 
     @abstractmethod
-    def start_nomination_for_execution(self, players:list[Peer], number_day:int)->None: 
+    def start_nomination_for_execution(self, players:list[Peer])->None: 
         """The list of players possible to choose from when nominating for execution and starts voting"""
         raise NotImplementedError("Please implement this method")
     
@@ -425,8 +407,8 @@ class EventSender(ABC):
         raise NotImplementedError("Please implement this method")
 
     @abstractmethod
-    def user_role(self, role_name:str, role_description:str)->None:
-        """Sends the user role and a brief description to the view"""
+    def user_role(self)->None:
+        """Sends a message to the view to fetch the game role"""
         raise NotImplementedError("Please implement this method")
 
     @abstractmethod
@@ -555,9 +537,9 @@ class CustomEventSender(EventSender):
         """Sends a custom event to send a chat message"""
         pygame.event.post(pygame.event.Event(self._custom_event, ChatMessageType(message).as_dictionary()))
     
-    def send_event_game_role(self, role:str, description:str)->None:
-        """Sends a custom event containing the game role"""
-        pygame.event.post(pygame.event.Event(self._custom_event, GameRoleType(role, description).as_dictionary()))
+    def send_event_game_role(self)->None:
+        """Sends a custom event telling the view that the game role has been set"""
+        pygame.event.post(pygame.event.Event(self._custom_event, GameRoleType().as_dictionary()))
     
     def send_event_error(self, title:str, message:str)->None:
         """Sends a custom event containing the error message"""
@@ -587,9 +569,9 @@ class CustomEventSender(EventSender):
     def game_started_by_master(self) -> None:
         self.send_event_to_screen(Screens.ROLE_DISPLAY)
 
-    def game_started_by_master_with_role(self, role:str, role_desc:str) -> None:
+    def game_started_by_master_with_role(self) -> None:
         self.send_event_to_screen(Screens.ROLE_DISPLAY)
-        self.send_event_game_role(role, role_desc)
+        self.send_event_game_role()
 
     def start_nomination_for_execution(self, players: list[Peer], number_day:int) -> None:
         self.day_message(number_day)
@@ -624,8 +606,8 @@ class CustomEventSender(EventSender):
         self.send_event_to_screen(Screens.DAY_VOTING)
         self.day_message(1) #Day inferred
 
-    def user_role(self, role_name: str, role_description: str) -> None:
-        self.send_event_game_role(role_name, role_description)
+    def user_role(self) -> None:
+        self.send_event_game_role()
 
     def can_use_powers_on(self, player_list: list[Peer]) -> None:
         for elem in player_list:

@@ -99,16 +99,12 @@ class GlobalState:
     def __init__(self) -> None:
         self._custom_event:int=0 
         self._is_master:bool=False #TODO: is this ok?
-        self._role_name:str="" #TODO:myself.asplayer.role?
-        self._role_description:str=""
         self._is_dead:bool=False #TODO:myself.asplayer.is_alive
 
     def reset(self)->None:
         """Resets the global state"""
         self._custom_event=0
         self._is_master=False
-        self._role_name=""
-        self._role_description=""
         self._is_dead=False
     
     @property
@@ -130,26 +126,6 @@ class GlobalState:
     def is_master(self, is_master:bool)->None:
         """Sets if the player is master (a player is master when it is the lobby owner)"""
         self._is_master=is_master
-
-    @property
-    def role_name(self)->str:
-        """Returns the role name"""
-        return self._role_name
-    
-    @role_name.setter
-    def role_name(self, role_name:str)->None:
-        """Sets the role name"""
-        self._role_name=role_name
-
-    @property
-    def role_description(self)->str:
-        """Returns the role description"""
-        return self._role_description
-    
-    @role_description.setter
-    def role_description(self, role_description:str)->None:
-        """Sets the role description"""
-        self._role_description=role_description
 
     @property
     def is_dead(self)->bool:
@@ -260,14 +236,6 @@ class GameStateManager:
         self._panel_handler.hide_screens(self._current_state) #hides old screen panels
         self._current_state=target_screen
         self._panel_handler.show_screens(target_screen) #shows new screen panels
-
-    def go_back_screen(self)->None:
-        #TODO: remove if unused
-        """A function called when the error screen is closed, using the saved previous screen id, it goes back to the previous screen"""
-        self.change_screen(self._error_screen_handler.get_previous_screen())
-        #Reset error data
-        self._error_screen_handler.reset_error()
-        self._error_screen_handler.reset_previous_screen()
         
 class AbstractScreen(ABC):
     """A screen abstraction, handling the base work of any screen implementation"""
@@ -1407,21 +1375,22 @@ class NightRoleScreen(AbstractScreen):
         self._gui_manager.draw_ui(self._display)
         self._title.draw(self._display)
         self._role_container.draw(self._display)
-        if self._global_state.role_name!=self._role_name:
-            #Global role is set, set it locally
-            self._role_name=self._global_state.role_name
-            self._role_text.text="Use your power, "+self._role_name
-            self._role_container.update_on_next_draw()
-            #TODO: This isn't working because role is sent as Werewolf, instead of WEREWOLF.
-            #The main issue is that the role the view recives is from a different obj than BasicRole, so a slightly different string
-            if self._role_name==BasicRole.WEREWOLF.role_name:
-                if self._global_state.is_dead==False:
-                    #Show panels to chat with other werewolves
-                    self._chat_panel.show()
-                    self._input_panel.show()
-                else:
-                    self._chat_panel.show()
-                    self._input_panel.hide()
+        if self._role_name=="": #Local role name not set
+            #Get it from controller
+            player=self._controller.my_self_as_player()
+            if player!=None:
+                #Should never be None
+                self._role_name=player.role.name
+                self._role_text.text="Use your power, "+self._role_name
+                self._role_container.update_on_next_draw()
+                if player.role==BasicRole.WEREWOLF:
+                    if self._global_state.is_dead==False:
+                        #Show panels to chat with other werewolves
+                        self._chat_panel.show()
+                        self._input_panel.show()
+                    else:
+                        self._chat_panel.show()
+                        self._input_panel.hide()
         
         #Event handling
         self._gui_manager.process_events(event) #processes pygame_gui events
@@ -1606,16 +1575,16 @@ class RoleDisplayScreen(AbstractScreen):
                 self._game_state_manager.change_screen(e.next_screen)
                 self.reset_screen() #resets current screen for next time this is used
             if isinstance(e, GameRoleType):
-                #Update role and description
-                self._title.text=e.role
-                self._title_container.update_on_next_draw()
-                self._description.text=e.role_description
-                self._description_container.update_on_next_draw()
-                self._global_state.role_name=e.role
-                self._global_state.role_description=e.role_description
-                self._global_state.is_dead=False
-                self._panel_handler.role_panel.set_content(self._controller.my_self.name+" ("+e.role+")", e.role_description)
-                self._panel_handler.role_panel.show()
+                #Get role from controller
+                player=self._controller.my_self_as_player()
+                if player!=None:
+                    #Should never be None
+                    self._title.text=player.role.name
+                    self._title_container.update_on_next_draw()
+                    self._description.text=player.role.name #TODO: get description
+                    self._description_container.update_on_next_draw()
+                    self._panel_handler.role_panel.set_content(self._controller.my_self.name+" ("+player.role.name+")", player.role.name) #TODO: get description
+                    self._panel_handler.role_panel.show()
             if isinstance(e, ErrorType):
                 #If it's an error event, show error message
                 self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
