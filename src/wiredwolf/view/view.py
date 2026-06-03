@@ -97,31 +97,19 @@ class ErrorScreenHandler():
 class GlobalState:
     """A global application state, for saving data across screens easily"""
     def __init__(self) -> None:
-        self._username:str=""
-        self._custom_event:int=0
-        self._is_master:bool=False
-        self._role_name:str=""
+        self._custom_event:int=0 
+        self._is_master:bool=False #TODO: is this ok?
+        self._role_name:str="" #TODO:myself.asplayer.role?
         self._role_description:str=""
-        self._is_dead:bool=False
+        self._is_dead:bool=False #TODO:myself.asplayer.is_alive
 
     def reset(self)->None:
         """Resets the global state"""
-        self._username=""
         self._custom_event=0
         self._is_master=False
         self._role_name=""
         self._role_description=""
         self._is_dead=False
-
-    @property
-    def username(self)->str:
-        """Returns the username"""
-        return self._username
-    
-    @username.setter
-    def username(self, username:str)->None:
-        """Sets the username"""
-        self._username=username
     
     @property
     def custom_event(self)->int:
@@ -418,12 +406,10 @@ class View:
 
     def reset(self)->None:
         """A function to reset the view to the initial state, used when going back to the home screen. Username isn't reset"""
-        self._dictionary[self._game_state_manager.current_state].reset_screen() #reset current screen 
-        username=self._global_state.username #save username
+        self._dictionary[self._game_state_manager.current_state].reset_screen() #reset current screen     
         self._game_state_manager.error_screen_handler.reset_error() #if game is in an error state, also reset error state
         self._game_state_manager.error_screen_handler.reset_previous_screen()
         self._global_state.reset()
-        self._global_state.username=username #restore username
         self._global_state.custom_event=self._event_sender.custom_event #restores custom event id
         self._panel_handler.role_panel.reset() #reset role panel (displays game role)
         self._event_sender.reset_day_counter() #resets day count
@@ -454,7 +440,6 @@ class StartScreen(AbstractScreen):
         self._field.handle_event(event)
         tmp=self._field.text
         if len(tmp)>0 and str.isspace(tmp)==False: #the username field is filled by chars, not empty or only whitespaces
-            self._global_state.username=self._field.text #save username between screens
             self._controller.set_username(self._field.text) #communicate username to controller
             self._new_lobby_button.is_enabled=True
             self._search_lobby_button.is_enabled=True
@@ -1630,7 +1615,7 @@ class RoleDisplayScreen(AbstractScreen):
                 self._global_state.role_name=e.role
                 self._global_state.role_description=e.role_description
                 self._global_state.is_dead=False
-                self._panel_handler.role_panel.set_content(self._global_state.username+" ("+e.role+")", e.role_description)
+                self._panel_handler.role_panel.set_content(self._controller.my_self.name+" ("+e.role+")", e.role_description)
                 self._panel_handler.role_panel.show()
             if isinstance(e, ErrorType):
                 #If it's an error event, show error message
