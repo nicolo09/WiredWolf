@@ -1476,7 +1476,7 @@ class NightRoleScreen(AbstractScreen):
             #Increase scrollbar size, up to 2 buttons can fit without a scrollbar
             self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
             self._voting_panel.set_scrollable_area_dimensions(self._increased_size)
-        if enabled==False:
+        if enabled:
             self._voting_panel.disable() #All buttons start as disabled, also the panel starts out as disabled
 
     def _create_users_panel(self)->None:
@@ -1486,6 +1486,7 @@ class NightRoleScreen(AbstractScreen):
         self._elements_before_scrollbar_players=int(PANEL_Y/(LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV))-1 #3 elements can fit without a scrollbar, 4th element needs it
         self._voting_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(-100,0, self._starting_size[0], self._starting_size[1]), anchors={'centerx':'centerx', 'centery':'centery'}, enabled_even_for_dead=False)
         self._voting_panel.set_scrollable_area_dimensions(self._starting_size)
+        self._voting_panel.disable() #Panel starts as disabled
 
     def _create_chat_panel(self)->None:
         """Creates the chat panel"""
