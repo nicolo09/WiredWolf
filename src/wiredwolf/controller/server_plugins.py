@@ -8,6 +8,7 @@ from wiredwolf.controller.messages import (
     VotePlayerMessage,
 )
 from wiredwolf.controller.server import GameServer, ServerPlugin
+from wiredwolf.model.game_phases import GamePhase
 
 
 class ChatPlugin(ServerPlugin):
@@ -63,15 +64,22 @@ class VotingPlugin(ServerPlugin):
             #TODO: Add night action voting here as well
             case VotePlayerMessage():
                 try:
-                    server.game.accuse_player(
-                        message.sender.uuid, message.voted_player_uuid
-                    )
+                    match server.game.phase:
+                        #TODO: This should be 2 different message types, because a message might be sent during day and arrive during night 
+                        case GamePhase.DAY_ACCUSING:
+                            server.game.accuse_player(
+                            message.sender.uuid, message.voted_player_uuid
+                        )
+                        case GamePhase.NIGHT:
+                            server.game.perform_night_action(
+                                message.sender.uuid, message.voted_player_uuid
+                            )
                     await server.connection_handler.send_obj(
-                        message.sender,
-                        AcknowledgeMessage(
-                            message.id, message.sender, "Vote registered successfully."
-                        ),
-                    )
+                            message.sender,
+                            AcknowledgeMessage(
+                                message.id, message.sender, "Vote registered successfully."
+                            ),
+                        )    
                     return True
                 except Exception as e:
                     self._logger.error("Error handling vote: %s", e)
