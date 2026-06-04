@@ -1451,32 +1451,24 @@ class NightRoleScreen(AbstractScreen):
             messagebox.showwarning('Error', "Player not voted, try again")
             self._voting_panel.enable() 
             
-    def _add_player(self, user:Peer, enabled:bool=True)->None:
+    def _add_player(self, user:Peer, disabled:bool=True)->None:
         #Add username to users you can act on (ex: werewolves can only kill non werewolves ecc)
         length=len(self._players_list)
         if length==0:
             #First element, absolute positioning inside the container
             button=pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=user.name, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._voting_panel)
             self._players_list.insert(length, (button, user))
-            if enabled:
-                button.enable()
-            else:
-                #keep button disabled
-                button.disable()
+            button.disable()
         else:
             #Second element, relative positioning (below previous button)
             button=pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=user.name, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._players_list[length-1][0]}, container=self._voting_panel)
             self._players_list.insert(length, (button, user))
-            if enabled:
-                button.enable()
-            else:
-                #keep button disabled
-                button.disable()
+            button.disable()
         if length>self._elements_before_scrollbar_players:
             #Increase scrollbar size, up to 2 buttons can fit without a scrollbar
             self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
             self._voting_panel.set_scrollable_area_dimensions(self._increased_size)
-        if enabled:
+        if disabled:
             self._voting_panel.disable() #All buttons start as disabled, also the panel starts out as disabled
 
     def _create_users_panel(self)->None:
