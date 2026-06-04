@@ -16,6 +16,7 @@ class GameStatus:
     modules: set[str] 
     game_data: GameActionData
     phase: GamePhase
+    day_count: int
 
 
 # TODO: revise documentation (remove at the end)
@@ -34,6 +35,7 @@ class Game:
         players: list[Player],
         game_info: AbstractGameInfo,
         phase: GamePhase = GamePhase.FIRST_DAY,
+        day_count: int = 1,
     ):
         """
         Initialize a new game instance.
@@ -42,10 +44,12 @@ class Game:
             players (list[Player]): List of Player objects participating in the game.
             game_info (AbstractGameInfo): The information to handle game rules, votes, and actions.
             phase (GamePhase): The starting phase of the game. Defaults to FIRST_DAY.
+            day_count (int): The current day count. Defaults to 1.
         """
         self._players: list[Player] = players
         self._phase: GamePhase = phase
         self._game_info: AbstractGameInfo = game_info
+        self._day_count: int = day_count
 
     @classmethod
     def from_game_status(cls, game_status: GameStatus) -> "Game":
@@ -67,6 +71,7 @@ class Game:
             .with_roles(game_status.roles)
             .build(),
             game_status.phase,
+            game_status.day_count,
         )
 
     @property
@@ -78,6 +83,11 @@ class Game:
     def players(self) -> list[Player]:
         """Return a copy of the players list."""
         return self._players.copy()
+    
+    @property
+    def day_count(self) -> int:
+        """Get the current day count."""
+        return self._day_count
 
     def get_game_status(self) -> GameStatus:
         """
@@ -92,6 +102,7 @@ class Game:
             self._game_info.get_game_modules(),
             self._game_info.get_game_data(),
             self._phase,
+            self._day_count,
         )
 
     def advance_phase(self) -> GamePhaseOutcome:
@@ -111,7 +122,6 @@ class Game:
         match self._phase:
             case GamePhase.FIRST_DAY:
                 self._phase = GamePhase.NIGHT
-            
             case GamePhase.DAY_DISCUSSION:
                 self._phase = GamePhase.DAY_ACCUSING
 
@@ -154,6 +164,8 @@ class Game:
 
                 self._game_info.reset_actions()
                 self._phase = GamePhase.DAY_DISCUSSION
+                self._day_count += 1
+                
             case _:
                 # Game is over, no further phase advancement
                 return GamePhaseOutcome(self._phase)

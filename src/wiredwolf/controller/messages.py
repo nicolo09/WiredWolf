@@ -92,9 +92,10 @@ class GameStartedMessage(BaseMessage):
 class PhaseAdvanceMessage(BaseMessage):
     """A message sent by the server to all peers when the game phase has advanced"""
 
-    def __init__(self, outcome: GamePhaseOutcome):
+    def __init__(self, outcome: GamePhaseOutcome, game_status: GameStatus):
         super().__init__(None)
         self._outcome = outcome
+        self._game_status = game_status
 
     @property
     def outcome(self) -> GamePhaseOutcome:
@@ -103,6 +104,14 @@ class PhaseAdvanceMessage(BaseMessage):
             GamePhaseOutcome: The outcome of the game phase advancement.
         """
         return self._outcome
+    
+    @property
+    def game_status(self) -> GameStatus:
+        """Gets the updated game status after the phase advancement.
+        Returns:
+            GameStatus: The updated game status after the phase advancement.
+        """
+        return self._game_status
 
 
 class VotePlayerMessage(BaseMessage):

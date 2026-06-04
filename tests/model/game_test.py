@@ -73,6 +73,7 @@ class GameTest(unittest.TestCase):
 
     def test_initial_state(self):
         self.assertEqual(self.game.phase, GamePhase.DAY_DISCUSSION)
+        self.assertEqual(self.game.day_count, 1)
         for player in self.game.players:
             self.assertEqual(player.status, Status.ALIVE)
 
@@ -96,6 +97,7 @@ class GameTest(unittest.TestCase):
         self.game.perform_night_action("Bob", "Grace")
         self.game.perform_night_action("Frank", "Grace")
         self.game.advance_phase()
+        self.assertEqual(self.game.day_count, 2)
         self.game.kill_player("Eve")
         self.assertEqual(self.game.phase, GamePhase.WEREWOLVES_VICTORY)
         
@@ -126,6 +128,7 @@ class GameStatusTest(unittest.TestCase):
             test_game_info.get_game_modules(),
             test_game_info.get_game_data(),
             GamePhase.NIGHT,
+            1
         )
         
         self.game.kill_player("Alice")
