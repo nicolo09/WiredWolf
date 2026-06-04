@@ -354,6 +354,7 @@ async def test_game_flow(
             )
 
     # Verify that all controllers receive the correct execution result message with the executed player and their role
+    should_be_executed = villagers[0].my_self_as_player().name # pyright: ignore[reportOptionalMemberAccess]
     for controller, event_sender in controllers:
         try:
             if not isinstance(event_sender, mock.Mock):
@@ -362,9 +363,8 @@ async def test_game_flow(
                 while not event_sender.message_player_executed.called:
                     await asyncio.sleep(0.1)
             event_sender.message_player_executed.assert_called_once()
-            #TODO: Check for the correct player
+            assert event_sender.message_player_executed.call_args.args[0] == should_be_executed
         except asyncio.TimeoutError:
             pytest.fail(
                 "A controller did not receive execution result message within the timeout period."
             )
-    
