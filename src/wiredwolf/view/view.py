@@ -99,13 +99,11 @@ class GlobalState:
     def __init__(self) -> None:
         self._custom_event:int=0 
         self._is_master:bool=False #TODO: is this ok?
-        self._is_dead:bool=False #TODO:myself.asplayer.is_alive
 
     def reset(self)->None:
         """Resets the global state"""
         self._custom_event=0
         self._is_master=False
-        self._is_dead=False
     
     @property
     def custom_event(self)->int:
@@ -127,23 +125,13 @@ class GlobalState:
         """Sets if the player is master (a player is master when it is the lobby owner)"""
         self._is_master=is_master
 
-    @property
-    def is_dead(self)->bool:
-        """Returns if the player is dead"""
-        return self._is_dead
-    
-    @is_dead.setter
-    def is_dead(self, is_dead:bool)->None:
-        """Sets if the player is dead"""
-        self._is_dead=is_dead
-
 
 class PanelHandler():
     """A class to handle all panel creations and hiding/showing. Uses global state to enable/disable panels for dead players"""
 
-    def __init__(self, gui_manager:pygame_gui.UIManager, global_state:GlobalState)->None:
+    def __init__(self, gui_manager:pygame_gui.UIManager)->None:
         self._gui_manager=gui_manager
-        self._global_state=global_state
+        self._controller:GameController|None=None
         self._panel_dictionary:dict[Screens,list[tuple[UIElement, bool, bool, bool]]]={} #Can store both UiPanels and UiScrollingContainers
         #this dictionary stores all existing panels connected to the screen they are shown on
         #list of (panels, always_on, enabled_even_for_dead, hidden_for_dead)->if always_on==true, panel is always displayed when screen is shown. Otherwise it stays hidden
@@ -184,11 +172,19 @@ class PanelHandler():
                     element[0].show()
                 #if is_dead->false, panels enabled
                 #if is_dead->true, all panels disabled except the ones with enabled_even_for_dead->true
-                if self._global_state.is_dead==True and element[2]==False:
-                    element[0].disable()
-                #if is_dead->true and is_hidden_for_dead_true, hide panel
-                if self._global_state.is_dead==True and element[3]==True:
-                    element[0].hide()
+                if self._controller!=None:
+                    player=self._controller.my_self_as_player()
+                    #if game hasn't started player is none, so alive by default
+                    if player is not None:
+                        #player is not none
+                        if player.is_alive()==False and element[2]==False:
+                            element[0].disable()
+                        #if is_dead->true and is_hidden_for_dead_true, hide panel
+                        if player.is_alive()==False and element[3]==True:
+                            element[0].hide()
+                    else:
+                        #If you haven't started the game, you are alive by default
+                        element[0].show()
         if screen in [Screens.HOME, Screens.NEW_LOBBY, Screens.SEARCH_LOBBY, Screens.LOBBY_WAITING, Screens.LOADING_LOBBY, Screens.LOADING_GAME, Screens.ROLE_DISPLAY, Screens.ERROR_SCREEN, Screens.NONE]:
             #In these screens, role panel should be hidden
             self.role_panel.hide()
@@ -213,6 +209,11 @@ class PanelHandler():
     def role_panel(self)->RolePanel:
         """Returns the role panel object"""
         return self._role_panel
+
+    def set_controller(self, controller:GameController)->None:
+        """Sets the game controller"""
+        self._controller=controller
+        
 class GameStateManager:
     """The game state manager internally stores which scene is displayed"""
 
@@ -279,7 +280,7 @@ class View:
         self._running = True
         self._gui_manager=pygame_gui.UIManager(self._size, theme_path='resources/theme.json')
         self._global_state=GlobalState()
-        self._panel_handler=PanelHandler(self._gui_manager, self._global_state)
+        self._panel_handler=PanelHandler(self._gui_manager)
         self._game_state_manager=GameStateManager(STARTING_SCREEN, self._panel_handler)
         #Sets custom event sender
         self._event_sender=CustomEventSender()
@@ -369,6 +370,7 @@ class View:
         """A function to connect the controller to the view"""
         self._controller=controller
         #Communicate controller to all screens
+        self._panel_handler.set_controller(controller) #Adds the game controller to the panel handler to handle when player is dead
         for screen in self._dictionary:
             self._dictionary[screen].set_controller(controller)
 
@@ -989,7 +991,8 @@ class DayVotingScreen(AbstractScreen):
                     #Remove user
                     self._delete_player(e.user)
             if isinstance(e, TimeOutType):
-                if self._global_state.is_dead==False:
+                player=self._controller.my_self_as_player()
+                if player!=None and player.is_alive()==True:
                     #Starts voting, if player is alive
                     self._voting_panel.enable()
                 #Add non-votable peers
@@ -1014,7 +1017,6 @@ class DayVotingScreen(AbstractScreen):
             if isinstance(e, DeadPlayerType):
                 #If a player is executed, disable every panel
                 self._panel_handler.role_panel.sets_dead()
-                self._global_state.is_dead=True
                 self._game_state_manager.change_screen(self._screen_id) #Reload screen to disable panels properly
 
     def _add_player(self, user:Peer, disabled:bool=True)->None:
@@ -1209,7 +1211,8 @@ class DayExecutionScreen(AbstractScreen):
                     self._executed_user=e.user
                     self._execute_button.set_text("Vote to execute "+self._executed_user.name)
                     self._spare_button.set_text("Vote to spare "+self._executed_user.name)
-                    if self._global_state.is_dead==False:
+                    player=self._controller.my_self_as_player()
+                    if player!=None and player.is_alive()==True:
                         self._execute_button.enable()
                         self._spare_button.enable()
             if isinstance(e, ErrorType):
@@ -1220,7 +1223,6 @@ class DayExecutionScreen(AbstractScreen):
             if isinstance(e, DeadPlayerType):
                 #If a player is executed, disable every panel
                 self._panel_handler.role_panel.sets_dead()
-                self._global_state.is_dead=True
                 self._game_state_manager.change_screen(self._screen_id) #Reload screen to disable panels properly
     
     def _spare_or_execute(self, outcome:bool)->None:
@@ -1344,7 +1346,6 @@ class NightVillagerScreen(AbstractScreen):
             if isinstance(e, DeadPlayerType):
                 #If a player is executed, disable every panel
                 self._panel_handler.role_panel.sets_dead()
-                self._global_state.is_dead=True
                 self._game_state_manager.change_screen(self._screen_id) #Reload screen to disable panels properly
     
     def reset_screen(self) -> None:
@@ -1384,7 +1385,7 @@ class NightRoleScreen(AbstractScreen):
                 self._role_text.text="Use your power, "+self._role_name
                 self._role_container.update_on_next_draw()
                 if player.role==BasicRole.WEREWOLF:
-                    if self._global_state.is_dead==False:
+                    if player.is_alive()==True:
                         #Show panels to chat with other werewolves
                         self._chat_panel.show()
                         self._input_panel.show()
@@ -1422,7 +1423,8 @@ class NightRoleScreen(AbstractScreen):
                     self._add_player(e.user)
                 #After timeout all non-sent players are disabled but shown
             if isinstance(e, TimeOutType):
-                if self._global_state.is_dead==False:
+                player=self._controller.my_self_as_player()
+                if player!=None and player.is_alive()==True:
                     self._voting_panel.enable() #Enable panel so that non-votable players can be shown as disabled
                 #Add non-votable peers
                 all_players=self._controller.lobby.peers # type: ignore 
@@ -1440,7 +1442,6 @@ class NightRoleScreen(AbstractScreen):
             if isinstance(e, DeadPlayerType):
                 #If a player is executed, disable every panel
                 self._panel_handler.role_panel.sets_dead()
-                self._global_state.is_dead=True
                 self._game_state_manager.change_screen(self._screen_id) #Reload screen to disable panels properly
 
     def _check_voted_player(self, future: Future[None])->None:
@@ -1475,6 +1476,8 @@ class NightRoleScreen(AbstractScreen):
             #Increase scrollbar size, up to 2 buttons can fit without a scrollbar
             self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
             self._voting_panel.set_scrollable_area_dimensions(self._increased_size)
+        if enabled==False:
+            self._voting_panel.disable() #All buttons start as disabled, also the panel starts out as disabled
 
     def _create_users_panel(self)->None:
         """Creates the scrolling panel containing all player buttons"""
