@@ -273,7 +273,7 @@ class GameServer:
         await asyncio.sleep(time_seconds)
         outcome = self._game.advance_phase()
         self.__logger.info("Game phase advanced. Outcome: %s", outcome)
-        await self.send_to_all(PhaseAdvanceMessage(outcome))
+        await self.send_to_all(PhaseAdvanceMessage(outcome, self._game.get_game_status()))
         return outcome
 
     def stop_new_connections(self):
