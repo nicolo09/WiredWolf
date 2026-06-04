@@ -225,7 +225,8 @@ class GameController:
                     )  # TODO: Add role description
                 self._event_sender.start_first_day()  # TODO: Shouldn't this be view logic?
             case PhaseAdvanceMessage():
-                self._logger.info("Game phase has advanced.")
+                self._logger.info("Game phase has advanced, updating game status.")
+                self._game_status = message.game_status
                 if message.outcome.someone_died():
                     self._logger.info("A player has died this phase.")
                     for player in message.outcome.deaths:
