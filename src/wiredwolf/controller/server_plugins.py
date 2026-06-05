@@ -61,9 +61,9 @@ class VotingPlugin(ServerPlugin):
         if not server.game:
             raise RuntimeError("Game has not started yet.")
         match message:
-            #TODO: Add night action voting here as well
             case VotePlayerMessage():
                 try:
+                    action_result = None
                     match server.game.phase:
                         #TODO: This should be 2 different message types, because a message might be sent during day and arrive during night 
                         case GamePhase.DAY_ACCUSING:
@@ -71,13 +71,13 @@ class VotingPlugin(ServerPlugin):
                             message.sender.uuid, message.voted_player_uuid
                         )
                         case GamePhase.NIGHT:
-                            server.game.perform_night_action(
+                            action_result = server.game.perform_night_action(
                                 message.sender.uuid, message.voted_player_uuid
                             )
                     await server.connection_handler.send_obj(
                             message.sender,
                             AcknowledgeMessage(
-                                message.id, message.sender, "Vote registered successfully."
+                                message.id, message.sender, "Vote registered successfully.", action_result
                             ),
                         )    
                     return True

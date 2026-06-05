@@ -2,7 +2,7 @@ import abc
 from dataclasses import dataclass
 import uuid
 from wiredwolf.controller.commons import Peer
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     # Avoid circular imports for type checking
     from wiredwolf.controller.lobbies import Lobby 
@@ -149,10 +149,11 @@ class VoteBallotMessage(BaseMessage):
 class AcknowledgeMessage(BaseMessage):
     """A message sent to confirm that something was successful"""
 
-    def __init__(self, uuid: str, sender: Peer | None, info: str):
+    def __init__(self, uuid: str, sender: Peer | None, info: str, result: Any = None):
         super().__init__(sender)
         self._id = uuid
         self._info = info
+        self._result = result
 
     @property
     def info(self) -> str:
@@ -161,6 +162,14 @@ class AcknowledgeMessage(BaseMessage):
             str: The info message.
         """
         return self._info
+
+    @property
+    def result(self) -> Any:
+        """Gets the result of the acknowledged action.
+        Returns:
+            Any: The result of the acknowledged action.
+        """
+        return self._result
 
 
 class NotAcknowledgeMessage(BaseMessage):

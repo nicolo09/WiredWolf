@@ -1,6 +1,7 @@
 import asyncio
 import copy
 import logging
+from typing import Any
 
 from wiredwolf.controller.connections import ClientConnectionHandler
 from wiredwolf.controller.lobbies import LobbyBrowser, LobbyBrowserFactory, LobbyInfo
@@ -20,7 +21,7 @@ from wiredwolf.controller.messages import (
 from wiredwolf.controller.server import GameServer, GameServerFactory
 from wiredwolf.controller.commons import ACK_TIMEOUT_SECONDS, DEFAULT_SERVER_PORT, Peer
 from wiredwolf.model.game import GameStatus, can_perform_action_on
-from wiredwolf.model.game_phases import GamePhase
+from wiredwolf.model.game_phases import GamePhase, NightActionResult
 from wiredwolf.model.player import BasicRole, Player
 from wiredwolf.view.custom_events import EventSender
 
@@ -40,7 +41,7 @@ class GameController:
         self._server: GameServer | None = None
         self._my_self: Peer
         self._client_connection_handler: ClientConnectionHandler | None = None
-        self._waiting_for_ack: dict[str, tuple[asyncio.Event, Exception | None]] = {}
+        self._waiting_for_ack: dict[str, tuple[asyncio.Event, Any]] = {}
         self._game_status: GameStatus | None = None
         self._event_sender: EventSender = event_sender
 
@@ -315,7 +316,7 @@ class GameController:
             case _:
                 self._logger.warning("Unhandled message type: %s", type(message))
 
-    async def _wait_for_acknowledgment(self, message_id: str):
+    async def _wait_for_acknowledgment(self, message_id: str) -> Any:
         """Waits for an acknowledgment for a message with the given ID.
 
         Args:
@@ -324,24 +325,26 @@ class GameController:
         try:
             async with asyncio.timeout(ACK_TIMEOUT_SECONDS):
                 await self._waiting_for_ack[message_id][0].wait()
-            error = self._waiting_for_ack[message_id][1]
-            if error:
-                self._logger.error("Error NACK received for message: %s", message_id)
-                raise error
-            else:
-                self._logger.info("ACK received for message: %s", message_id)
+            if self._waiting_for_ack[message_id][1] is not None:
+                result = self._waiting_for_ack[message_id][1]
+                if isinstance(result, Exception):
+                    self._logger.error("Error NACK received for message: %s", message_id)
+                    raise result
+                else:
+                    self._logger.info("ACK received for message: %s", message_id)
+                    return result
         except TimeoutError as e:
             self._logger.warning("ACK timeout for message: %s", message_id)
             raise e
         finally:
             del self._waiting_for_ack[message_id]
 
-    async def _send_message_and_wait_for_ack(self, message: BaseMessage):
+    async def _send_message_and_wait_for_ack(self, message: BaseMessage) -> Any:
         if self._client_connection_handler is None:
             raise RuntimeError("Not connected to a lobby.")
         self._waiting_for_ack[message.id] = (asyncio.Event(), None)
         await self._client_connection_handler.send_obj(message)
-        await self._wait_for_acknowledgment(message.id)
+        return await self._wait_for_acknowledgment(message.id)
 
     async def send_chat_message(self, message: str):
         """Sends a chat message to all peers in the lobby.
@@ -370,9 +373,13 @@ class GameController:
         Args:
             player (Peer): The player to choose.
         """
-        await self._send_message_and_wait_for_ack(
+        result = await self._send_message_and_wait_for_ack(
             VotePlayerMessage(self._my_self, player.uuid)
         )
+        if result:
+            if isinstance(result, NightActionResult):
+                self._event_sender.display_chat_message(f"You have chosen {player.name}.")
+                self._event_sender.display_chat_message(result.message)
 
     async def vote_guilty(self):
         """Votes for the selected player to be guilty. This method may be called only during a
