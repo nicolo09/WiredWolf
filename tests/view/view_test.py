@@ -10,7 +10,7 @@ class TestView(unittest.TestCase):
         self.display_screen = pygame.display.set_mode((100, 100), pygame.RESIZABLE)
         self.gui_manager=pygame_gui.UIManager((100, 100))
         self.global_state=GlobalState()
-        self.panel_handler=PanelHandler(self.gui_manager, self.global_state)
+        self.panel_handler=PanelHandler(self.gui_manager)
         self.start_screen=Screens.HOME
         self.game_state_manager=GameStateManager(self.start_screen, self.panel_handler)
 
