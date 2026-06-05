@@ -10,7 +10,6 @@ from wiredwolf.controller.connections import (
 from wiredwolf.controller.lobbies import Lobby, LobbyBrowser, TcpMdnsLobbyBrowser
 from wiredwolf.controller.messages import LobbyUpdatedMessage
 from wiredwolf.controller.server import GameServer, GameServerFactory
-from wiredwolf.controller.server_plugins import ChatPlugin, GameLifecyclePlugin
 
 
 class TestFactory:

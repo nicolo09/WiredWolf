@@ -3,6 +3,8 @@ import copy
 import logging
 from typing import Any
 
+from tests.controller import utils
+from wiredwolf.controller import commons
 from wiredwolf.controller.connections import ClientConnectionHandler
 from wiredwolf.controller.lobbies import LobbyBrowser, LobbyBrowserFactory, LobbyInfo
 from wiredwolf.controller.lobbies import Lobby
@@ -10,6 +12,7 @@ from wiredwolf.controller.messages import (
     AcknowledgeMessage,
     BaseMessage,
     ChatMessage,
+    ConnectionClosedMessage,
     GameStartedMessage,
     LobbyUpdatedMessage,
     NotAcknowledgeMessage,
@@ -313,6 +316,13 @@ class GameController:
                     self._logger.warning(
                         "Received chat message with missing sender or message content."
                     )
+            case ConnectionClosedMessage():
+                self._logger.info("Connection closed message received: %s", message.info)
+                async def show_error_and_go_home():
+                    self._event_sender.error_occurred("", message.info) #TODO: Add title
+                    await asyncio.sleep(commons.ERROR_PAUSE_TIME)  # Wait for a moment to let the user read the message
+                    self._event_sender.error_ended_go_to_home()
+                asyncio.create_task(show_error_and_go_home())
             case _:
                 self._logger.warning("Unhandled message type: %s", type(message))
 

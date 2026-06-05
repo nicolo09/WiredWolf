@@ -203,3 +203,19 @@ class NightActionMessage(BaseMessage):
             str: The UUID of the target player.
         """
         return self._target_player_uuid
+
+
+class ConnectionClosedMessage(BaseMessage):
+    """A message sent to indicate that the connection has been closed"""
+
+    def __init__(self, info: str):
+        super().__init__(None)
+        self._info = info
+
+    @property
+    def info(self) -> str:
+        """Gets the info message about the connection closure.
+        Returns:
+            str: The info message about the connection closure.
+        """
+        return self._info
