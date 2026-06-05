@@ -878,6 +878,7 @@ class WaitingLobbyScreen(AbstractScreen):
 
     def _go_home(self)->None:
         """Function called by go home lobby"""
+        self.reset_screen()
         self._game_state_manager.change_screen(Screens.HOME)
         self._global_state.is_master=False
         asyncio.create_task(self._controller.leave())
