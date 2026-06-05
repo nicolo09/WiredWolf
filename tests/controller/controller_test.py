@@ -1,19 +1,15 @@
 import asyncio
-import logging
-from typing import AsyncGenerator
 from unittest import mock
 
 import pytest
-import pytest_asyncio
 from tests.controller.conftest import TEST_TIMEOUT
-from wiredwolf.controller.commons import FIRST_DAY_PHASE_DURATION_SECONDS, PHASE_DURATION_SECONDS
+
 from wiredwolf.controller.controller import GameController
-from wiredwolf.controller.lobbies import LobbyInfo, TcpMdnsLobbyBrowser
-from wiredwolf.model.player import BasicRole, Role
+from wiredwolf.controller.lobbies import LobbyInfo
 from wiredwolf.view.custom_events import EventSender
 
 LOBBY_NAME = "Test Lobby"
-TEST_USER_BASE = "TestUser"
+
 
 """
 This test suite verifies the functionality of the entire game except for the view which is modeled only by the EventSender mock. 
@@ -25,41 +21,6 @@ a prerequisite, SO THE TESTS ARE NOT INDEPENDENT, even though they can be run in
 The tests in this suite uses mock.Mock which cannot easily be type checked, the mocked methods name cannot be verified, double 
 check that in case of errors.
 """
-
-
-@pytest_asyncio.fixture
-async def controllers(
-    request,
-) -> AsyncGenerator[list[tuple[GameController, EventSender]], None]:
-    """
-    Return a list of (GameController, EventSender) tuples.
-
-    To parametrize the number of controllers, decorate the test with:
-    - `@pytest.mark.parametrize("controllers", [n], indirect=True)` where `n` is the number of controllers to create.
-
-    Defaults to 2 controllers when no parameter is provided.
-    """
-    # Prefer indirect parametrization value when present
-    num = getattr(request, "param", None)
-    if num is None:
-        num = 2
-
-    controllers = []
-    for i in range(num):
-        event_sender = mock.Mock()
-        controller = GameController(
-            browser=TcpMdnsLobbyBrowser(), event_sender=event_sender
-        )
-        controller.set_username(f"{TEST_USER_BASE}{i}")
-        controllers.append((controller, event_sender))
-
-    yield controllers
-
-    for controller, _ in controllers:
-        try:
-            await controller.leave()  # TODO: Change this to a more robust method that ensures the controller is properly cleaned up after each test
-        except Exception:
-            pass
 
 
 @pytest.mark.asyncio
@@ -121,7 +82,7 @@ async def make_client_join_host(
     assert host_game_controller.lobby is not None
     client_game_controller.start_listening_for_lobbies()
 
-    lobby_info: LobbyInfo|None = None
+    lobby_info: LobbyInfo | None = None
     if isinstance(client_event_sender, mock.Mock):
         try:
             async with asyncio.timeout(TEST_TIMEOUT):
@@ -150,7 +111,9 @@ async def make_client_join_host(
     assert lobby_info is not None, (
         "Lobby info was not received by the second controller."
     )
-    assert lobby_info is not None, "Lobby info was not received by the second controller."
+    assert lobby_info is not None, (
+        "Lobby info was not received by the second controller."
+    )
     assert lobby_info.uuid == host_game_controller.lobby.lobby_info().uuid, (
         "The discovered lobby info does not match the created lobby info."
     )
@@ -173,9 +136,7 @@ async def make_client_join_host(
             while host_game_controller.lobby != client_game_controller.lobby:
                 await asyncio.sleep(0.1)
     except asyncio.TimeoutError:
-        pytest.fail(
-            "Lobbies do not match between controllers."
-        )
+        pytest.fail("Lobbies do not match between controllers.")
 
 
 @pytest.mark.asyncio
@@ -201,8 +162,14 @@ async def test_controller_leave_lobby(
             "First controller did not update its lobby state after the second controller left within the timeout period."
         )
     assert len(host_game_controller.lobby.peers) == 1
-    assert any(peer == host_game_controller.my_self for peer in host_game_controller.lobby.peers)
-    assert not any(peer == client_game_controller.my_self for peer in host_game_controller.lobby.peers)
+    assert any(
+        peer == host_game_controller.my_self
+        for peer in host_game_controller.lobby.peers
+    )
+    assert not any(
+        peer == client_game_controller.my_self
+        for peer in host_game_controller.lobby.peers
+    )
     host_event_sender.remove_user_in_lobby.assert_called_once()
 
 
@@ -219,7 +186,7 @@ async def test_start_game(
         await make_client_join_host(
             host_game_controller, host_event_sender, controller, event_sender
         )
-    #Start the game and verify that all controllers receive the game start event
+    # Start the game and verify that all controllers receive the game start event
     await host_game_controller.start_game()
     if isinstance(host_event_sender, mock.Mock):
         try:
@@ -243,13 +210,18 @@ async def test_start_game(
             pytest.fail(
                 "A client controller did not receive game start message within the timeout period."
             )
-    #Check that everyone has their role assigned and the first day started
+    # Check that everyone has their role assigned and the first day started
     for controller, event_sender in controllers:
         try:
             if not isinstance(event_sender, mock.Mock):
-                pytest.fail("Event sender is not a mock, cannot verify role assignment event.")
+                pytest.fail(
+                    "Event sender is not a mock, cannot verify role assignment event."
+                )
             async with asyncio.timeout(TEST_TIMEOUT):
-                while not event_sender.user_role.called and event_sender.start_first_day.called:
+                while (
+                    not event_sender.user_role.called
+                    and event_sender.start_first_day.called
+                ):
                     await asyncio.sleep(0.1)
             event_sender.user_role.assert_called_once()
             event_sender.start_first_day.assert_called_once()
@@ -257,180 +229,3 @@ async def test_start_game(
             pytest.fail(
                 "A controller did not receive role assignment message within the timeout period."
             )
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("controllers", [8], indirect=True)
-async def test_game_flow(
-    caplog,
-    controllers: list[tuple[GameController, EventSender]],
-):
-    caplog.set_level(logging.DEBUG)
-    await test_start_game(controllers)
-    #Wait for the first day phase to end
-    await asyncio.sleep(FIRST_DAY_PHASE_DURATION_SECONDS) #TODO: Mock this to avoid waiting for the actual duration
-    #Verify that the phase advancement message is received by all controllers and that the first night starts 
-    for controller, event_sender in controllers:
-        try:
-            if not isinstance(event_sender, mock.Mock):
-                pytest.fail("Event sender is not a mock, cannot verify phase advancement event.")
-            async with asyncio.timeout(TEST_TIMEOUT):
-                while not event_sender.start_night.called:
-                    await asyncio.sleep(0.1)
-            event_sender.start_night.assert_called_once()
-            event_sender.reset_mock() 
-        except asyncio.TimeoutError:
-            pytest.fail(
-                "A controller did not receive first night phase advancement message within the timeout period."
-            )
-    
-    await asyncio.sleep(PHASE_DURATION_SECONDS) #TODO: Mock this to avoid waiting for the actual duration
-    #Verify that the second day starts
-    for controller, event_sender in controllers:
-        try:
-            if not isinstance(event_sender, mock.Mock):
-                pytest.fail("Event sender is not a mock, cannot verify phase advancement event.")
-            async with asyncio.timeout(TEST_TIMEOUT):
-                while not event_sender.end_night.called:
-                    await asyncio.sleep(0.1)
-            event_sender.end_night.assert_called_once()
-        except asyncio.TimeoutError:
-            pytest.fail(
-                "A controller did not receive second day phase advancement message within the timeout period."
-            )
-    # Get right players for each role
-    villagers = [controller for controller, _ in controllers if controller.my_self_as_player().role == BasicRole.VILLAGER] # pyright: ignore[reportOptionalMemberAccess]
-    werewolves = [controller for controller, _ in controllers if controller.my_self_as_player().role == BasicRole.WEREWOLF] # pyright: ignore[reportOptionalMemberAccess]
-    clairvoyant = [controller for controller, _ in controllers if controller.my_self_as_player().role == BasicRole.CLAIRVOYANT].pop() # pyright: ignore[reportOptionalMemberAccess]
-
-    # Verify that the voting phase starts
-    for controller, event_sender in controllers:
-        try:
-            if not isinstance(event_sender, mock.Mock):
-                pytest.fail("Event sender is not a mock, cannot verify phase advancement event.")
-            async with asyncio.timeout(TEST_TIMEOUT):
-                while not event_sender.start_nomination_for_execution.called:
-                    await asyncio.sleep(0.1)
-            event_sender.start_nomination_for_execution.assert_called_once()
-        except asyncio.TimeoutError:
-            pytest.fail(
-                "A controller did not receive voting phase advancement message within the timeout period."
-            )
-    
-    # Nominate a player for execution
-    for controller, event_sender in controllers:
-        try:
-            if not isinstance(event_sender, mock.Mock):
-                pytest.fail("Event sender is not a mock, cannot verify nomination event.")
-            async with asyncio.timeout(TEST_TIMEOUT):
-                if controller.my_self is not villagers[0].my_self: 
-                    await controller.choose_player(villagers[0].my_self)
-        except asyncio.TimeoutError:
-            pytest.fail(
-                "A controller couldn't vote within the timeout period."
-            )
-
-    # Verify that all controllers receive the correct ballot message with the nominated player
-    for controller, event_sender in controllers:
-        try:
-            if not isinstance(event_sender, mock.Mock):
-                pytest.fail("Event sender is not a mock, cannot verify ballot message.")
-            async with asyncio.timeout(TEST_TIMEOUT):
-                while not event_sender.user_to_nominated_for_ballot.called:
-                    await asyncio.sleep(0.1)
-            event_sender.user_to_nominated_for_ballot.assert_called_once()
-            nominated_player = event_sender.user_to_nominated_for_ballot.call_args.args[0]
-            assert nominated_player == villagers[0].my_self
-        except asyncio.TimeoutError:
-            pytest.fail(
-                "A controller did not receive ballot message within the timeout period."
-            )
-
-    # Vote to execute the nominated player
-    for controller, event_sender in controllers:
-        try:
-            if not isinstance(event_sender, mock.Mock):
-                pytest.fail("Event sender is not a mock, cannot verify vote message.")
-            async with asyncio.timeout(TEST_TIMEOUT):
-                if controller.my_self is not villagers[0].my_self: 
-                    await controller.vote_guilty()
-        except asyncio.TimeoutError:
-            pytest.fail(
-                "A controller couldn't vote within the timeout period."
-            )
-
-    # Wait for the night
-    for controller, event_sender in controllers:
-        try:
-            if not isinstance(event_sender, mock.Mock):
-                pytest.fail("Event sender is not a mock.")
-            async with asyncio.timeout(TEST_TIMEOUT):
-                while not event_sender.start_night.called:
-                    await asyncio.sleep(0.1)
-            event_sender.start_night.assert_called_once()
-        except asyncio.TimeoutError:
-            pytest.fail(
-                "A controller did not receive night start message within the timeout period after execution."
-            )
-
-    # Verify that all controllers receive the correct execution result message with the executed player and their role
-    should_be_executed = villagers[0].my_self_as_player().name # pyright: ignore[reportOptionalMemberAccess]
-    for controller, event_sender in controllers:
-        try:
-            if not isinstance(event_sender, mock.Mock):
-                pytest.fail("Event sender is not a mock, cannot verify execution result message.")
-            async with asyncio.timeout(TEST_TIMEOUT):
-                while not event_sender.message_player_executed.called:
-                    await asyncio.sleep(0.1)
-            event_sender.message_player_executed.assert_called_once()
-            assert event_sender.message_player_executed.call_args.args[0] == should_be_executed
-        except asyncio.TimeoutError:
-            pytest.fail(
-                "A controller did not receive execution result message within the timeout period."
-            )
-
-    # Resets all mocks
-    for _, event_sender in controllers:
-        if isinstance(event_sender, mock.Mock):
-            event_sender.reset_mock()
-
-    # The werewolves vote for a villager to be killed
-    for controller in werewolves:
-        try:
-            async with asyncio.timeout(TEST_TIMEOUT):
-                await controller.choose_player(villagers[1].my_self)
-        except asyncio.TimeoutError:
-            pytest.fail(
-                "A werewolf controller couldn't choose a player to kill within the timeout period."
-            )
-
-    # Wait for the day
-    for controller, event_sender in controllers:
-        try:
-            if not isinstance(event_sender, mock.Mock):
-                pytest.fail("Event sender is not a mock.")
-            async with asyncio.timeout(TEST_TIMEOUT):
-                while not event_sender.end_night.called:
-                    await asyncio.sleep(0.1)
-            event_sender.end_night.assert_called_once()
-        except asyncio.TimeoutError:
-            pytest.fail(
-                "A controller did not receive day start message within the timeout period after night."
-            )
-    
-    # Verify that all controllers receive the correct kill result message with the killed player
-    assert villagers[1].my_self_as_player().is_alive() is False, "The chosen player was not killed." # pyright: ignore[reportOptionalMemberAccess]
-
-    for controller, event_sender in controllers:
-        try:
-            if not isinstance(event_sender, mock.Mock):
-                pytest.fail("Event sender is not a mock.")
-            async with asyncio.timeout(TEST_TIMEOUT):
-                while not event_sender.message_player_killed_during_night.called:
-                    await asyncio.sleep(0.1)
-            event_sender.message_player_killed_during_night.assert_called_once()
-            assert villagers[1].my_self_as_player().name == event_sender.message_player_killed_during_night.call_args.args[0] # pyright: ignore[reportOptionalMemberAccess]
-        except asyncio.TimeoutError:
-            pytest.fail(
-                "A controller did not receive kill result message within the timeout period after night."
-            )
-

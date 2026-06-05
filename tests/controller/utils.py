@@ -33,8 +33,6 @@ class TestFactory:
             tuple[GameServer, list[ClientConnectionHandler]]: The created GameServer and a list of connected clients, of which the first is the owner.
         """
         server, owner_handler = await GameServerFactory.get_game_server(lobby)
-        server.add_plugin(ChatPlugin())
-        server.add_plugin(GameLifecyclePlugin())
         await server.start_listening()
         clients: list[ClientConnectionHandler] = [owner_handler]
 

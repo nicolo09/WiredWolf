@@ -65,7 +65,6 @@ async def test_start_game_with_too_few_or_too_many_players(
         pytest.fail("No exception received as expected with too few players")
 
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("lobby_owner_server_clients", [15], indirect=True)
 async def test_start_game_success(
@@ -92,6 +91,7 @@ async def test_start_game_success(
     except TimeoutError:
         logger.info("Test timed out waiting for event")
         pytest.fail("No GameStartedMessage received")
+
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("lobby_owner_server_clients", [15], indirect=True)
@@ -121,6 +121,7 @@ async def test_non_owner_cannot_start_game(
         logger.info("Test timed out waiting for event")
         pytest.fail("No exception received as expected from non-owner")
 
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("lobby_owner_server_clients", [15], indirect=True)
 async def test_start_game_multiple_times(
@@ -140,7 +141,7 @@ async def test_start_game_multiple_times(
 
     for handler in handlers:
         handler.set_on_message(on_first_message)
-    
+
     await handlers[0].send_obj(StartGameMessage(owner))
     try:
         async with asyncio.timeout(5):
@@ -151,12 +152,14 @@ async def test_start_game_multiple_times(
 
     # Reset event for second attempt
     event.clear()
+
     def on_second_message(msg: BaseMessage) -> None:
         if isinstance(msg, GameStartedMessage):
             pytest.fail("GameStartedMessage should not be received on second start")
         elif isinstance(msg, NotAcknowledgeMessage):
             logger.info("Correctly received NotAcknowledgeMessage on second start")
             event.set()
+
     for handler in handlers:
         handler.set_on_message(on_second_message)
     await handlers[0].send_obj(StartGameMessage(owner))
@@ -166,8 +169,9 @@ async def test_start_game_multiple_times(
     except TimeoutError:
         logger.info("No messages received on second start as expected")
 
+
 @pytest.mark.asyncio
-@pytest.mark.parametrize("lobby_owner_server_clients", [15], indirect=True)
+@pytest.mark.parametrize("lobby_owner_server_clients", [8], indirect=True)
 async def test_game_phase_advancement(
     lobby_owner_server_clients: tuple[
         Lobby, Peer, GameServer, list[ClientConnectionHandler]
@@ -180,12 +184,12 @@ async def test_game_phase_advancement(
         if isinstance(msg, PhaseAdvanceMessage):
             logger.info("Received PhaseAdvanceMessage")
             event.set()
-        elif isinstance(msg, Exception):
-            raise msg
+        elif isinstance(msg, NotAcknowledgeMessage):
+            raise msg.error
 
     for handler in handlers:
         handler.set_on_message(on_message)
-    
+
     await handlers[0].send_obj(StartGameMessage(owner))
     try:
         async with asyncio.timeout(FIRST_DAY_PHASE_DURATION_SECONDS + 5):
