@@ -21,7 +21,6 @@ class EventType(Enum): #Used to easily identify the type of event sent
     LOBBY='lobby'
     USERNAME='username'
     TIMEOUT='timeout'
-    WAITING_ROOM='waiting-room'
     CHAT_MESSAGE='chat-message'
     GAME_ROLE='game-role'
     ERROR="error"

@@ -127,26 +127,6 @@ class DeadPlayerType(AbstractEventType):
     def as_dictionary(self) -> dict[Any, Any]:
         """Returns all the fields of the event as a dictionary, used when creating the event in pygame.event.Event()"""
         return {AbstractEventType.s_event:self._event}
-
-class WaitingRoomType(AbstractEventType):
-    """An event sent to update how many users are in a waiting room"""
-    #TODO: consider removal, unused
-
-    #static field name to standardize the dictionary key
-    s_number="number"
-
-    def __init__(self, number:int)->None:
-        self._event=EventType.WAITING_ROOM
-        self._number=number
-
-    @property
-    def number(self)->int:
-        """Returns the number of waiting users contained in the event"""
-        return self._number
-    
-    def as_dictionary(self) -> dict[Any, Any]:
-        """Returns all the fields of the event as a dictionary, used when creating the event in pygame.event.Event()"""
-        return {AbstractEventType.s_event:self._event, WaitingRoomType.s_number:self._number}
     
 class ErrorType(AbstractEventType):
     """An event sent to go to the error screen"""
@@ -268,14 +248,6 @@ def create_timeout_type(dict:dict[Any, Any])->TimeOutType:
     assert(event!=EventType.NONE and event!=None and event==EventType.TIMEOUT)
     return TimeOutType()
 
-def create_waiting_room_type(dict:dict[Any, Any])->WaitingRoomType:
-    """Creates a waiting room type from a correct dictionary"""
-    event=dict.get(WaitingRoomType.s_event)
-    assert(event!=EventType.NONE and event!=None and event==EventType.WAITING_ROOM)
-    number=dict.get(WaitingRoomType.s_number)
-    assert(number!=None)
-    return WaitingRoomType(number)
-
 def create_chat_message_type(dict:dict[Any, Any])->ChatMessageType:
     """Creates a chat message type from a correct dictionary"""
     event=dict.get(ChatMessageType.s_event)
@@ -326,8 +298,6 @@ def create_custom_event_from_dict(dict:dict[Any, Any])->AbstractEventType:
                 return create_users_type(dict)
             case EventType.TIMEOUT:
                 return create_timeout_type(dict)
-            case EventType.WAITING_ROOM:
-                return create_waiting_room_type(dict)
             case EventType.CHAT_MESSAGE:
                 return create_chat_message_type(dict)
             case EventType.GAME_ROLE:
@@ -528,10 +498,6 @@ class CustomEventSender(EventSender):
     def send_event_dead_player(self)->None:
         """Sends a custom event to say that the player has died"""
         pygame.event.post(pygame.event.Event(self._custom_event, DeadPlayerType().as_dictionary()))
-
-    def send_event_waiting_room(self, number:int)->None:
-        """Sends a custom event to say how many players are in the waiting room"""
-        pygame.event.post(pygame.event.Event(self._custom_event, WaitingRoomType(number).as_dictionary()))
 
     def send_event_chat_message(self, message:str)->None:
         """Sends a custom event to send a chat message"""

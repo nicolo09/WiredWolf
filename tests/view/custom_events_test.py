@@ -18,7 +18,6 @@ class TestCustomEvents(unittest.TestCase):
         self.username_add=UsersType(Peer("Mario"), UsersType.s_action_add)
         self.username_remove=UsersType(Peer("Luigi"), UsersType.s_action_remove)
         self.timeout=TimeOutType()
-        self.waiting_users=WaitingRoomType(2)
         self.chat_message=ChatMessageType("Mario:Hello!")
         self.role=GameRoleType()
         self.error=ErrorType("A player disconnected", "Please wait while the player re-connects")
@@ -34,7 +33,6 @@ class TestCustomEvents(unittest.TestCase):
         self.assertEqual(self.username_add, create_custom_event_from_dict(self.username_add.as_dictionary()))
         self.assertEqual(self.username_remove, create_custom_event_from_dict(self.username_remove.as_dictionary()))
         self.assertEqual(self.timeout, create_custom_event_from_dict(self.timeout.as_dictionary())) #Useless, no information is passed via dictionary other than type
-        self.assertEqual(self.waiting_users, create_custom_event_from_dict(self.waiting_users.as_dictionary()))
         self.assertEqual(self.chat_message, create_custom_event_from_dict(self.chat_message.as_dictionary()))
         self.assertEqual(self.role, create_custom_event_from_dict(self.role.as_dictionary()))
         self.assertEqual(self.error, create_custom_event_from_dict(self.error.as_dictionary()))
@@ -52,7 +50,6 @@ class TestCustomEvents(unittest.TestCase):
         self.event_sender.send_event_add_user(self.username_add.user)
         self.event_sender.send_event_remove_user(self.username_remove.user)
         self.event_sender.send_event_timeout()
-        self.event_sender.send_event_waiting_room(self.waiting_users.number)
         self.event_sender.send_event_chat_message(self.chat_message.message)
         self.event_sender.send_event_game_role()
         self.event_sender.send_event_error(self.error.title, self.error.message)
@@ -93,9 +90,6 @@ class TestCustomEvents(unittest.TestCase):
                                 raise ValueError("Users type can only be add or remove")
                     if isinstance(e, TimeOutType):
                         self.assertEqual(e, self.timeout) #Useless, no information is passed via dictionary other than type
-                        events_received=events_received+1
-                    if isinstance(e, WaitingRoomType):
-                        self.assertEqual(e, self.waiting_users) 
                         events_received=events_received+1
                     if isinstance(e, ChatMessageType):
                         self.assertEqual(e, self.chat_message) 
