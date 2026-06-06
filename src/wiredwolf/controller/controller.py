@@ -220,9 +220,7 @@ class GameController:
                 self._event_sender.game_started_by_master()
                 myself = self.my_self_as_player()
                 if myself is not None:
-                    self._event_sender.user_role(
-                        myself.role.role_name, ""
-                    )  # TODO: Add role description
+                    self._event_sender.user_role()
                 self._event_sender.start_first_day()  # TODO: Shouldn't this be view logic?
             case PhaseAdvanceMessage():
                 self._logger.info("Game phase has advanced, updating game status.")
@@ -235,7 +233,7 @@ class GameController:
                             self._event_sender.player_is_dead()
                 match message.outcome.new_phase:
                     case GamePhase.DAY_DISCUSSION:
-                        self._event_sender.end_night()
+                        self._event_sender.end_night(0) #TODO: add night count
                     case GamePhase.DAY_ACCUSING:
                         if self._game_status is not None:
                             votable_peers = [
@@ -272,7 +270,7 @@ class GameController:
                             my_self = self.my_self_as_player()
                             if my_self is not None and self.lobby is not None:
                                 self._event_sender.start_night(
-                                    my_self.role is BasicRole.VILLAGER
+                                    my_self.role is BasicRole.VILLAGER,0 #TODO: add night count
                                 )
                                 self._event_sender.can_use_powers_on(
                                     [
