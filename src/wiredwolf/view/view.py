@@ -98,7 +98,6 @@ class GlobalState:
     """A global application state, for saving data across screens easily"""
     def __init__(self) -> None:
         self._custom_event:int=0 
-        self._is_master:bool=False #TODO: is this ok?
 
     def reset(self)->None:
         """Resets the global state"""
@@ -114,17 +113,6 @@ class GlobalState:
     def custom_event(self, custom_event:int)->None:
         """Sets the custom event id"""
         self._custom_event=custom_event
-
-    @property
-    def is_master(self)->bool:
-        """Returns if the player is master (a player is master when it is the lobby owner)"""
-        return self._is_master
-    
-    @is_master.setter
-    def is_master(self, is_master:bool)->None:
-        """Sets if the player is master (a player is master when it is the lobby owner)"""
-        self._is_master=is_master
-
 
 class PanelHandler():
     """A class to handle all panel creations and hiding/showing. Uses global state to enable/disable panels for dead players"""
@@ -501,7 +489,6 @@ class NewLobbyScreen(AbstractScreen):
         e=future.exception()
         if e is None:
             #Lobby created ok
-            self._global_state.is_master=True #Master is true because you created the lobby
             self._game_state_manager.change_screen(Screens.LOBBY_WAITING)
         else:
             messagebox.showwarning('Error', 'Something went wrong when creating the lobby, try again')
@@ -694,7 +681,6 @@ class SearchLobbyScreen(AbstractScreen):
         e=future.exception()
         if e is None:
             #Lobby joined ok
-            self._global_state.is_master=False #Joined lobby, not created lobby
             self._game_state_manager.change_screen(Screens.LOBBY_WAITING)
         else:
             if e is ValueError():
@@ -746,7 +732,7 @@ class WaitingLobbyScreen(AbstractScreen):
             for elem in self._local_lobby.peers:
                 #Add players connected initially to the display
                 self._add_player(elem)
-            if self._global_state.is_master:
+            if self._controller.lobby.owner==self._controller.my_self: #Player created the lobby, so it's master and can start the game
                 #Player is master, so it can start the game
                 self._button.is_enabled=True
             else:
@@ -857,7 +843,8 @@ class WaitingLobbyScreen(AbstractScreen):
 
     def _if_master_start(self) ->None:
         """If the button is pressed by the master, start the game"""
-        if self._global_state.is_master==True: #Player is master if they created the lobby
+        lobby=self._controller.lobby
+        if lobby!=None and lobby.owner==self._controller.my_self: #Player created the lobby, so it's master and can start the game
             #Send message to controller that master started the game
             game_started=asyncio.create_task(self._controller.start_game())
             game_started.add_done_callback(self._on_game_started)
@@ -880,7 +867,6 @@ class WaitingLobbyScreen(AbstractScreen):
         """Function called by go home lobby"""
         self.reset_screen()
         self._game_state_manager.change_screen(Screens.HOME)
-        self._global_state.is_master=False
         asyncio.create_task(self._controller.leave())
 
     def _on_game_started(self, future: Future[None])->None:
