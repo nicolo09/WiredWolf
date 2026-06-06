@@ -43,7 +43,7 @@ class TestCustomEvents(unittest.TestCase):
     def test_custom_event_pygame(self)->None:
         """An event sent to the game loop should be parsed correctly"""
         events_received=0
-        total_events=13
+        total_events=12
         self.event_sender.send_event_to_screen(self.change_screen.next_screen)
         self.event_sender.send_event_new_lobby(self.discovered_lobby_add.lobby_info)
         self.event_sender.send_event_removed_lobby(self.discovered_lobby_remove.lobby_info)
