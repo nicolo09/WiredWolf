@@ -652,16 +652,18 @@ class SearchLobbyScreen(AbstractScreen):
     def _try_to_join_lobby(self)->None:
         """The function called when the lobby is actually created"""
         self._password=simpledialog.askstring(title="Insert password",prompt="Insert password (or leave empty for no password:")
-        psw=None
-        if self._password != "":
-            #If no password is entered, password field is set to None
-            psw=self._password
-        if self._lobby_to_join!=None:
-            lobby_created=asyncio.create_task(self._controller.join_lobby(self._lobby_to_join, psw)) #You join a lobby based on lobby info object, which is unique
-            lobby_created.add_done_callback(self._on_lobby_joined) #Lobby object is available only when you have actually joined the lobby
-            self.reset_screen()
-            self._game_state_manager.change_screen(Screens.LOADING_LOBBY)
-            self._controller.stop_listening_for_lobbies() #Stop searching for lobbies, since you already joined one
+        if self._password is not None:
+            #If the user cancels the password input, don't join the lobby
+            psw=None
+            if self._password != "":
+                #If no password is entered, password field is set to None
+                psw=self._password
+            if self._lobby_to_join!=None:
+                lobby_created=asyncio.create_task(self._controller.join_lobby(self._lobby_to_join, psw)) #You join a lobby based on lobby info object, which is unique
+                lobby_created.add_done_callback(self._on_lobby_joined) #Lobby object is available only when you have actually joined the lobby
+                self.reset_screen()
+                self._game_state_manager.change_screen(Screens.LOADING_LOBBY)
+                self._controller.stop_listening_for_lobbies() #Stop searching for lobbies, since you already joined one
 
     def _on_lobby_joined(self, future: Future[Lobby])->None:
         """The callback function called when the controller has actually created the lobby"""
