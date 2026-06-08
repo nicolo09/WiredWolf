@@ -69,18 +69,6 @@ class ErrorScreenHandler():
         """Reset error title and error message displayed in error screen"""
         self._error_title=""
         self._error_message=""
-
-    def save_previous_screen(self, prev:Screens)->None:
-        """When changing to the error screen, save the previous screen id"""
-        self._last_screen=prev
-
-    def get_previous_screen(self)->Screens:
-        """Returns the previous screen id"""
-        return self._last_screen
-    
-    def reset_previous_screen(self)->None:
-        """Resets previous screen id"""
-        self._last_screen=Screens.NONE
         
     def get_error(self)->tuple[str, str]:
         """Returns the saved error, as (title, message)"""
@@ -366,7 +354,6 @@ class View:
         """A function to reset the view to the initial state, used when going back to the home screen. Username isn't reset"""
         self._dictionary[self._game_state_manager.current_state].reset_screen() #reset current screen     
         self._game_state_manager.error_screen_handler.reset_error() #if game is in an error state, also reset error state
-        self._game_state_manager.error_screen_handler.reset_previous_screen()
         self._global_state.reset()
         self._global_state.custom_event=self._event_sender.custom_event #restores custom event id
         self._panel_handler.role_panel.reset() #reset role panel (displays game role)
@@ -410,8 +397,8 @@ class StartScreen(AbstractScreen):
             e=create_custom_event_from_dict(event.dict)
             if isinstance(e, ErrorType):
                 #If it's an error event, show error message
+                self.reset_screen() #Reset current screen for next time this is used
                 self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
-                self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
                 self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
     
     def reset_screen(self) -> None:
@@ -463,8 +450,8 @@ class NewLobbyScreen(AbstractScreen):
             e=create_custom_event_from_dict(event.dict)
             if isinstance(e, ErrorType):
                 #If it's an error event, show error message
+                self.reset_screen() #Reset current screen for next time this is used
                 self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
-                self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
                 self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
             
     def reset_screen(self) -> None:
@@ -536,8 +523,8 @@ class LoadingLobbyScreen(AbstractScreen):
             e=create_custom_event_from_dict(event.dict)
             if isinstance(e, ErrorType):
                 #If it's an error event, show error message
+                self.reset_screen() #Reset current screen for next time this is used
                 self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
-                self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
                 self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
 
     def reset_screen(self) -> None:
@@ -619,8 +606,8 @@ class SearchLobbyScreen(AbstractScreen):
                         self._remove_lobby(e.lobby_info)
             if isinstance(e, ErrorType):
                 #If it's an error event, show error message
+                self.reset_screen() #Reset current screen for next time this is used
                 self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
-                self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
                 self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
         
     def reset_screen(self) -> None:
@@ -764,8 +751,8 @@ class WaitingLobbyScreen(AbstractScreen):
                     self._delete_player(e.user)
             if isinstance(e, ErrorType):
                 #If it's an error event, show error message
+                self.reset_screen() #Reset current screen for next time this is used
                 self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
-                self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
                 self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
                     
     def _add_player(self, user:Peer)->None:
@@ -904,8 +891,8 @@ class LoadingGameScreen(AbstractScreen):
             e=create_custom_event_from_dict(event.dict)
             if isinstance(e, ErrorType):
                 #If it's an error event, show error message
+                self.reset_screen() #Reset current screen for next time this is used
                 self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
-                self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
                 self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
             if isinstance(e, ChangeScreenType):
                 #Should go to Role Screen
@@ -998,8 +985,8 @@ class DayVotingScreen(AbstractScreen):
                 self._send_message(e.message)
             if isinstance(e, ErrorType):
                 #If it's an error event, show error message
+                self.reset_screen() #Reset current screen for next time this is used
                 self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
-                self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
                 self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
             if isinstance(e, DeadPlayerType):
                 #If a player is executed, disable every panel
@@ -1204,8 +1191,8 @@ class DayExecutionScreen(AbstractScreen):
                         self._spare_button.enable()
             if isinstance(e, ErrorType):
                 #If it's an error event, show error message
+                self.reset_screen() #Reset current screen for next time this is used
                 self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
-                self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
                 self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
             if isinstance(e, DeadPlayerType):
                 #If a player is executed, disable every panel
@@ -1327,8 +1314,8 @@ class NightVillagerScreen(AbstractScreen):
                 self.reset_screen() #resets current screen for next time this is used
             if isinstance(e, ErrorType):
                 #If it's an error event, show error message
+                self.reset_screen() #Reset current screen for next time this is used
                 self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
-                self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
                 self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
             if isinstance(e, DeadPlayerType):
                 #If a player is executed, disable every panel
@@ -1423,8 +1410,8 @@ class NightRoleScreen(AbstractScreen):
                 self._send_message(e.message)
             if isinstance(e, ErrorType):
                 #If it's an error event, show error message
+                self.reset_screen() #Reset current screen for next time this is used
                 self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
-                self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
                 self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
             if isinstance(e, DeadPlayerType):
                 #If a player is executed, disable every panel
@@ -1570,8 +1557,8 @@ class RoleDisplayScreen(AbstractScreen):
                     self._panel_handler.role_panel.show()
             if isinstance(e, ErrorType):
                 #If it's an error event, show error message
+                self.reset_screen() #Reset current screen for next time this is used
                 self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
-                self._game_state_manager.error_screen_handler.save_previous_screen(self._screen_id)
                 self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
         
     def reset_screen(self) -> None:
