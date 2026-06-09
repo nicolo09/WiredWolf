@@ -266,6 +266,7 @@ class View:
         self._search_lobby_screen=SearchLobbyScreen(Screens.SEARCH_LOBBY, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
         self._waiting_lobby_screen=WaitingLobbyScreen(Screens.LOBBY_WAITING, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
         self._day_voting_screen=DayVotingScreen(Screens.DAY_VOTING, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
+        self._day_end_screen=DayEndScreen(Screens.DAY_END, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
         self._day_execution_screen=DayExecutionScreen(Screens.DAY_EXECUTION, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
         self._night_villager_screen=NightVillagerScreen(Screens.NIGHT_VILLAGER, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
         self._night_role_screen=NightRoleScreen(Screens.NIGHT_ROLE, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
@@ -284,7 +285,8 @@ class View:
                           self._role_display_screen.screen: self._role_display_screen,
                           self._loading_screen.screen: self._loading_screen,
                           self._starting_game_screen.screen: self._starting_game_screen,
-                          self._error_screen.screen: self._error_screen}
+                          self._error_screen.screen: self._error_screen,
+                          self._day_end_screen.screen: self._day_end_screen}
         self._clock = pygame.time.Clock()
         #Activate panels of first screen
         self._panel_handler.show_screens(self._game_state_manager.current_state)
@@ -1127,6 +1129,7 @@ class DayVotingScreen(AbstractScreen):
         self._create_voting_panel()
         #Wait to vote 
         self._voted_text.text="Wait to vote..."
+        self._voted_container.update_on_next_draw()
         #Delete all chat messages
         self._chat_messages.clear()
         #Already deleted panel, create it new
@@ -1134,6 +1137,26 @@ class DayVotingScreen(AbstractScreen):
         #Delete text input, already deleted panel
         self._create_input_panel()
         self._text_input.clear()
+
+class DayEndScreen(DayVotingScreen):
+    """The screen where users chat after winning/losing, and can see the game results"""
+
+    def __init__(self, screen: Screens, display: pygame.Surface, game_state_manager: GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler, global_state: GlobalState) -> None:
+        super().__init__(screen, display, game_state_manager, gui_manager, panel_handler, global_state)
+        self._voted_text.text="Game over! Thanks for playing!"
+        self._voted_container=HContainer(SINGLE_ELEMENT_DIV, [self._voted_text], self._display.get_size(), (30, 80))
+        self._voted_container.update_on_next_draw() #Manual update
+
+    def _create_input_panel(self)->None:
+        """Creates the text box panel"""
+        self._input_panel=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(-MEDIUM_PANEL,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'top_target': self._chat_panel}, enabled_even_for_dead=True) #Exactly the same as day voting, but not hidden for dead players, since they can still chat after the game ends
+        #Positioning is: below chat panel, same distance from right side as chat panel
+        #Panel shown to everybody
+        self._text_input=pygame_gui.elements.UITextEntryLine(relative_rect=(0,0,MEDIUM_BTN_WIDTH, AUTO_SIZING), manager=self._gui_manager, initial_text="",container=self._input_panel)
+
+    def reset_screen(self) -> None:
+        self._voted_text.text="Game over! Thanks for playing!"
+        self._voted_container.update_on_next_draw()
 
 class DayExecutionScreen(AbstractScreen):
     """The screen where users chat and choose if the player nominated for execution should be spared or not"""

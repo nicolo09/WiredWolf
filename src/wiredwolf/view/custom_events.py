@@ -388,12 +388,12 @@ class EventSender(ABC):
 
     @abstractmethod
     def villager_win(self)->None:
-        """Tells the view that villagers won"""
+        """Tells the view that villagers won and goes to the end day screen"""
         raise NotImplementedError("Please implement this method")
 
     @abstractmethod
     def werewolf_win(self)->None:
-        """Tells the view that werewolves won"""
+        """Tells the view that werewolves won and goes to the end day screen"""
         raise NotImplementedError("Please implement this method")
     
     @abstractmethod
@@ -582,9 +582,13 @@ class CustomEventSender(EventSender):
         self.send_event_timeout()
 
     def villager_win(self) -> None:
+       #Goes to end day screen
+       self.send_event_to_screen(Screens.DAY_END)
        self.send_event_chat_message(self._status_messages.villager_win())
 
     def werewolf_win(self) -> None:
+        #Goes to end day screen
+        self.send_event_to_screen(Screens.DAY_END)
         self.send_event_chat_message(self._status_messages.wolf_win())
 
     def day_message(self, day:int)->None:

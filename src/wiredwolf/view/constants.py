@@ -14,6 +14,7 @@ class Screens(Enum):
     LOADING_LOBBY='loading lobby'
     LOADING_GAME='loading game'
     ERROR_SCREEN='error'
+    DAY_END='day end'
     NONE="none" 
 
 class EventType(Enum): #Used to easily identify the type of event sent
