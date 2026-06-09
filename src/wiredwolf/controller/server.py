@@ -2,18 +2,7 @@ import asyncio
 import logging
 from asyncio import Task
 from socket import socketpair
-from wiredwolf.controller.commons import (
-    DEFAULT_SERVER_HOST,
-    PHASE_DURATION_SECONDS,
-    DEFAULT_SERVER_PORT,
-    FIRST_DAY_PHASE_DURATION_SECONDS,
-    MAX_PLAYERS,
-    MIN_PLAYERS,
-    PLAYERS_TO_ADD_ESCORT,
-    PLAYERS_TO_ADD_MEDIUM,
-    PasswordRequest,
-    Peer,
-)
+from wiredwolf.controller import commons
 from wiredwolf.controller.connections import (
     ClientConnectionHandler,
     ConnectionHandlerFactory,
@@ -95,7 +84,7 @@ class GameServer:
     def __init__(
         self,
         lobby: Lobby,
-        owner_connection: tuple[Peer, asyncio.StreamReader, asyncio.StreamWriter],
+        owner_connection: tuple[commons.Peer, asyncio.StreamReader, asyncio.StreamWriter],
     ):
         self._lobby: Lobby = lobby
         self._game: Game | None = None  # Placeholder for game instance
@@ -112,7 +101,7 @@ class GameServer:
 
     async def start_listening(self):
         await self._server_conn_handler.start_listening(
-            (DEFAULT_SERVER_HOST, DEFAULT_SERVER_PORT)
+            (commons.DEFAULT_SERVER_HOST, commons.DEFAULT_SERVER_PORT)
         )
 
     @property
@@ -138,14 +127,14 @@ class GameServer:
         """
         return self._game
 
-    async def _on_new_peer(self, peer: Peer):
+    async def _on_new_peer(self, peer: commons.Peer):
         self.__logger.info("New peer attempting connection: %s", peer)
         try:
             if self._lobby.is_password_protected():
                 # If the lobby is password-protected, ask for the password
-                password_request = PasswordRequest()
+                password_request = commons.PasswordRequest()
                 await self._server_conn_handler.send_obj(peer, password_request)
-                password_response: PasswordRequest = (
+                password_response: commons.PasswordRequest = (
                     await self._server_conn_handler.receive_obj(peer)
                 )
                 if password_response.id != password_request.id:
@@ -169,7 +158,7 @@ class GameServer:
         except Exception as e:
             self.__logger.error("Error handling new peer %s: %s", peer, e)
 
-    async def _on_peer_disconnected(self, peer: Peer):
+    async def _on_peer_disconnected(self, peer: commons.Peer):
         self.__logger.info("Peer disconnected: %s", peer)
         if peer in self._lobby.peers:
             self._lobby.peers.remove(peer)
@@ -184,7 +173,7 @@ class GameServer:
             )
         self.__logger.info("Lobby updated. Current peers: %s", self._lobby.peers)
 
-    async def _add_peer_and_notify_updates(self, peer: Peer):
+    async def _add_peer_and_notify_updates(self, peer: commons.Peer):
         # Update lobby
         self._lobby.peers.add(peer)
         # Notify other peers of the updated lobby sending the updated lobby object
@@ -211,15 +200,15 @@ class GameServer:
     async def start_game(self) -> None:
         self.__logger.info("Starting game in lobby: %s", self._lobby)
         # Create game instance based on lobby peers and roles
-        if len(self._lobby.peers) < MIN_PLAYERS:
+        if len(self._lobby.peers) < commons.MIN_PLAYERS:
             raise ValueError("Not enough players to start the game.")
-        if len(self._lobby.peers) > MAX_PLAYERS:
+        if len(self._lobby.peers) > commons.MAX_PLAYERS:
             raise ValueError("Too many players to start the game.")
         roles: set[Role] = {BasicRole.CLAIRVOYANT}
-        if len(self._lobby.peers) >= PLAYERS_TO_ADD_MEDIUM:
+        if len(self._lobby.peers) >= commons.PLAYERS_TO_ADD_MEDIUM:
             # Add Medium for 9+ players
             roles.add(BasicRole.MEDIUM)
-        if len(self._lobby.peers) >= PLAYERS_TO_ADD_ESCORT:
+        if len(self._lobby.peers) >= commons.PLAYERS_TO_ADD_ESCORT:
             # Add Escort and an extra werewolf for 16+ players
             roles.add(BasicRole.ESCORT)
         game_info = GameInfoBuilder.new().with_roles(roles).build()
@@ -232,7 +221,7 @@ class GameServer:
         self.__logger.info("Game started with players: %s", players)
         await self.send_to_all(GameStartedMessage(self._game.get_game_status()))
         self._game_actual_phase_task = asyncio.create_task(
-            self.wait_and_advance_game(FIRST_DAY_PHASE_DURATION_SECONDS)
+            self.wait_and_advance_game(commons.FIRST_DAY_PHASE_DURATION_SECONDS)
         )
         self._game_actual_phase_task.add_done_callback(
             lambda outcome: self.on_game_phase_advanced(outcome)
@@ -249,10 +238,10 @@ class GameServer:
         else:
             self.__logger.info(
                 "Setting up timer for next phase: %s seconds.",
-                PHASE_DURATION_SECONDS,
+                commons.PHASE_DURATION_SECONDS,
             )
             self._game_actual_phase_task = asyncio.create_task(
-                self.wait_and_advance_game(PHASE_DURATION_SECONDS)
+                self.wait_and_advance_game(commons.PHASE_DURATION_SECONDS)
             )
         self._game_actual_phase_task.add_done_callback(
             lambda outcome: self.on_game_phase_advanced(outcome)

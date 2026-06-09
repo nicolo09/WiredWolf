@@ -1,7 +1,10 @@
 import asyncio
 import copy
 import logging
+from typing import Any
 
+from tests.controller import utils
+from wiredwolf.controller import commons
 from wiredwolf.controller.connections import ClientConnectionHandler
 from wiredwolf.controller.lobbies import LobbyBrowser, LobbyBrowserFactory, LobbyInfo
 from wiredwolf.controller.lobbies import Lobby
@@ -9,6 +12,7 @@ from wiredwolf.controller.messages import (
     AcknowledgeMessage,
     BaseMessage,
     ChatMessage,
+    ConnectionClosedMessage,
     GameStartedMessage,
     LobbyUpdatedMessage,
     NotAcknowledgeMessage,
@@ -20,7 +24,7 @@ from wiredwolf.controller.messages import (
 from wiredwolf.controller.server import GameServer, GameServerFactory
 from wiredwolf.controller.commons import ACK_TIMEOUT_SECONDS, DEFAULT_SERVER_PORT, Peer
 from wiredwolf.model.game import GameStatus, can_perform_action_on
-from wiredwolf.model.game_phases import GamePhase
+from wiredwolf.model.game_phases import GamePhase, NightActionResult
 from wiredwolf.model.player import BasicRole, Player
 from wiredwolf.view.custom_events import EventSender
 
@@ -40,7 +44,7 @@ class GameController:
         self._server: GameServer | None = None
         self._my_self: Peer
         self._client_connection_handler: ClientConnectionHandler | None = None
-        self._waiting_for_ack: dict[str, tuple[asyncio.Event, Exception | None]] = {}
+        self._waiting_for_ack: dict[str, tuple[asyncio.Event, Any]] = {}
         self._game_status: GameStatus | None = None
         self._event_sender: EventSender = event_sender
 
@@ -233,6 +237,12 @@ class GameController:
                             self._event_sender.player_is_dead()
                 match message.outcome.new_phase:
                     case GamePhase.DAY_DISCUSSION:
+                        if message.outcome.someone_died():
+                            self._logger.info("Night phase ended with a death.")
+                            for player in message.outcome.deaths:
+                                self._event_sender.message_player_killed_during_night(
+                                    player.name
+                                )
                         self._event_sender.end_night(0) #TODO: add night count
                     case GamePhase.DAY_ACCUSING:
                         if self._game_status is not None:
@@ -266,6 +276,10 @@ class GameController:
                                 "Game status, lobby, or accused player is not available."
                             )
                     case GamePhase.NIGHT:
+                        if (message.outcome.someone_died()):
+                            self._logger.info("Day ballot phase ended with an execution.")
+                            for player in message.outcome.deaths:
+                                self._event_sender.message_player_executed(player.name)
                         if self._game_status is not None:
                             my_self = self.my_self_as_player()
                             if my_self is not None and self.lobby is not None:
@@ -300,10 +314,17 @@ class GameController:
                     self._logger.warning(
                         "Received chat message with missing sender or message content."
                     )
+            case ConnectionClosedMessage():
+                self._logger.info("Connection closed message received: %s", message.info)
+                async def show_error_and_go_home():
+                    self._event_sender.error_occurred("", message.info) #TODO: Add title
+                    await asyncio.sleep(commons.ERROR_PAUSE_TIME)  # Wait for a moment to let the user read the message
+                    self._event_sender.error_ended_go_to_home()
+                asyncio.create_task(show_error_and_go_home())
             case _:
                 self._logger.warning("Unhandled message type: %s", type(message))
 
-    async def _wait_for_acknowledgment(self, message_id: str):
+    async def _wait_for_acknowledgment(self, message_id: str) -> Any:
         """Waits for an acknowledgment for a message with the given ID.
 
         Args:
@@ -312,24 +333,26 @@ class GameController:
         try:
             async with asyncio.timeout(ACK_TIMEOUT_SECONDS):
                 await self._waiting_for_ack[message_id][0].wait()
-            error = self._waiting_for_ack[message_id][1]
-            if error:
-                self._logger.error("Error NACK received for message: %s", message_id)
-                raise error
-            else:
-                self._logger.info("ACK received for message: %s", message_id)
+            if self._waiting_for_ack[message_id][1] is not None:
+                result = self._waiting_for_ack[message_id][1]
+                if isinstance(result, Exception):
+                    self._logger.error("Error NACK received for message: %s", message_id)
+                    raise result
+                else:
+                    self._logger.info("ACK received for message: %s", message_id)
+                    return result
         except TimeoutError as e:
             self._logger.warning("ACK timeout for message: %s", message_id)
             raise e
         finally:
             del self._waiting_for_ack[message_id]
 
-    async def _send_message_and_wait_for_ack(self, message: BaseMessage):
+    async def _send_message_and_wait_for_ack(self, message: BaseMessage) -> Any:
         if self._client_connection_handler is None:
             raise RuntimeError("Not connected to a lobby.")
         self._waiting_for_ack[message.id] = (asyncio.Event(), None)
         await self._client_connection_handler.send_obj(message)
-        await self._wait_for_acknowledgment(message.id)
+        return await self._wait_for_acknowledgment(message.id)
 
     async def send_chat_message(self, message: str):
         """Sends a chat message to all peers in the lobby.
@@ -358,9 +381,13 @@ class GameController:
         Args:
             player (Peer): The player to choose.
         """
-        await self._send_message_and_wait_for_ack(
+        result = await self._send_message_and_wait_for_ack(
             VotePlayerMessage(self._my_self, player.uuid)
         )
+        if result:
+            if isinstance(result, NightActionResult):
+                self._event_sender.display_chat_message(f"You have chosen {player.name}.")
+                self._event_sender.display_chat_message(result.message)
 
     async def vote_guilty(self):
         """Votes for the selected player to be guilty. This method may be called only during a

@@ -1,7 +1,7 @@
 import unittest
 from wiredwolf.model.game import Game, can_perform_action_on
 from wiredwolf.model.game_phases import GamePhase
-from wiredwolf.model.player import Status, Alignment
+from wiredwolf.model.player import BasicRole, Status, Alignment
 from wiredwolf.model.exceptions import *
 from tests.model.game_test import populate_players, get_index_by_name, create_game_info
 
@@ -112,5 +112,5 @@ class GameActionsTest(unittest.TestCase):
         
         clayvoyant_targets = can_perform_action_on(self.players[get_index_by_name(self.players, "Diana")], self.game.get_game_status())
         clayvoyant_target_names = {player.name for player in clayvoyant_targets}
-        expected_clayvoyant_names = {player.name for player in self.players if player.is_alive()}
+        expected_clayvoyant_names = {player.name for player in self.players if player.is_alive() and player.role != BasicRole.CLAIRVOYANT}
         self.assertEqual(clayvoyant_target_names, expected_clayvoyant_names)

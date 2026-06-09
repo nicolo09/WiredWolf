@@ -62,7 +62,7 @@ class ClairvoyantDecorator(GameInfoDecorator):
 
     def get_possible_targets(self, role: Role, players: list[Player]) -> list[Player]:
         if role == BasicRole.CLAIRVOYANT:
-            return [player for player in players if player.is_alive()]
+            return [player for player in players if player.is_alive() and player.role != BasicRole.CLAIRVOYANT]
         return self._wrapped.get_possible_targets(role, players)
     
     def _compare_decorator(self, other: AbstractGameInfo) -> bool:

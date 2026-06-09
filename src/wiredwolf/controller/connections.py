@@ -10,7 +10,7 @@ from wiredwolf.controller.commons import (
     RECEIVING_TASK_CLOSE_TIMEOUT,
     Peer,
 )
-from wiredwolf.controller.messages import AcknowledgeMessage, BaseMessage, NotAcknowledgeMessage
+from wiredwolf.controller.messages import AcknowledgeMessage, BaseMessage, ConnectionClosedMessage, NotAcknowledgeMessage
 import asyncio
 from asyncio import CancelledError
 
@@ -187,27 +187,26 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
         if self._writer.is_closing():
             # Since I want to close the connection myself, ignore errors from receive loop and just exit
             self._logger.info("Writer is closing, ignoring receive loop task exit status.")
-            return
-
-        # If the task was cancelled, treat it as a normal shutdown
-        if task.cancelled():
+        elif task.cancelled():
+            # If the task was cancelled, treat it as a normal shutdown
             self._logger.info("Receive loop task was cancelled.")
-            return
-
-        try:
-            exc = task.exception()
-        except asyncio.CancelledError:
-            self._logger.info("Receive loop task was cancelled.")
-            return
-        except Exception as e:
-            self._logger.error("Error while retrieving receive loop task during close: %s", e)
-            return
-
-        if exc is None or isinstance(exc, ConnectionClosedError):
-            # No exception or graceful connection closed
-            self._logger.info("Receive loop task completed successfully.")
         else:
-            self._logger.error("Receive loop task encountered an error: %s", exc)
+            try:
+                exc = task.exception()
+            except asyncio.CancelledError:
+                self._logger.info("Receive loop task was cancelled.")
+                return
+            except Exception as e:
+                self._logger.error("Error while retrieving receive loop task during close: %s", e)
+                return
+
+            if exc is None or isinstance(exc, ConnectionClosedError):
+                # No exception or graceful connection closed
+                self._logger.info("Receive loop task completed successfully.")
+            else:
+                self._logger.error("Receive loop task encountered an error: %s", exc)
+            if self._on_message:
+                self._on_message(ConnectionClosedMessage("Connection closed by the server."))
     # TODO: Implement reconnection logic here
 
     async def _receive_loop(self) -> None:
