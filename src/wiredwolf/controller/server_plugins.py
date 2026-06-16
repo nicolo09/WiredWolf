@@ -3,6 +3,7 @@ from wiredwolf.controller.messages import (
     BaseMessage,
     ChatMessage,
     NightActionMessage,
+    NotAcknowledgeMessage,
     StartGameMessage,
     VoteBallotMessage,
     VotePlayerMessage,
@@ -21,10 +22,10 @@ class ChatPlugin(ServerPlugin):
 
     async def handle_message_sub(
         self, message: BaseMessage, server: GameServer
-    ) -> bool:
+    ) -> tuple[AcknowledgeMessage | NotAcknowledgeMessage, bool]:
         if isinstance(message, ChatMessage):
             await server.send_to_all(message)
-            return True
+            return AcknowledgeMessage(message.id, message.sender, "Message sent to all players."), True
         else:
             raise ValueError(f"Unhandled message type: {type(message)}")
 
@@ -37,12 +38,12 @@ class GameLifecyclePlugin(ServerPlugin):
 
     async def handle_message_sub(
         self, message: BaseMessage, server: GameServer
-    ) -> bool:
+    ) -> tuple[AcknowledgeMessage | NotAcknowledgeMessage, bool]:
         if isinstance(message, StartGameMessage):
             if message.sender != server.lobby.owner:
-                raise PermissionError("Only the lobby owner can start the game.")
+                return NotAcknowledgeMessage(message.id, message.sender, PermissionError("Only the lobby owner can start the game.")), True
             await server.start_game()
-        return False
+        return AcknowledgeMessage(message.id, message.sender, "Game started successfully."), True
 
 
 class VotingPlugin(ServerPlugin):
@@ -55,7 +56,7 @@ class VotingPlugin(ServerPlugin):
 
     async def handle_message_sub(
         self, message: BaseMessage, server: GameServer
-    ) -> bool:
+    ) -> tuple[AcknowledgeMessage | NotAcknowledgeMessage, bool]:
         if message.sender is None:
             raise ValueError("Message sender cannot be None.")
         if not server.game:
@@ -80,25 +81,17 @@ class VotingPlugin(ServerPlugin):
                                 message.id, message.sender, "Vote registered successfully.", action_result
                             ),
                         )    
-                    return True
+                    return AcknowledgeMessage(message.id, message.sender, "Vote registered successfully.", action_result), True
                 except Exception as e:
                     self._logger.error("Error handling vote: %s", e)
-                    await server.connection_handler.send_obj(message.sender, e)
-                    return True
+                    return NotAcknowledgeMessage(message.id, message.sender, e), True
             case VoteBallotMessage():
                 try:
                     server.game.ballot_vote(message.sender.uuid, message.vote)
-                    await server.connection_handler.send_obj(
-                        message.sender,
-                        AcknowledgeMessage(
-                            message.id, message.sender, "Ballot cast successfully."
-                        ),
-                    )
-                    return True
+                    return AcknowledgeMessage(message.id, message.sender, "Ballot cast successfully."), True
                 except Exception as e:
                     self._logger.error("Error handling ballot vote: %s", e)
-                    await server.connection_handler.send_obj(message.sender, e)
-                    return True
+                    return NotAcknowledgeMessage(message.id, message.sender, e), True
             case _:
                 raise ValueError(f"Unhandled message type: {type(message)}")
 
@@ -113,7 +106,7 @@ class NightActionsPlugin(ServerPlugin):
 
     async def handle_message_sub(
         self, message: BaseMessage, server: GameServer
-    ) -> bool:
+    ) -> tuple[AcknowledgeMessage | NotAcknowledgeMessage, bool]:
         if message.sender is None:
             raise ValueError("Message sender cannot be None.")
         if not server.game:
@@ -123,16 +116,12 @@ class NightActionsPlugin(ServerPlugin):
                 result = server.game.perform_night_action(
                     message.sender.uuid, message.target_player_uuid
                 )
-                await server.connection_handler.send_obj(
-                    message.sender,
-                    AcknowledgeMessage(message.id, message.sender, result.message),
-                )
-                return True
+                return AcknowledgeMessage(message.id, message.sender, "Night action performed successfully.", result), True
             except Exception as e:
                 self._logger.error("Error handling night action: %s", e)
-                await server.connection_handler.send_obj(message.sender, e)
-                return True
-        return False
+                return NotAcknowledgeMessage(message.id, message.sender, e), True
+        else:
+            raise ValueError(f"Unhandled message type: {type(message)}")
 
 @staticmethod
 async def get_plugins_list() -> list[ServerPlugin]:

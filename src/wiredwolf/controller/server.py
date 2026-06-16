@@ -9,9 +9,11 @@ from wiredwolf.controller.connections import (
     ServerConnectionHandler,
 )
 from wiredwolf.controller.messages import (
+    AcknowledgeMessage,
     BaseMessage,
     GameStartedMessage,
     LobbyUpdatedMessage,
+    NotAcknowledgeMessage,
     PhaseAdvanceMessage,
 )
 from wiredwolf.controller.lobbies import Lobby
@@ -47,7 +49,7 @@ class ServerPlugin(abc.ABC):
     def handled_messages(self) -> list[type]:
         return self._handled_messages
 
-    async def handle_message(self, message: BaseMessage) -> bool:
+    async def handle_message(self, message: BaseMessage) -> tuple[AcknowledgeMessage | NotAcknowledgeMessage, bool]:
         """Handles received messages, subclasses should implement this method but call super().handle_message().
 
         Args:
@@ -57,7 +59,7 @@ class ServerPlugin(abc.ABC):
             ValueError: If the message type is not handled by this plugin.
 
         Returns:
-            bool: True if the message should not be passed to other handlers, False otherwise.
+            tuple[AcknowledgeMessage | NotAcknowledgeMessage, bool]: A tuple containing the response message and a boolean indicating whether the message should not be passed to other handlers.
         """
         if type(message) not in self._handled_messages:
             raise ValueError(
@@ -72,7 +74,7 @@ class ServerPlugin(abc.ABC):
     @abc.abstractmethod
     async def handle_message_sub(
         self, message: BaseMessage, server: "GameServer"
-    ) -> bool:
+    ) -> tuple[AcknowledgeMessage | NotAcknowledgeMessage, bool]:
         pass
 
 
@@ -281,15 +283,15 @@ class GameServer:
             message (BaseMessage): The message to handle.
         """
         handled = False
+        should_stop = False
+        response = None
         for plugin in self._plugins:
-            if type(message) in plugin.handled_messages:
+            if type(message) in plugin.handled_messages and not should_stop:
                 handled = True
-                should_stop: bool = await plugin.handle_message(message)
+                response, should_stop = await plugin.handle_message(message)
                 self.__logger.info(
                     "Message of type %s handled by plugin %s", type(message), plugin
                 )
-                if should_stop:
-                    return
         if not handled:
             self.__logger.error(
                 "No plugin found to handle message of type %s", type(message)
@@ -297,7 +299,12 @@ class GameServer:
             raise ValueError(
                 f"No plugin found to handle message of type {type(message)}"
             )
-
+        elif response is not None:
+            self.__logger.info("Message of type %s processed with response: %s", type(message), response)
+            if message.sender is not None:
+                await self.connection_handler.send_obj(message.sender, response)
+            else:
+                self.__logger.warning("Message has no sender to respond to.")
 
 class GameServerFactory:
     @staticmethod

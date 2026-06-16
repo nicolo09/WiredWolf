@@ -39,7 +39,7 @@ class GameController:
     _logger = logging.getLogger(__name__)
 
     def __init__(self, browser: LobbyBrowser, event_sender: EventSender):
-        self._lobby_browser: LobbyBrowser = browser
+        self._lobby_browser: LobbyBrowser = browser #TODO: This should not be passed but created on need by a factory
         self._lobby: Lobby | None = None
         self._server: GameServer | None = None
         self._my_self: Peer
@@ -152,6 +152,7 @@ class GameController:
 
     async def stop_publishing_lobby(self):
         """Stops publishing the lobby."""
+        #TODO: Close the server as well? 
         if self._lobby:
             await self._lobby_browser.stop_publishing_lobby()
 

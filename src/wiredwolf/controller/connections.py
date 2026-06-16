@@ -78,6 +78,8 @@ class ServerConnectionHandler(abc.ABC):
             MessageHandlerFactory.getDefault()
         )
 
+    #TODO: Add send ACK method and send NACK
+
     @abc.abstractmethod
     async def send_obj(self, receiver: Peer, obj: Any) -> None:
         pass
@@ -406,7 +408,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
     async def _client_connected_cb(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ):
-        client_address = writer.get_extra_info("peername")
+        client_address = writer.get_extra_info("peername") #TODO: Put this in a constant
         self._logger.info("Accepted connection from %s", client_address)
         async with asyncio.timeout(CONNECTION_TIMEOUT):
             try:
@@ -441,6 +443,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 await writer.wait_closed()
                 return
             else:
+                #TODO: Can i move this to the end of the try block?
                 # Successful connection
                 self._logger.info("New peer connected: %s", peer)
                 self._status[peer] = ConnectionStatus.CONNECTED
@@ -459,13 +462,13 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                         peer,
                         msg.sender,
                     )
-                    await self.send_obj(peer, RuntimeError("Incorrect message sender")) #TODO: Define a proper exception for this case
+                    await self.send_obj(peer, NotAcknowledgeMessage(msg.id, msg.sender, RuntimeError("Incorrect message sender"))) #TODO: Define a proper exception for this case
                 else:
                     try:
                         await self._on_new_message(msg)
                         await self.send_obj(peer, AcknowledgeMessage(
                             msg.id, msg.sender, "")
-                        )
+                        ) #TODO: Is this double?
                     except Exception as e:
                         self._logger.error(
                             "Error handling message from %s: %s", peer, e

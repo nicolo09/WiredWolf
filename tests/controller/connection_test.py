@@ -9,7 +9,7 @@ from tests.controller.conftest import TEST_TIMEOUT
 from wiredwolf.controller.commons import DEFAULT_SERVER_PORT, Peer
 import wiredwolf.controller.connections as connections
 from wiredwolf.controller.lobbies import Lobby, TcpMdnsLobbyBrowser
-from wiredwolf.controller.messages import BaseMessage, ChatMessage, LobbyUpdatedMessage
+from wiredwolf.controller.messages import BaseMessage, ChatMessage, LobbyUpdatedMessage, NotAcknowledgeMessage
 from wiredwolf.controller.server import GameServer, GameServerFactory
 from wiredwolf.controller.server_plugins import ChatPlugin, GameLifecyclePlugin
 
@@ -123,10 +123,10 @@ async def test_wrong_sender_discard_message(
     def on_client_receives_message(message: BaseMessage) -> None:
         if isinstance(message, LobbyUpdatedMessage):
             assert message.lobby == lobby
-        elif isinstance(message, RuntimeError):
+        elif isinstance(message, NotAcknowledgeMessage):
             exception_received_event.set()
         else:
-            pytest.fail("Client should receive a RuntimeError message")
+            pytest.fail("Client should receive a NotAcknowledgeMessage")
 
     server.add_plugin(ChatPlugin())
     server.add_plugin(GameLifecyclePlugin())
