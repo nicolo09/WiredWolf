@@ -17,6 +17,8 @@ from asyncio import CancelledError
 
 SELECT_TIMEOUT: float = 1.0  # Timeout for select calls in seconds
 
+PEERNAME_EXTRA_INFO = "peername"
+
 
 class ConnectionClosedError(Exception):
     """Exception raised when a connection is closed."""
@@ -406,7 +408,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
     async def _client_connected_cb(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ):
-        client_address = writer.get_extra_info("peername") #TODO: Put this in a constant
+        client_address = writer.get_extra_info(PEERNAME_EXTRA_INFO)
         self._logger.info("Accepted connection from %s", client_address)
         async with asyncio.timeout(CONNECTION_TIMEOUT):
             try:

@@ -316,7 +316,7 @@ class GameController:
             case ConnectionClosedMessage():
                 self._logger.info("Connection closed message received: %s", message.info)
                 async def show_error_and_go_home():
-                    self._event_sender.error_occurred("", message.info) #TODO: Add title
+                    self._event_sender.error_occurred("Connection closed", message.info)
                     await asyncio.sleep(commons.ERROR_PAUSE_TIME)  # Wait for a moment to let the user read the message
                     self._event_sender.error_ended_go_to_home()
                 asyncio.create_task(show_error_and_go_home())

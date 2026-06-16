@@ -155,7 +155,6 @@ class GameServer:
             else:
                 # If no password is set, add the peer directly
                 await self._add_peer_and_notify_updates(peer)
-                # TODO: Check if this is needed await self._server_conn_handler.send_obj(peer, self._lobby)
         except Exception as e:
             self.__logger.error("Error handling new peer %s: %s", peer, e)
 
@@ -182,7 +181,6 @@ class GameServer:
 
     async def send_to_all(self, message: BaseMessage):
         """Sends a message to all connected peers in the lobby."""
-        # TODO: Change to have them sent concurrently
         for peer in self._lobby.peers:
             try:
                 await self._server_conn_handler.send_obj(peer, message)
