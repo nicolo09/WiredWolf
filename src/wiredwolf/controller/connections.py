@@ -78,8 +78,6 @@ class ServerConnectionHandler(abc.ABC):
             MessageHandlerFactory.getDefault()
         )
 
-    #TODO: Add send ACK method and send NACK
-
     @abc.abstractmethod
     async def send_obj(self, receiver: Peer, obj: Any) -> None:
         pass
@@ -416,8 +414,14 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 peer: Peer = await self._async_message_handler.receive_obj(reader) #TODO: Change this to a message containing the peer info instead of just the peer object
                 self._logger.info("Identified new peer: %s", peer)
                 self._endpoints[peer] = (reader, writer)
-                self._status[peer] = ConnectionStatus.CONNECTED
+                self._status[peer] = ConnectionStatus.CONNECTING
                 await self._on_new_peer(peer)
+                # Successful connection
+                self._logger.info("New peer connected: %s", peer)
+                self._status[peer] = ConnectionStatus.CONNECTED
+                self._receiving_tasks[peer] = asyncio.create_task(
+                    self._handle_peer_message(peer)
+                )
             except ConnectionClosedError:
                 # Peer tried to connect but closed the connection before ending the handshake
                 self._logger.warning(
@@ -442,14 +446,6 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 writer.close()
                 await writer.wait_closed()
                 return
-            else:
-                #TODO: Can i move this to the end of the try block?
-                # Successful connection
-                self._logger.info("New peer connected: %s", peer)
-                self._status[peer] = ConnectionStatus.CONNECTED
-                self._receiving_tasks[peer] = asyncio.create_task(
-                    self._handle_peer_message(peer)
-                )
 
     async def _handle_peer_message(self, peer: Peer):
         reader, _ = self._endpoints[peer]
@@ -466,9 +462,6 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 else:
                     try:
                         await self._on_new_message(msg)
-                        await self.send_obj(peer, AcknowledgeMessage(
-                            msg.id, msg.sender, "")
-                        ) #TODO: Is this double?
                     except Exception as e:
                         self._logger.error(
                             "Error handling message from %s: %s", peer, e

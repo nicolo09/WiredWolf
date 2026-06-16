@@ -148,7 +148,6 @@ class GameServer:
                     password_response.password
                 ):
                     await self._add_peer_and_notify_updates(peer)
-                    # TODO: Check if this is needed await self._server_conn_handler.send_obj(peer, self._lobby)
                 else:
                     await self._server_conn_handler.send_obj(
                         peer, ValueError("Incorrect password.")
