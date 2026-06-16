@@ -3,7 +3,6 @@ import copy
 import logging
 from typing import Any
 
-from tests.controller import utils
 from wiredwolf.controller import commons
 from wiredwolf.controller.connections import ClientConnectionHandler
 from wiredwolf.controller.lobbies import LobbyBrowser, LobbyBrowserFactory, LobbyInfo
@@ -243,7 +242,7 @@ class GameController:
                                 self._event_sender.message_player_killed_during_night(
                                     player.name
                                 )
-                        self._event_sender.end_night(0) #TODO: add night count
+                        self._event_sender.end_night(self._game_status.day_count)
                     case GamePhase.DAY_ACCUSING:
                         if self._game_status is not None:
                             votable_peers = [
@@ -284,7 +283,7 @@ class GameController:
                             my_self = self.my_self_as_player()
                             if my_self is not None and self.lobby is not None:
                                 self._event_sender.start_night(
-                                    my_self.role is BasicRole.VILLAGER,0 #TODO: add night count
+                                    my_self.role is BasicRole.VILLAGER, self._game_status.day_count
                                 )
                                 self._event_sender.can_use_powers_on(
                                     [

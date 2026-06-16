@@ -10,7 +10,7 @@ from wiredwolf.controller.commons import (
     RECEIVING_TASK_CLOSE_TIMEOUT,
     Peer,
 )
-from wiredwolf.controller.messages import AcknowledgeMessage, BaseMessage, ConnectionClosedMessage, NotAcknowledgeMessage
+from wiredwolf.controller.messages import BaseMessage, ConnectionClosedMessage, NotAcknowledgeMessage
 import asyncio
 from asyncio import CancelledError
 
