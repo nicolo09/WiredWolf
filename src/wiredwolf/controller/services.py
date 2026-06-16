@@ -3,7 +3,7 @@ import ipaddress
 import logging
 import socket
 from zeroconf import NonUniqueNameException, ServiceBrowser, ServiceInfo, ServiceListener, Zeroconf
-from netifaces import interfaces, ifaddresses, AF_INET
+from wiredwolf.controller.network import PsutilNetworkExplorer
 
 
 class CallbackCachedServiceListener(ServiceListener):
@@ -78,16 +78,7 @@ class ServiceManager:
         self._closed: bool = False
 
     def _get_all_local_ips(self) -> list[list[str]]:
-        intface_ips = []
-        for iface_name in interfaces():
-            ips = []
-            ifaddresses(iface_name)
-            for info in ifaddresses(iface_name).get(AF_INET, []):
-                ip = str(info["addr"])
-                # if not ip.startswith("127."):     # exclude loopback
-                ips.append(ip)
-            intface_ips.append(ips)
-        return intface_ips
+        return PsutilNetworkExplorer.get_local_ipv4_addresses()
 
     async def register_service(
         self, name: str, receiverPort: int, properties: dict[str, str]
