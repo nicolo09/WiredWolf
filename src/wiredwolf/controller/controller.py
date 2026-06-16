@@ -151,8 +151,7 @@ class GameController:
         self._lobby = None
 
     async def stop_publishing_lobby(self):
-        """Stops publishing the lobby."""
-        #TODO: Close the server as well? 
+        """Stops publishing the lobby, leaving the server open but not advertising it. This is typically called when the game starts."""
         if self._lobby:
             await self._lobby_browser.stop_publishing_lobby()
 
