@@ -176,10 +176,13 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
 
         def on_lobby_found_cb(name: str, props: dict[str, str]) -> None:
             """Callback invoked when a new lobby is found. This is used to add the lobby to the discovered lobbies list."""
-            self._found_lobbies[name] = self._get_lobby_info_from_service_properties(
-                props
-            )
-            on_lobby_found(self._found_lobbies[name])
+            try:
+                self._found_lobbies[name] = self._get_lobby_info_from_service_properties(
+                    props
+                )
+                on_lobby_found(self._found_lobbies[name])
+            except ValueError as e:
+                self.__logger.warning("Error adding lobby %s: %s", name, e)
 
         def on_lobby_lost_cb(name: str) -> None:
             """Callback invoked when a lobby is lost. This is used to remove the lobby from the discovered lobbies list."""
@@ -189,10 +192,13 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
         def on_lobby_updated_cb(name: str, props: dict[str, str]) -> None:
             """Callback invoked when a lobby is updated. This is used to update the lobby information in the discovered lobbies list."""
             if name in self._found_lobbies:
-                self._found_lobbies[name] = (
-                    self._get_lobby_info_from_service_properties(props)
-                )
-                on_lobby_updated(self._found_lobbies[name])
+                try:
+                    self._found_lobbies[name] = (
+                        self._get_lobby_info_from_service_properties(props)
+                    )
+                    on_lobby_updated(self._found_lobbies[name])
+                except ValueError as e:
+                    self.__logger.warning("Error updating lobby %s: %s", name, e)
 
         if not self._browser:
             listener = CallbackCachedServiceListener(
@@ -208,6 +214,8 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
         self, properties: dict[str, str]
     ) -> LobbyInfo:
         """Helper method to convert service properties to a LobbyInfo object."""
+        if "name" not in properties or "uuid" not in properties:
+            raise ValueError("Service properties do not include 'name' and 'uuid'.")
         return LobbyInfo(
             name=properties.get("name", "Unknown Lobby"),
             has_password=properties.get("has_password", "false").lower() == "true",
