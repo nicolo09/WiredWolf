@@ -192,6 +192,7 @@ class GameController:
         self._lobby_browser.stop_lobby_browser()
 
     def _on_message(self, message: BaseMessage):
+        #This method is called upon receiving a message from the server
         match message:
             case AcknowledgeMessage():
                 # Notify the waiting coroutine that the acknowledgment has been received
@@ -206,6 +207,7 @@ class GameController:
                 if message.id in self._waiting_for_ack:
                     self._waiting_for_ack[message.id][0].set()
             case LobbyUpdatedMessage():
+                # Update the lobby information and notify the view about any changes in the lobby's peers
                 self._logger.info("Lobby information updated.")
                 old_lobby = self._lobby
                 self._lobby = message.lobby
@@ -218,6 +220,7 @@ class GameController:
                     for user in left_users:
                         self._event_sender.remove_user_in_lobby(user)
             case GameStartedMessage():
+                # Notify the view that the game has started and update the game status
                 self._logger.info("Game has started.")
                 self._game_status = message.status
                 self._event_sender.game_started_by_master()
@@ -226,6 +229,7 @@ class GameController:
                     self._event_sender.user_role()
                 self._event_sender.start_first_day()  # TODO: Shouldn't this be view logic?
             case PhaseAdvanceMessage():
+                # Notify the view that the game phase has advanced and update the game status accordingly
                 self._logger.info("Game phase has advanced, updating game status.")
                 self._game_status = message.game_status
                 if message.outcome.someone_died():
@@ -302,6 +306,7 @@ class GameController:
                         elif message.outcome.new_phase == GamePhase.WEREWOLVES_VICTORY:
                             self._event_sender.werewolf_win()
             case ChatMessage():
+                # Display the chat message
                 self._logger.info(
                     "Chat message received from %s: %s", message.sender, message.message
                 )
@@ -349,6 +354,15 @@ class GameController:
             del self._waiting_for_ack[message_id]
 
     async def _send_message_and_wait_for_ack(self, message: BaseMessage) -> Any:
+        """Sends a message and waits for an acknowledgment.
+        
+        Args:
+            message (BaseMessage): The message to send.
+        Raises:
+            RuntimeError: If not connected to a lobby.
+        Returns:
+            Any: The result of the acknowledgment, if any.
+        """
         if self._client_connection_handler is None:
             raise RuntimeError("Not connected to a lobby.")
         self._waiting_for_ack[message.id] = (asyncio.Event(), None)

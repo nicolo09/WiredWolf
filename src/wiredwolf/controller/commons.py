@@ -3,20 +3,20 @@ import random
 import string
 import uuid
 
-DEFAULT_SERVER_HOST = "0.0.0.0"
-DEFAULT_SERVER_PORT = 12233
-CONNECTION_TIMEOUT = 100  # seconds
+DEFAULT_SERVER_HOST = "0.0.0.0" # Default host to bind the server to
+DEFAULT_SERVER_PORT = 12233 # Default port to bind the server to
+CONNECTION_TIMEOUT = 100  # seconds #TODO Should this be merged with the TIMEOUT variable in __init__.py?
 
-FIRST_DAY_PHASE_DURATION_SECONDS = 10
-PHASE_DURATION_SECONDS = 60
-ACK_TIMEOUT_SECONDS = 10  # seconds
-RECEIVING_TASK_CLOSE_TIMEOUT = 3  # seconds
-ERROR_PAUSE_TIME = 5  # seconds
+FIRST_DAY_PHASE_DURATION_SECONDS = 10 # Duration of the first day phase, in seconds
+PHASE_DURATION_SECONDS = 60 # Duration of each phase after the first day phase, in seconds
+ACK_TIMEOUT_SECONDS = 10  # Timeout to wait for an acknowledgment from the server, in seconds #TODO Should this be merged with the TIMEOUT variable in __init__.py?
+RECEIVING_TASK_CLOSE_TIMEOUT = 3  # Timeout to wait for the receiving task of the connection handlers to close, in seconds
+ERROR_PAUSE_TIME = 5  # Time to wait after an error occurs and is shown, in seconds #TODO: This should probably be view logic
 
-MIN_PLAYERS = 8
-MAX_PLAYERS = 32
-PLAYERS_TO_ADD_MEDIUM = 9
-PLAYERS_TO_ADD_ESCORT = 16
+MIN_PLAYERS = 8 # Minimum number of players required to start a game
+MAX_PLAYERS = 32 # Maximum number of players allowed in a game
+PLAYERS_TO_ADD_MEDIUM = 9 # Number of players to add the medium role
+PLAYERS_TO_ADD_ESCORT = 16 # Number of players to add the escort role
 
 
 @dataclass(frozen=True)
