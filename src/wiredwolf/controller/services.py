@@ -1,7 +1,9 @@
+import asyncio
 from collections.abc import Callable
 import ipaddress
 import logging
 import socket
+from typing import Awaitable
 from zeroconf import NonUniqueNameException, ServiceBrowser, ServiceInfo, ServiceListener, Zeroconf
 from wiredwolf.controller.network import PsutilNetworkExplorer
 
@@ -112,13 +114,17 @@ class ServiceManager:
 
     async def unregister_service(self, info: list[ServiceInfo]) -> None:
         self.__logger.info(f"Unregistering service {info[0].name}...")
+        awaitables: list[Awaitable] = []
         for service_info in info:
             zeroconf = self._zeroconf_server.get(service_info)
             if zeroconf:
-                await zeroconf.async_unregister_service(service_info)
-                self.__logger.info(
-                    f"Service {service_info.name} unregistered successfully."
-                )
+                #This await only awaits the awaitable creation, it will be awaited in the gather call below (obv isn't it?)
+                aw = await zeroconf.async_unregister_service(service_info)
+                awaitables.append(aw)
+        await asyncio.gather(*awaitables)
+        self.__logger.info(
+            f"Service {info[0].name} unregistered successfully."
+        )
 
     def get_service_listener(
         self,
