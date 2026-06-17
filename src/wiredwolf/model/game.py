@@ -152,6 +152,11 @@ class Game:
                     if voting_count > 0 and confirm_ballot_votes > voting_count / 2:
                         accused_player.status = Status.DEAD
                         deaths.append(accused_player)
+                self._phase = GamePhase.BALLOT_RESULT
+                return GamePhaseOutcome(self._phase, deaths, accused_player)
+                
+            case GamePhase.BALLOT_RESULT:
+                # This phase is just a transition to NIGHT, no actions are performed here.
                 self._phase = GamePhase.NIGHT
 
             case GamePhase.NIGHT:

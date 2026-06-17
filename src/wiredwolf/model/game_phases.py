@@ -3,15 +3,15 @@ from enum import Enum
 
 from wiredwolf.model.player import Player
 
-
 class GamePhase(Enum):
     FIRST_DAY = 0
     DAY_DISCUSSION = 1
     DAY_ACCUSING = 2
     DAY_BALLOT = 3
-    NIGHT = 4
-    VILLAGERS_VICTORY = 5
-    WEREWOLVES_VICTORY = 6
+    BALLOT_RESULT = 4
+    NIGHT = 5
+    VILLAGERS_VICTORY = 6
+    WEREWOLVES_VICTORY = 7
 
 
 class GamePhaseOutcome:
