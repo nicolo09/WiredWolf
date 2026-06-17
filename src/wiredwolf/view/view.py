@@ -1138,14 +1138,87 @@ class DayVotingScreen(AbstractScreen):
         self._create_input_panel()
         self._text_input.clear()
 
-class DayEndScreen(DayVotingScreen):
+class DayEndScreen(AbstractScreen):
     """The screen where users chat after winning/losing, and can see the game results"""
 
     def __init__(self, screen: Screens, display: pygame.Surface, game_state_manager: GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler, global_state: GlobalState) -> None:
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler, global_state)
-        self._voted_text.text="Game over! Thanks for playing!"
+        self._title=VContainer(SINGLE_ELEMENT_DIV, [Text("Day")], self._display.get_size(), (50, 5))
+        #Chat panel
+        self._create_chat_panel()
+        self._chat_messages:list[pygame_gui.elements.UILabel]=[]
+        #Chat input
+        self._create_input_panel()
+        self._voted_text=Text("Game over! Thanks for playing!", font=FontSize.H3)
         self._voted_container=HContainer(SINGLE_ELEMENT_DIV, [self._voted_text], self._display.get_size(), (30, 80))
         self._voted_container.update_on_next_draw() #Manual update
+        self._create_go_home_panel()#Button to go back to home
+
+    def run(self,event:pygame.event.Event)->None:
+        """A day waiting and voting screen"""
+        self._display.fill(BACKGROUND_COLOR)
+        self._gui_manager.draw_ui(self._display)
+        self._title.draw(self._display)
+        self._voted_container.draw(self._display)
+        #Event handling
+        self._gui_manager.process_events(event) #processes pygame_gui events
+        if event.type!=self._global_state.custom_event:
+            #pygame event, text box handles it
+            if event.type==pygame_gui.UI_TEXT_ENTRY_FINISHED:
+            #Enter is entered in the textbox
+                if len(event.text)>0 and str.isspace(event.text)==False:
+                    #Message isn't empty
+                    self._text_input.clear() #Remove message
+                    message_sent=asyncio.create_task(self._controller.send_chat_message(event.text))
+                    message_sent.add_done_callback(self._check_if_message_ok)
+            if event.type == pygame_gui.UI_BUTTON_PRESSED:
+                if event.ui_element == self._home_button:
+                    #Go back to home screen
+                    self.reset_screen()
+                    self._game_state_manager.change_screen(Screens.HOME)
+                    asyncio.create_task(self._controller.leave()) #Leave game when going back to home
+                pass
+        if event.type==self._global_state.custom_event:
+            #parse the custom event into an object
+            e=create_custom_event_from_dict(event.dict)
+            if isinstance(e, ChatMessageType):
+                #Messages received from other users
+                self._send_message(e.message)
+            if isinstance(e, ErrorType):
+                #If it's an error event, show error message
+                self.reset_screen() #Reset current screen for next time this is used
+                self._game_state_manager.error_screen_handler.set_error(e.title, e.message)
+                self._game_state_manager.change_screen(Screens.ERROR_SCREEN)
+
+    def _send_message(self, message:str)->None:
+        """Function called to display a new message in chat"""
+        length=len(self._chat_messages)
+        label=None
+        if length==0:
+            #First element, absolute positioning inside the container
+            label=pygame_gui.elements.UILabel(relative_rect=pygame.Rect((0, 0), (-1, MEDIUM_BTN_HEIGHT)), text=message, manager=self._gui_manager, anchors={}, container=self._chat_panel)
+        else:
+            #Second element, relative positioning (below previous label)
+            label=pygame_gui.elements.UILabel(relative_rect=pygame.Rect((0, 0), (-1, MEDIUM_BTN_HEIGHT)), text=message, manager=self._gui_manager, anchors={'top_target': self._chat_messages[length-1]}, container=self._chat_panel) 
+        self._chat_messages.insert(length, label)
+        #To calculate the horizontal width of the internal container
+        #The horizontal scrollbar appears if the width of text inserted is bigger than the current size
+        self._increased_size_chat=(max(self._increased_size_chat[0], label.rect[2]), self._increased_size_chat[1]) # type: ignore
+        #Vertical scrollbar
+        if length>self._elements_before_scrollbar:
+            #Increase scrollbar size, up to 2 buttons can fit without a scrollbar
+            self._increased_size_chat=(self._increased_size_chat[0], self._increased_size_chat[1]+MEDIUM_BTN_HEIGHT)
+        self._chat_panel.set_scrollable_area_dimensions(self._increased_size_chat)
+        scroll_bar=self._chat_panel.vert_scroll_bar
+        if scroll_bar!=None:
+            #If there's a scroll bar, it should show the bottom of the internal panel
+            #Lowest message = newest message
+            scroll_bar.set_scroll_from_start_percentage(1.0)
+
+    def _check_if_message_ok(self, future: Future[None])->None:
+        """The callback function called when the message is sent"""
+        if future.exception() is not None:
+            messagebox.showwarning('Error', "Message not sent, try again")
 
     def _create_input_panel(self)->None:
         """Creates the text box panel"""
@@ -1153,10 +1226,31 @@ class DayEndScreen(DayVotingScreen):
         #Positioning is: below chat panel, same distance from right side as chat panel
         #Panel shown to everybody
         self._text_input=pygame_gui.elements.UITextEntryLine(relative_rect=(0,0,MEDIUM_BTN_WIDTH, AUTO_SIZING), manager=self._gui_manager, initial_text="",container=self._input_panel)
+    
+    def _create_chat_panel(self)->None:
+        """Creates the chat panel"""
+        self._starting_size_chat=(MEDIUM_PANEL, PANEL_Y)  
+        self._increased_size_chat=(MEDIUM_PANEL-HORIZONTAL_SPACE_FOR_SCROLLBAR, PANEL_Y) #Inner panel is slightly smaller, has to account for scrollbars
+        self._elements_before_scrollbar=int(PANEL_Y/MEDIUM_BTN_HEIGHT) #How many elements fit into the inner panel, rounded to the lowest integer 
+        self._chat_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(-MEDIUM_PANEL ,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'centery':'centery'}, allow_scroll_x=True, enabled_even_for_dead=True)
+        #Positioning is negative because the anchor is right, same applies to bottom anchors
+        self._chat_panel.set_scrollable_area_dimensions(self._increased_size_chat)
+
+    def _create_go_home_panel(self)->None:
+        """Creates the go home panel"""
+        self._home_button_panel=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(10,LARGE_BTN_HEIGHT, LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT), anchors={}, enabled_even_for_dead=True)
+        self._home_button=pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, 0), (LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT)), text="Quit the game and go back to the start", manager=self._gui_manager, anchors={'centerx':'centerx'}, container=self._home_button_panel)
 
     def reset_screen(self) -> None:
-        self._voted_text.text="Game over! Thanks for playing!"
-        self._voted_container.update_on_next_draw()
+        self._panel_handler.delete_panels(self._screen_id)
+        #Delete all chat messages
+        self._chat_messages.clear()
+        #Already deleted panel, create it new
+        self._create_chat_panel()
+        #Delete text input, already deleted panel
+        self._create_input_panel()
+        self._text_input.clear()
+        self._create_go_home_panel()
 
 class DayExecutionScreen(AbstractScreen):
     """The screen where users chat and choose if the player nominated for execution should be spared or not"""
