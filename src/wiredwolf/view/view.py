@@ -9,7 +9,7 @@ from wiredwolf.controller.controller import GameController
 from wiredwolf.controller.lobbies import Lobby, LobbyInfo, TcpMdnsLobbyBrowser
 from wiredwolf.view.custom_events import ChangeScreenType, ChatMessageType, CustomEventSender, DeadPlayerType, EndErrorType, ErrorType, LobbyType, EventSender, GameRoleType, TimeOutType, UsersType, create_custom_event_from_dict
 from wiredwolf.view.components import CallbackButton, VContainer, HContainer, EnabledButton, Text, TextField, DrawableComponent
-from wiredwolf.view.constants import FontSize, Screens
+from wiredwolf.view.constants import ROLE_DESCRIPTION_DICT, FontSize, Screens
 from functools import partial
 from wiredwolf.view.view_constants import AUTO_SIZING, HORIZONTAL_SPACE_FOR_SCROLLBAR, MEDIUM_BTN_HEIGHT, MEDIUM_PANEL, ROLE_PANEL_X, ROLE_PANEL_Y, SMALL_PANEL, PANEL_Y, SINGLE_ELEMENT_DIV, SMALL_BTN_WIDTH, MEDIUM_ELEMENT_DIV, LARGE_ELEMENT_DIV, LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, MEDIUM_BTN_WIDTH, BACKGROUND_COLOR, SMALL_ELEMENT_DIV
 from pygame_gui.core.interfaces import IUIElementInterface
@@ -1359,7 +1359,6 @@ class NightRoleScreen(AbstractScreen):
         self._role_name=""
         self._role_text=Text("Use your power, "+self._role_name)
         self._role_container=VContainer(SINGLE_ELEMENT_DIV, [self._role_text], self._display.get_size(),(30, 10)) 
-        #TODO: customize this further? ex werewolves kill this player, ...
         self._create_users_panel()
         #This is a list to store the buttons corresponding to the users
         self._players_list:list[tuple[pygame_gui.elements.UIButton, Peer]]=[]
@@ -1386,10 +1385,8 @@ class NightRoleScreen(AbstractScreen):
                 if player.role==BasicRole.WEREWOLF:
                     if player.is_alive()==True:
                         #Show panels to chat with other werewolves
-                        self._chat_panel.show()
                         self._input_panel.show()
                     else:
-                        self._chat_panel.show()
                         self._input_panel.hide()
         
         #Event handling
@@ -1484,7 +1481,7 @@ class NightRoleScreen(AbstractScreen):
         self._starting_size_chat=(MEDIUM_PANEL, PANEL_Y)  
         self._increased_size_chat=(MEDIUM_PANEL-HORIZONTAL_SPACE_FOR_SCROLLBAR, PANEL_Y) #Inner panel is slightly smaller, has to account for scrollbars
         self._elements_before_scrollbar=int(PANEL_Y/MEDIUM_BTN_HEIGHT) #How many elements fit into the inner panel, rounded to the lowest integer 
-        self._chat_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(-MEDIUM_PANEL,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'centery':'centery'}, allow_scroll_x=True, always_on=False, enabled_even_for_dead=True)
+        self._chat_panel=self._panel_handler.create_scrolling_panel(self._screen_id, pygame.rect.Rect(-MEDIUM_PANEL,0, self._starting_size_chat[0], self._starting_size_chat[1]), anchors={'right':'right', 'centery':'centery'}, allow_scroll_x=True, always_on=True, enabled_even_for_dead=True)
         #Positioning is negative because the anchor is right, same applies to bottom anchors
         self._chat_panel.set_scrollable_area_dimensions(self._increased_size_chat)
         #Panel default hidden unless werewolf role is set
@@ -1576,9 +1573,9 @@ class RoleDisplayScreen(AbstractScreen):
                     #Should never be None
                     self._title.text=player.role.name
                     self._title_container.update_on_next_draw()
-                    self._description.text=player.role.name #TODO: get description
+                    self._description.text=ROLE_DESCRIPTION_DICT[player.role]
                     self._description_container.update_on_next_draw()
-                    self._panel_handler.role_panel.set_content(self._controller.my_self.name+" ("+player.role.name+")", player.role.name) #TODO: get description
+                    self._panel_handler.role_panel.set_content(self._controller.my_self.name+" ("+player.role.name+")", ROLE_DESCRIPTION_DICT[player.role])
                     self._panel_handler.role_panel.show()
             if isinstance(e, ErrorType):
                 #If it's an error event, show error message

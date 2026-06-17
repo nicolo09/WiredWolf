@@ -402,6 +402,10 @@ class EventSender(ABC):
         raise NotImplementedError("Please implement this method")
     
     @abstractmethod
+    def message_player_spared(self, user:str)->None:
+        """Sends a message to the view telling the players that user was spared"""
+        raise NotImplementedError("Please implement this method")
+    @abstractmethod
     def message_player_killed_during_night(self, user:str)->None:
         """Sends a message to the view telling the players that user was killed during the night"""
         raise NotImplementedError("Please implement this method")
@@ -455,6 +459,10 @@ class StatusMessages():
     def user_executed(self, username:str)->str:
         """Returns the message that a user was executed"""
         return self._msg_sender+": "+username+" was executed and killed"
+
+    def user_spared(self, username:str)->str:
+        """Returns the message that a user was spared"""
+        return self._msg_sender+": "+username+" was spared"
     
     def user_killed_during_night(self, username:str)->str:
         """Returns the message that a user was killed during the night"""
@@ -599,6 +607,9 @@ class CustomEventSender(EventSender):
         
     def message_player_executed(self, user:str)->None:
         self.send_event_chat_message(self._status_messages.user_executed(user))
+    
+    def message_player_spared(self, user:str)->None:
+        self.send_event_chat_message(self._status_messages.user_spared(user))
     
     def message_player_killed_during_night(self, user:str)->None:
         self.send_event_chat_message(self._status_messages.user_killed_during_night(user))
