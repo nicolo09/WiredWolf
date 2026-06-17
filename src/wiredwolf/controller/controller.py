@@ -240,13 +240,13 @@ class GameController:
                             self._event_sender.player_is_dead()
                 match message.outcome.new_phase:
                     case GamePhase.DAY_DISCUSSION:
+                        self._event_sender.end_night(self._game_status.day_count)
                         if message.outcome.someone_died():
                             self._logger.info("Night phase ended with a death.")
                             for player in message.outcome.deaths:
                                 self._event_sender.message_player_killed_during_night(
                                     player.name
                                 )
-                        self._event_sender.end_night(self._game_status.day_count)
                     case GamePhase.DAY_ACCUSING:
                         if self._game_status is not None:
                             votable_peers = [
