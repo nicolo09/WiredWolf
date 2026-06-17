@@ -274,11 +274,18 @@ class GameController:
                             self._logger.error(
                                 "Game status, lobby, or accused player is not available."
                             )
-                    case GamePhase.NIGHT:
+                    case GamePhase.BALLOT_RESULT:
+                        self._event_sender.end_ballot()
                         if (message.outcome.someone_died()):
                             self._logger.info("Day ballot phase ended with an execution.")
                             for player in message.outcome.deaths:
                                 self._event_sender.message_player_executed(player.name)
+                        else:
+                            accused_player = message.outcome.get_accused_player()
+                            if accused_player is not None:
+                                self._logger.info("Day ballot phase ended with no execution.")
+                                self._event_sender.message_player_spared(accused_player.name)
+                    case GamePhase.NIGHT:
                         if self._game_status is not None:
                             my_self = self.my_self_as_player()
                             if my_self is not None and self.lobby is not None:
