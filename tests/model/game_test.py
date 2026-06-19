@@ -86,6 +86,7 @@ class GameTest(unittest.TestCase):
         self.game.ballot_vote("Charlie", True)
         self.game.ballot_vote("Diana", True)
         self.game.advance_phase()
+        self.game.advance_phase()
         self.assertEqual(self.game.phase, GamePhase.VILLAGERS_VICTORY)
 
     def test_werewolves_victory(self):
@@ -155,6 +156,7 @@ class GameStatusTest(unittest.TestCase):
 
         second_game_copy.ballot_vote("Charlie", True)
         second_game_copy.ballot_vote("Diana", True)
+        second_game_copy.advance_phase()
         second_game_copy.advance_phase()
         
         self.assertEqual(second_game_copy.phase, GamePhase.VILLAGERS_VICTORY)
