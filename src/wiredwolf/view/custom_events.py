@@ -555,6 +555,8 @@ class CustomEventSender(EventSender):
 
     def start_nomination_for_execution(self, players: list[Peer]) -> None:
         #Day message not needed, as the chat is shared with day chat
+        #Sort players by name
+        players.sort(key=lambda x: x.name)
         for elem in players:
             self.send_event_add_user(elem)
         self.start_voting_for_nominations()
@@ -591,6 +593,9 @@ class CustomEventSender(EventSender):
         self.send_event_game_role()
 
     def can_use_powers_on(self, player_list: list[Peer]) -> None:
+
+        #Sort players by name
+        player_list.sort(key=lambda x: x.name)
         for elem in player_list:
             self.send_event_add_user(elem)
         #Added timeout to signify the end of allowed players and the start of searching for disabled players
