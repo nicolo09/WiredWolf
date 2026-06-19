@@ -14,6 +14,7 @@ from wiredwolf.controller.messages import (
     ConnectionClosedMessage,
     GameStartedMessage,
     LobbyUpdatedMessage,
+    NightActionMessage,
     NotAcknowledgeMessage,
     PhaseAdvanceMessage,
     StartGameMessage,
@@ -197,6 +198,11 @@ class GameController:
             case AcknowledgeMessage():
                 # Notify the waiting coroutine that the acknowledgment has been received
                 if message.id in self._waiting_for_ack:
+                    if message.result is not None:
+                        self._waiting_for_ack[message.id] = (
+                            self._waiting_for_ack[message.id][0],
+                            message.result,
+                        )
                     self._waiting_for_ack[message.id][0].set()
             case NotAcknowledgeMessage():
                 # Notify the waiting coroutine that an error has occurred
@@ -403,13 +409,21 @@ class GameController:
         Args:
             player (Peer): The player to choose.
         """
-        result = await self._send_message_and_wait_for_ack(
-            VotePlayerMessage(self._my_self, player.uuid)
-        )
-        if result:
-            if isinstance(result, NightActionResult):
+        if self._game_status:
+            if self._game_status.phase is GamePhase.NIGHT:
+                result = await self._send_message_and_wait_for_ack(
+                    NightActionMessage(self._my_self, player.uuid)
+                )
+                if result:
+                    if isinstance(result, NightActionResult):
+                        self._event_sender.display_chat_message(f"You have chosen {player.name}.")
+                        self._event_sender.display_chat_message(result.message)
+            else:
+                await self._send_message_and_wait_for_ack(
+                    VotePlayerMessage(self._my_self, player.uuid)
+                )
                 self._event_sender.display_chat_message(f"You have chosen {player.name}.")
-                self._event_sender.display_chat_message(result.message)
+        
 
     async def vote_guilty(self):
         """Votes for the selected player to be guilty. This method may be called only during a

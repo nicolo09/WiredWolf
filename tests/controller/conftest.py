@@ -15,6 +15,7 @@ from wiredwolf.view.custom_events import EventSender
 
 TEST_TIMEOUT = 5
 TEST_PHASE_DURATION_SECONDS = 3
+TEST_BALLOT_RESULT_PHASE_DURATION_SECONDS = 3
 
 TEST_USER_BASE = "TestUser"
 
@@ -61,3 +62,4 @@ async def controllers(
 monkeypatch = MonkeyPatch()
 monkeypatch.setattr(commons, "FIRST_DAY_PHASE_DURATION_SECONDS", TEST_PHASE_DURATION_SECONDS)
 monkeypatch.setattr(commons, "PHASE_DURATION_SECONDS", TEST_PHASE_DURATION_SECONDS)
+monkeypatch.setattr(commons, "BALLOT_RESULT_PHASE_DURATION_SECONDS", TEST_BALLOT_RESULT_PHASE_DURATION_SECONDS)

@@ -66,16 +66,9 @@ class VotingPlugin(ServerPlugin):
             case VotePlayerMessage():
                 try:
                     action_result = None
-                    match server.game.phase:
-                        #TODO: This should be 2 different message types, because a message might be sent during day and arrive during night 
-                        case GamePhase.DAY_ACCUSING:
-                            server.game.accuse_player(
-                            message.sender.uuid, message.voted_player_uuid
-                        )
-                        case GamePhase.NIGHT:
-                            action_result = server.game.perform_night_action(
-                                message.sender.uuid, message.voted_player_uuid
-                            )
+                    server.game.accuse_player(
+                        message.sender.uuid, message.voted_player_uuid
+                    )
                     await server.connection_handler.send_obj(
                             message.sender,
                             AcknowledgeMessage(

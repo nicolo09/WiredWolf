@@ -10,7 +10,7 @@ from tests.controller.conftest import TEST_TIMEOUT
 from tests.controller.controller_test import test_start_game
 from wiredwolf.controller.commons import FIRST_DAY_PHASE_DURATION_SECONDS, PHASE_DURATION_SECONDS
 from wiredwolf.controller.controller import GameController
-from wiredwolf.model.player import BasicRole
+from wiredwolf.model.player import Alignment, BasicRole
 from wiredwolf.view.custom_events import EventSender
 
 
@@ -116,6 +116,36 @@ async def test_game_flow(
                 "A controller couldn't vote within the timeout period."
             )
 
+    # Wait for the execution result
+    for controller, event_sender in controllers:
+        try:
+            if not isinstance(event_sender, mock.Mock):
+                pytest.fail("Event sender is not a mock, cannot verify execution result message.")
+            async with asyncio.timeout(TEST_TIMEOUT):
+                while not event_sender.end_ballot.called:
+                    await asyncio.sleep(0.1)
+            event_sender.end_ballot.assert_called_once()
+        except asyncio.TimeoutError:
+            pytest.fail(
+                "A controller did not receive execution result message within the timeout period."
+            )
+
+    # Verify that all controllers receive the correct execution result message with the executed player and their role
+    should_be_dead = villagers[0].my_self_as_player().name # pyright: ignore[reportOptionalMemberAccess]
+    for controller, event_sender in controllers:
+        try:
+            if not isinstance(event_sender, mock.Mock):
+                pytest.fail("Event sender is not a mock, cannot verify execution result message.")
+            async with asyncio.timeout(TEST_TIMEOUT):
+                while not event_sender.message_player_executed.called:
+                    await asyncio.sleep(0.1)
+            event_sender.message_player_executed.assert_called_once()
+            assert event_sender.message_player_executed.call_args.args[0] == should_be_dead
+        except asyncio.TimeoutError:
+            pytest.fail(
+                "A controller did not receive execution result message within the timeout period."
+            )
+
     # Wait for the night
     for controller, event_sender in controllers:
         try:
@@ -130,26 +160,26 @@ async def test_game_flow(
                 "A controller did not receive night start message within the timeout period after execution."
             )
 
-    # Verify that all controllers receive the correct execution result message with the executed player and their role
-    should_be_executed = villagers[0].my_self_as_player().name # pyright: ignore[reportOptionalMemberAccess]
-    for controller, event_sender in controllers:
-        try:
-            if not isinstance(event_sender, mock.Mock):
-                pytest.fail("Event sender is not a mock, cannot verify execution result message.")
-            async with asyncio.timeout(TEST_TIMEOUT):
-                while not event_sender.message_player_executed.called:
-                    await asyncio.sleep(0.1)
-            event_sender.message_player_executed.assert_called_once()
-            assert event_sender.message_player_executed.call_args.args[0] == should_be_executed
-        except asyncio.TimeoutError:
-            pytest.fail(
-                "A controller did not receive execution result message within the timeout period."
-            )
-
     # Resets all mocks
     for _, event_sender in controllers:
         if isinstance(event_sender, mock.Mock):
             event_sender.reset_mock()
+
+    # Check that the clairvoyant receives the correct message with the role of a player they choose to see
+    try:
+        if not isinstance(clairvoyant._event_sender, mock.Mock):
+            pytest.fail("Clairvoyant's event sender is not a mock, cannot verify clairvoyant vision message.")
+        async with asyncio.timeout(TEST_TIMEOUT):
+            await clairvoyant.choose_player(villagers[1].my_self)
+            while not clairvoyant._event_sender.display_chat_message.called:
+                await asyncio.sleep(0.1)
+        clairvoyant._event_sender.display_chat_message.assert_called()
+        message_arg = clairvoyant._event_sender.display_chat_message.call_args.args[0]
+        assert str.lower(Alignment.GOOD_ALIGNMENT.value) in message_arg.lower()
+    except asyncio.TimeoutError:
+        pytest.fail(
+            "Clairvoyant did not receive vision result message within the timeout period."
+        )
 
     # The werewolves vote for a villager to be killed
     for controller in werewolves:
