@@ -26,6 +26,8 @@ class GamePhaseTest(unittest.TestCase):
         outcome = test_game.advance_phase()
         self.assertEqual(outcome.new_phase, GamePhase.DAY_BALLOT)
         outcome = test_game.advance_phase()
+        self.assertEqual(outcome.new_phase, GamePhase.BALLOT_RESULT)
+        outcome = test_game.advance_phase()
         self.assertEqual(outcome.new_phase, GamePhase.NIGHT)
         
 
@@ -64,6 +66,8 @@ class GamePhaseTest(unittest.TestCase):
         self.assertEqual(outcome.new_phase, GamePhase.DAY_BALLOT)
         outcome = self.game.advance_phase()
         self.assertFalse(outcome.someone_died())
+        self.assertEqual(outcome.new_phase, GamePhase.BALLOT_RESULT)
+        outcome = self.game.advance_phase()
         self.assertEqual(outcome.new_phase, GamePhase.NIGHT)
         outcome = self.game.advance_phase()
         self.assertFalse(outcome.someone_died())

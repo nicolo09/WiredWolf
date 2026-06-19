@@ -1298,6 +1298,10 @@ class DayExecutionScreen(AbstractScreen):
             if isinstance(e, ChatMessageType):
                 #Messages received from other users
                 self._send_message(e.message)
+            if isinstance(e, TimeOutType):
+                #End of voting, disable buttons
+                self._execute_button.disable()
+                self._spare_button.disable()
             if isinstance(e, UsersType):
                 if e.action==UsersType.s_action_add:
                     #Username of player to execute

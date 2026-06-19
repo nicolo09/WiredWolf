@@ -405,6 +405,12 @@ class EventSender(ABC):
     def message_player_spared(self, user:str)->None:
         """Sends a message to the view telling the players that user was spared"""
         raise NotImplementedError("Please implement this method")
+    
+    @abstractmethod
+    def end_ballot(self) -> None:
+        """Sends a message to the view telling the players that the ballot has ended"""
+        raise NotImplementedError("Please implement this method")
+    
     @abstractmethod
     def message_player_killed_during_night(self, user:str)->None:
         """Sends a message to the view telling the players that user was killed during the night"""
@@ -555,12 +561,13 @@ class CustomEventSender(EventSender):
 
     def start_voting_for_nominations(self) -> None:
         self.send_event_timeout()
-        #TODO: message?
 
     def user_to_nominated_for_ballot(self, user:Peer) -> None:
-        #TODO: num day?
         self.send_event_to_screen(Screens.DAY_EXECUTION)
         self.send_event_add_user(user)
+
+    def end_ballot(self) -> None:
+        self.send_event_timeout()
 
     def display_chat_message(self, message: str) -> None:
         self.send_event_chat_message(message)

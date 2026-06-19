@@ -235,12 +235,17 @@ class GameServer:
             self.__logger.info("Game over. Werewolves have won.")
             return
         else:
+            duration = (
+                commons.BALLOT_RESULT_PHASE_DURATION_SECONDS 
+                if outcome.result().new_phase is GamePhase.BALLOT_RESULT 
+                else commons.PHASE_DURATION_SECONDS
+            )
             self.__logger.info(
                 "Setting up timer for next phase: %s seconds.",
-                commons.PHASE_DURATION_SECONDS,
+                duration,
             )
             self._game_actual_phase_task = asyncio.create_task(
-                self.wait_and_advance_game(commons.PHASE_DURATION_SECONDS)
+                self.wait_and_advance_game(duration)
             )
         self._game_actual_phase_task.add_done_callback(
             lambda outcome: self.on_game_phase_advanced(outcome)
