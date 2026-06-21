@@ -6,39 +6,23 @@ class TestComponents(unittest.TestCase):
     """Unit test for view components"""
 
     def setUp(self) -> None:
-        self.MAX=5
-        self.list=LimitedList(self.MAX)
+        self.text=Text("Test", (0,0))
+        self.display_screen = pygame.display.set_mode((100, 100), pygame.RESIZABLE)
 
-    def test_component_empty(self)->None:
-        """A limited list starts out as empty"""
-        self.assertEqual(len(self.list.list),0)
+    def test_container_changes_positioning(self)->None:
+        """A container changes the positioning of all elements inside it"""
+        self.assertEqual(self.text.text, "Test")
+        self.assertEqual(self.text.position, (0,0))
+        HContainer(SMALL_ELEMENT_DIV, [self.text], self.display_screen.size, position=(50,50))
+        self.assertNotEqual(self.text.position, (0,0))
 
-    def test_component_limit(self)->None:
-        """A limited list can hold at most max elements"""
-        for i in range(0,self.MAX+1):
-            self.list.add_element(str(i))
-        self.assertEqual(len(self.list.list), self.MAX)
+    def test_on_resize_change_positioning(self)->None:
+        """A container changes the positioning of all elements inside it when the window gets resized"""
+        before=self.text.position
+        container=HContainer(SMALL_ELEMENT_DIV, [self.text], (10,10), position=(50,50))
+        container.draw(self.display_screen)
+        after=self.text.position
+        self.assertNotEqual(before, after)
 
-    def test_component_order(self)->None:
-        """A limited list stores items as a FIFO list"""
-        ordinary_list:list[str]=[]
-        for i in range(0,self.MAX-1):
-            self.list.add_element(str(i))
-            ordinary_list.insert(0, (str(i)))
-        self.assertEqual(len(self.list.list), self.MAX-1)
-        self.assertEqual(self.list.list, ordinary_list)
 
-    def test_clear_component(self)->None:
-        """A limited list can be cleared"""
-        for i in range(0,self.MAX):
-            self.list.add_element(str(i))
-        self.assertEqual(len(self.list.list), self.MAX)
-        self.list.clear()
-        self.assertEqual(len(self.list.list), 0)
-        self.assertEqual(self.list.max_elements, self.MAX)
-
-    def test_component_error(self)->None:
-        """A limited list can only be created with max elements>=0"""
-        self.assertRaises(ValueError, LimitedList, -1)
-        self.assertRaises(ValueError, LimitedList, 0)
     

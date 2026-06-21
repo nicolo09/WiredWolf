@@ -192,8 +192,7 @@ class ChatMessageType(AbstractEventType):
         return {AbstractEventType.s_event:self._event, ChatMessageType.s_message:self._message}
 
 class GameRoleType(AbstractEventType):
-    """An event sent containing informing the view that the game role has been set"""
-    #static field name to standardize the dictionary key
+    """An event sent informing the view that the game role has been set"""
 
     def __init__(self)->None:
         self._event=EventType.GAME_ROLE
@@ -562,6 +561,7 @@ class CustomEventSender(EventSender):
         self.start_voting_for_nominations()
 
     def start_voting_for_nominations(self) -> None:
+        """Sends an event to the view to start the voting for nominations, after some time to chat before nominations start"""
         self.send_event_timeout()
 
     def user_to_nominated_for_ballot(self, user:Peer) -> None:
@@ -593,7 +593,6 @@ class CustomEventSender(EventSender):
         self.send_event_game_role()
 
     def can_use_powers_on(self, player_list: list[Peer]) -> None:
-
         #Sort players by name
         player_list.sort(key=lambda x: x.name)
         for elem in player_list:
@@ -612,9 +611,11 @@ class CustomEventSender(EventSender):
         self.send_event_chat_message(self._status_messages.wolf_win())
 
     def day_message(self, day:int)->None:
+        """A way to send a message to the view containing how many days have passed"""
         self.send_event_chat_message(self._status_messages.message_day(day))
     
     def night_message(self, night:int)->None:
+        """A way to send a message to the view containing how many nights have passed"""
         self.send_event_chat_message(self._status_messages.message_night(night))
         
     def message_player_executed(self, user:str)->None:

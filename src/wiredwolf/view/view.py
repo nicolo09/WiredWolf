@@ -69,10 +69,6 @@ class ErrorScreenHandler():
         """Reset error title and error message displayed in error screen"""
         self._error_title=""
         self._error_message=""
-        
-    def get_error(self)->tuple[str, str]:
-        """Returns the saved error, as (title, message)"""
-        return (self._error_title, self._error_message)
     
     def get_error_title(self)->str:
         """Returns the error title"""
@@ -90,7 +86,6 @@ class GlobalState:
     def reset(self)->None:
         """Resets the global state"""
         self._custom_event=0
-        self._is_master=False
     
     @property
     def custom_event(self)->int:
@@ -1706,9 +1701,8 @@ class ErrorMessageScreen(AbstractScreen):
         self._gui_manager.draw_ui(self._display)
         if self._title!=self._error_handler.get_error_title() or self._text!=self._error_handler.get_error_message():
             #Error message is not set in this screen
-            error=self._error_handler.get_error()
-            self._title=error[0]
-            self._text=error[1]
+            self._title=self._error_handler.get_error_title()
+            self._text=self._error_handler.get_error_message()
             self._title_element.set_text(self._title)
             self._text_element.set_text(self._text)
         
