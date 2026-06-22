@@ -179,6 +179,31 @@ class GameServer:
         # Notify other peers of the updated lobby sending the updated lobby object
         await self._notify_updated_lobby()
 
+    async def send_to_peer(self, peer: commons.Peer, message: BaseMessage):
+        """Sends a message to a specific peer.
+
+        Args:
+            peer (Peer): The peer to send the message to.
+            message (BaseMessage): The message to send.
+        """
+        try:
+            await self._server_conn_handler.send_obj(peer, message)
+        except Exception as e:
+            self.__logger.error("Error sending message to %s: %s", peer, e)
+
+    async def send_to_uuid(self, peer_uuid: str, message: BaseMessage):
+        """Sends a message to a specific peer identified by their UUID.
+
+        Args:
+            peer_uuid (str): The UUID of the peer to send the message to.
+            message (BaseMessage): The message to send.
+        """
+        peer = next((p for p in self._lobby.peers if p.uuid == peer_uuid), None)
+        if peer:
+            await self.send_to_peer(peer, message)
+        else:
+            self.__logger.warning("No peer found with UUID: %s", peer_uuid)
+
     async def send_to_all(self, message: BaseMessage):
         """Sends a message to all connected peers in the lobby."""
         for peer in self._lobby.peers:

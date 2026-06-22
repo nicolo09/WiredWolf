@@ -391,7 +391,7 @@ class GameController:
         if self._client_connection_handler is None:
             raise RuntimeError("Not connected to a lobby.")
         await self._client_connection_handler.send_obj(
-            ChatMessage(self._my_self, message)
+            ChatMessage(self._my_self, message, self._game_status.phase if self._game_status else None)
         )
 
     async def start_game(self):
@@ -422,8 +422,7 @@ class GameController:
                 await self._send_message_and_wait_for_ack(
                     VotePlayerMessage(self._my_self, player.uuid)
                 )
-                self._event_sender.display_chat_message(f"You have chosen {player.name}.")
-        
+                self._event_sender.display_chat_message(f"You have chosen {player.name}.")     
 
     async def vote_guilty(self):
         """Votes for the selected player to be guilty. This method may be called only during a

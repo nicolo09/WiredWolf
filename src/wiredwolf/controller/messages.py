@@ -7,7 +7,7 @@ if TYPE_CHECKING:
     # Avoid circular imports for type checking
     from wiredwolf.controller.lobbies import Lobby 
 from wiredwolf.model.game import GameStatus
-from wiredwolf.model.game_phases import GamePhaseOutcome
+from wiredwolf.model.game_phases import GamePhase, GamePhaseOutcome
 
 @dataclass
 class BaseMessage(abc.ABC):
@@ -53,9 +53,10 @@ class LobbyUpdatedMessage(BaseMessage):
 class ChatMessage(BaseMessage):
     """Represents a chat message sent by a peer."""
 
-    def __init__(self, sender: Peer, message: str):
+    def __init__(self, sender: Peer, message: str, game_phase: GamePhase | None):
         super().__init__(sender)
         self._message: str = message
+        self._game_phase: GamePhase | None = game_phase
 
     @property
     def message(self) -> str:
@@ -64,6 +65,14 @@ class ChatMessage(BaseMessage):
             str: The chat message.
         """
         return self._message
+
+    @property
+    def game_phase(self) -> GamePhase | None:
+        """Gets the game phase to which the chat message belongs.
+        Returns:
+            GamePhase | None: The game phase to which the chat message belongs.
+        """
+        return self._game_phase
 
 
 class StartGameMessage(BaseMessage):
