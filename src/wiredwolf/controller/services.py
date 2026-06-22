@@ -1,9 +1,7 @@
-import asyncio
 from collections.abc import Callable
 import ipaddress
 import logging
 import socket
-from typing import Awaitable
 from zeroconf import NonUniqueNameException, ServiceBrowser, ServiceInfo, ServiceListener, Zeroconf
 from wiredwolf.controller.network import PsutilNetworkExplorer
 
