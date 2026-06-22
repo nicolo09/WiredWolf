@@ -137,7 +137,7 @@ async def test_wrong_sender_discard_message(
     client_handler.set_on_message(on_client_receives_message)
     await client_handler.start_receiving()
     fake_sender = Peer("FakeSender")
-    msg = ChatMessage(sender=fake_sender, message="Hello")
+    msg = ChatMessage(sender=fake_sender, message="Hello", game_phase=None)
     await client_handler.send_obj(msg)
     try:
         async with timeout(TEST_TIMEOUT):
@@ -183,7 +183,7 @@ async def test_server_connection_handler_callbacks(
     assert mocked.on_new_peer.call_count == 1, "on_new_peer should be called once"
     peer_arg = mocked.on_new_peer.call_args.args[0]
     assert peer_arg == myself, "on_new_peer should be called with the correct Peer instance"
-    msg = ChatMessage(sender=myself, message="Hello")
+    msg = ChatMessage(sender=myself, message="Hello", game_phase=None)
     await handler.send_obj(msg)
     try:
         async with timeout(5):

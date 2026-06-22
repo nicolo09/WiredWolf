@@ -10,6 +10,7 @@ from wiredwolf.controller.messages import (
 )
 from wiredwolf.controller.server import GameServer, ServerPlugin
 from wiredwolf.model.game_phases import GamePhase
+from wiredwolf.model.player import BasicRole
 
 
 class ChatPlugin(ServerPlugin):
@@ -25,7 +26,35 @@ class ChatPlugin(ServerPlugin):
     ) -> tuple[AcknowledgeMessage | NotAcknowledgeMessage, bool]:
         #TODO: This should be changed so that at night only certain messages are allowed, and only to certain players. A werewolf should be able to chat with other werewolves at night, but not with villagers.
         if isinstance(message, ChatMessage):
-            await server.send_to_all(message)
+            if message.sender is None:
+                # The message sender is None, we cannot process the message
+                return NotAcknowledgeMessage(message.id, message.sender, ValueError("Message sender cannot be None.")), True
+            if server.game is None and message.game_phase is None:
+                # The game has not started yet, we allow all chat messages in the lobby
+                await server.send_to_all(message)
+            elif server.game is not None and message.game_phase == server.game.phase:
+                # The game has started and the message is for the current phase
+                sender_player = next((player for player in server.game.players if player.id == message.sender.uuid), None)
+                if not sender_player:
+                    # The message sender is not a player in the game
+                    return NotAcknowledgeMessage(message.id, message.sender, ValueError("Message sender is not a player in the game.")), True
+                elif not sender_player.is_alive():
+                    # The game is from a player that is not alive
+                    dead_players = [player for player in server.game.players if not player.is_alive()]
+                    for dead_player in dead_players:
+                        await server.send_to_uuid(dead_player.id, message)
+                elif message.game_phase == GamePhase.NIGHT:
+                    # The message is for the night phase, we only allow werewolves to chat with each other
+                    if sender_player.role == BasicRole.WEREWOLF:
+                        werewolves = [player for player in server.game.players if player.role == BasicRole.WEREWOLF and player.is_alive()]
+                        for werewolf in werewolves:
+                            await server.send_to_uuid(werewolf.id, message)
+                    else:
+                        # The message sender is not a werewolf, they cannot chat at night
+                        return NotAcknowledgeMessage(message.id, message.sender, PermissionError("Only werewolves can chat at night.")), True
+                else:
+                    # The message is for the day phase, we allow all players to chat
+                    await server.send_to_all(message)
             return AcknowledgeMessage(message.id, message.sender, "Message sent to all players."), True
         else:
             raise ValueError(f"Unhandled message type: {type(message)}")

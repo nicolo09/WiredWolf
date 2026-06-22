@@ -40,7 +40,7 @@ async def test_chat_plugin(
         message_received.set()
 
     clients[1].set_on_message(on_message)
-    await clients[0].send_obj(ChatMessage(sender=clients[0].my_self, message=MESSAGE))
+    await clients[0].send_obj(ChatMessage(sender=clients[0].my_self, message=MESSAGE, game_phase=None))
     await message_received.wait()
     assert message_received.is_set(), "Chat message was not received by client 1"
 
