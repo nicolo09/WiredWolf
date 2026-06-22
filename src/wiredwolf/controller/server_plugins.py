@@ -55,7 +55,7 @@ class ChatPlugin(ServerPlugin):
                 else:
                     # The message is for the day phase, we allow all players to chat
                     await server.send_to_all(message)
-            return AcknowledgeMessage(message.id, message.sender, "Message sent to all players."), True
+            return AcknowledgeMessage(message.id, message.sender, "Message forwarded."), True
         else:
             raise ValueError(f"Unhandled message type: {type(message)}")
 
