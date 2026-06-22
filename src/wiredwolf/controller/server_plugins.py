@@ -24,7 +24,6 @@ class ChatPlugin(ServerPlugin):
     async def handle_message_sub(
         self, message: BaseMessage, server: GameServer
     ) -> tuple[AcknowledgeMessage | NotAcknowledgeMessage, bool]:
-        #TODO: This should be changed so that at night only certain messages are allowed, and only to certain players. A werewolf should be able to chat with other werewolves at night, but not with villagers.
         if isinstance(message, ChatMessage):
             if message.sender is None:
                 # The message sender is None, we cannot process the message

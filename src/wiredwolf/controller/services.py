@@ -114,14 +114,14 @@ class ServiceManager:
 
     async def unregister_service(self, info: list[ServiceInfo]) -> None:
         self.__logger.info(f"Unregistering service {info[0].name}...")
-        awaitables: list[Awaitable] = []
         for service_info in info:
             zeroconf = self._zeroconf_server.get(service_info)
             if zeroconf:
-                #This await only awaits the awaitable creation, it will be awaited in the gather call below (obv isn't it?)
+                #This await only awaits the awaitable creation, it will be awaited in the await call below (obv isn't it?)
                 aw = await zeroconf.async_unregister_service(service_info)
-                awaitables.append(aw)
-        await asyncio.gather(*awaitables)
+                await aw
+                zeroconf.close()
+                del self._zeroconf_server[service_info]
         self.__logger.info(
             f"Service {info[0].name} unregistered successfully."
         )
@@ -170,7 +170,8 @@ class ServiceManager:
             raise TimeoutError(f"Service {service_name} not found.")
 
     def close(self) -> None:
-        """Closes the underlying Zeroconf instance."""
+        """Closes the underlying Zeroconf instances."""
+        # TODO:This should be called when the application is closed
         for server in self._zeroconf_server.values():
             try:
                 server.close()

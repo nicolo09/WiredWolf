@@ -262,12 +262,6 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
         if self._published_lobby_service_info:
             await self._service_manager.unregister_service(self._published_lobby_service_info)
             self._published_lobby_service_info = None
-            # Close zeroconf resources used by the service manager
-            try:
-                self._service_manager.close()
-            except Exception:
-                # Be tolerant: closing zeroconf is best-effort
-                self.__logger.warning("Failed to close ServiceManager Zeroconf instance.")
         else:
             raise RuntimeError("No lobby is currently being published.")
 
