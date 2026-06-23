@@ -26,13 +26,44 @@ class GamePhaseOutcome:
     def __init__(self, new_phase: GamePhase, deaths: list[Player] = [], accused_player: Player | None = None):
         self.new_phase: GamePhase = new_phase
         self.deaths: list[Player] = deaths
-        self.accused_player: Player | None = accused_player
+        self._accused_player: Player | None = accused_player
 
     def someone_died(self) -> bool:
         return len(self.deaths) > 0
-    
+
     def get_accused_player(self) -> Player | None:
-        return self.accused_player
+        return self._accused_player
+    
+class GamePhaseOutcomeBuilder:
+    """
+    Builder for creating GamePhaseOutcome instances.
+    """
+
+    def __init__(self):
+        self._new_phase: GamePhase | None = None
+        self._deaths: list[Player] = []
+        self._accused_player: Player | None = None
+
+    def set_new_phase(self, new_phase: GamePhase) -> "GamePhaseOutcomeBuilder":
+        self._new_phase = new_phase
+        return self
+
+    def add_death(self, player: Player) -> "GamePhaseOutcomeBuilder":
+        self._deaths.append(player)
+        return self
+
+    def set_accused_player(self, player: Player) -> "GamePhaseOutcomeBuilder":
+        self._accused_player = player
+        return self
+
+    def build(self) -> GamePhaseOutcome:
+        if self._new_phase is None:
+            raise ValueError("New phase must be set before building GamePhaseOutcome.")
+        return GamePhaseOutcome(
+            new_phase=self._new_phase,
+            deaths=self._deaths,
+            accused_player=self._accused_player,
+        )
 
 
 @dataclass
