@@ -50,6 +50,7 @@ class Game:
         self._phase: GamePhase = phase
         self._game_info: AbstractGameInfo = game_info
         self._day_count: int = day_count
+        self._snapshot: GameStatus = self.get_game_status()
 
     @classmethod
     def from_game_status(cls, game_status: GameStatus) -> "Game":
@@ -104,6 +105,16 @@ class Game:
             self._phase,
             self._day_count,
         )
+    #TODO change description
+    def get_game_snapshot(self) -> GameStatus:
+        """
+        Get the last stable state of the game, (at the end or start of a phase) 
+
+        Returns:
+            GameStatus: The last saved snapshot of the game status.
+        """
+        return self._snapshot
+
 
     def advance_phase(self) -> GamePhaseOutcome:
         """
@@ -118,6 +129,7 @@ class Game:
             GamePhaseOutcome: contains the new game phase and any deaths that occurred during the transition.
         """
         deaths: list[Player] = []
+        self._snapshot = self.get_game_status()  #TODO: should the snapshot be updated at the end of the phase or at the beginning of the new phase?
 
         match self._phase:
             case GamePhase.FIRST_DAY:
