@@ -225,3 +225,21 @@ class GameSnapshotTest(unittest.TestCase):
             restored_game.accuse_player("Charlie", "Alice")
         except Exception as e:
             self.fail(f"Votes should be cleared after restoring from snapshot, but got exception: {e}")
+
+    def test_restore_night_from_snapshot(self):
+        self.game.advance_phase()
+        self.game.advance_phase()
+        
+        self.game.perform_night_action("Bob", "Alice") 
+        self.game.perform_night_action("Charlie", "Alice")
+        
+        snapshot: GameStatus = self.game.get_game_snapshot()
+        restored_game: Game = Game.from_game_status(snapshot)
+        
+        self.assertEqual(restored_game.phase, self.game.phase)
+        
+        try:
+            restored_game.perform_night_action("Bob", "Alice")
+            restored_game.perform_night_action("Charlie", "Frank")
+        except Exception as e:
+            self.fail(f"Night actions should be cleared after restoring from snapshot, but got exception: {e}")

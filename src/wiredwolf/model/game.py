@@ -121,9 +121,11 @@ class Game:
         """
         Advance to the next game phase based on current state.
 
+        - FIRST_DAY -> NIGHT
         - DAY_DISCUSSION -> DAY_ACCUSING
         - DAY_ACCUSING -> DAY_BALLOT (if single player has most votes) or NIGHT (if tie/no votes)
-        - DAY_BALLOT -> NIGHT (after processing execution vote)
+        - DAY_BALLOT -> BALLOT_RESULT (after processing ballot votes)
+        - BALLOT_RESULT -> NIGHT 
         - NIGHT -> DAY_DISCUSSION (after processing werewolf attacks and resetting for new day)
 
         Returns:
