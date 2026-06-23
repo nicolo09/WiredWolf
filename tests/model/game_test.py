@@ -64,7 +64,6 @@ class GameInfoTest(unittest.TestCase):
             _ = MediumDecorator(base_game_info)
             self.fail("Expected ValueError for duplicate roles not raised.")
 
-
 class GameTest(unittest.TestCase):
 
     def setUp(self):
@@ -203,3 +202,26 @@ class GameStatusTest(unittest.TestCase):
                 new_game.players[get_index_by_name(new_game.players, "Alice")].status,
                 Status.ALIVE,
             )
+
+class GameSnapshotTest(unittest.TestCase):
+
+    def setUp(self):
+        self.players = populate_players()
+        self.game = Game(self.players, create_game_info(), GamePhase.DAY_DISCUSSION)
+
+    def test_restore_game_from_snapshot(self):
+        self.game.advance_phase()
+        self.game.accuse_player("Alice", "Frank")
+        self.game.accuse_player("Charlie", "Frank")
+        self.game.accuse_player("Frank", "Alice")
+        
+        snapshot: GameStatus = self.game.get_game_snapshot()
+        restored_game: Game = Game.from_game_status(snapshot)
+        
+        self.assertEqual(restored_game.phase, self.game.phase)
+        
+        try:
+            restored_game.accuse_player("Alice", "Frank")
+            restored_game.accuse_player("Charlie", "Alice")
+        except Exception as e:
+            self.fail(f"Votes should be cleared after restoring from snapshot, but got exception: {e}")

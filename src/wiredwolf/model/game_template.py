@@ -187,9 +187,9 @@ class GameInfoBase(AbstractGameInfo):
     def get_game_data(self) -> GameActionData:
         return GameActionData(
             {
-                "accusation_votes": self._accusation_votes,
-                "ballot_votes": self._ballot_votes,
-                "werewolves_votes": self._werewolves_votes,
+                "accusation_votes": self._accusation_votes.copy(),
+                "ballot_votes": self._ballot_votes.copy(),
+                "werewolves_votes": self._werewolves_votes.copy(),
             }
         )
 
