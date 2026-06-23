@@ -105,10 +105,11 @@ class Game:
             self._phase,
             self._day_count,
         )
-    #TODO change description
+    
     def get_game_snapshot(self) -> GameStatus:
         """
-        Get the last stable state of the game, (at the end or start of a phase) 
+        Get the last stable state of the game.
+        Snapshot is updated at the start of each phase, before any actions are performed.
 
         Returns:
             GameStatus: The last saved snapshot of the game status.
@@ -129,7 +130,6 @@ class Game:
             GamePhaseOutcome: contains the new game phase and any deaths that occurred during the transition.
         """
         game_phase_outcome_builder = GamePhaseOutcomeBuilder()
-        self._snapshot = self.get_game_status()  #TODO: should the snapshot be updated at the end of the phase or at the beginning of the new phase?
 
         match self._phase:
             case GamePhase.FIRST_DAY:
@@ -192,6 +192,7 @@ class Game:
         if game_over:
             self._phase = game_over
 
+        self._snapshot = self.get_game_status()
         return game_phase_outcome_builder.set_new_phase(self._phase).build()
 
     def perform_night_action(self, actor_id: str, target_id: str) -> NightActionResult:
