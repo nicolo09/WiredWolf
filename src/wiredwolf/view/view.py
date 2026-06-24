@@ -589,17 +589,7 @@ class SearchLobbyScreen(AbstractScreen):
                 #This screen only interacts with Lobby Events
                 if e.action==LobbyType.s_action_add:
                     #Add new lobby
-                    length=len(self._lobby_list)
-                    if length==0:
-                        #First element, absolute positioning inside the container
-                        self._lobby_list.insert(length, (pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.lobby_info.name, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._lobby_panel), e.lobby_info))
-                    else:
-                        #Second element, relative positioning (below previous button)
-                        self._lobby_list.insert(length, (pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.lobby_info.name, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._lobby_list[length-1][0]}, container=self._lobby_panel), e.lobby_info))
-                    if length>self._elements_before_scrollbar:
-                        #Increase scrollbar size, up to self._elements_before_scrollbar buttons can fit without a scrollbar
-                        self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
-                        self._lobby_panel.set_scrollable_area_dimensions(self._increased_size)
+                    self._add_lobby(e.lobby_info)
                 else:
                     if e.action==LobbyType.s_action_remove:
                         self._remove_lobby(e.lobby_info)
@@ -622,30 +612,30 @@ class SearchLobbyScreen(AbstractScreen):
     
     def _remove_lobby(self, lobby:LobbyInfo)->None:
         """Remove a lobby from the panel if present"""
-        element_to_remove=None
-        anchors=None
+        old_list=self._lobby_list.copy() #Copy list
         for elem in self._lobby_list:
-            if elem[1]==lobby:
-                element_to_remove=elem
-                anchors=elem[0].anchors
-                #Save anchors
-            else:
-                if anchors!=None:
-                    #A match has been found, shift anchors (lower element gets upper element anchors)
-                    temp=elem[0].anchors
-                    elem[0].anchors=anchors
-                    anchors=temp
-                    
-        #Now delete element
-        if element_to_remove!=None:
-            self._lobby_list.remove(element_to_remove)
-            element_to_remove[0].kill()
-            if len(self._lobby_list)>self._elements_before_scrollbar:
-                #Make inner area smaller, but number of elements necessitates a scrollbar
-                self._increased_size=self._increased_size[0], self._increased_size[1]-LARGE_BTN_HEIGHT-MEDIUM_ELEMENT_DIV
-            else:
-                #Smallest inner area possible, scrollbar disappears
-                self._increased_size=self._starting_size
+            elem[0].kill() #Delete the buttons, can't be deleted with clear
+        self._lobby_list.clear()
+        #Reset sizing, starting from the original size
+        self._increased_size=self._starting_size
+        self._lobby_panel.set_scrollable_area_dimensions(self._increased_size)
+        for elem in old_list:
+            if elem[1]!=lobby:
+                #Re-add all users except the one to delete
+                self._add_lobby(elem[1])
+
+    def _add_lobby(self, lobby:LobbyInfo)->None:
+        """Adds a lobby to the panel"""
+        length=len(self._lobby_list)
+        if length==0:
+            #First element, absolute positioning inside the container
+            self._lobby_list.insert(length, (pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=lobby.name, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._lobby_panel), lobby))
+        else:
+            #Second element, relative positioning (below previous button)
+            self._lobby_list.insert(length, (pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=lobby.name, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._lobby_list[length-1][0]}, container=self._lobby_panel), lobby))
+        if length>self._elements_before_scrollbar:
+            #Increase scrollbar size, up to self._elements_before_scrollbar buttons can fit without a scrollbar
+            self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
             self._lobby_panel.set_scrollable_area_dimensions(self._increased_size)
 
     def _try_to_join_lobby(self)->None:
@@ -780,39 +770,18 @@ class WaitingLobbyScreen(AbstractScreen):
 
     def _delete_player(self, user:Peer)->None:
         """Remove a player username to the panel if present"""
-        element_to_remove=None
-        anchors=None
-        biggest_width_remaining=0
+        old_list=self._users_list.copy() #Copy list
         for elem in self._users_list:
-            if elem[1]==user:
-                element_to_remove=elem
-                anchors=elem[0].anchors
-                #Save anchors
-            else:
-                #Get biggest width of any non-deleted element
-                biggest_width_remaining=max(biggest_width_remaining, elem[0].rect[2]) # type: ignore
-                if anchors!=None:
-                    #A match has been found, shift anchors (lower element gets upper element anchors)
-                    temp=elem[0].anchors
-                    elem[0].anchors=anchors
-                    anchors=temp
-                    
-        #Now delete element
-        if element_to_remove!=None:
-            self._users_list.remove(element_to_remove)
-            element_to_remove[0].kill() #Delete button
-            self._counter=self._counter-1
-            self._text_number.text=str(self._counter) +" players connected..."
-            self._waiting.update_on_next_draw()
-            #Scrollbar updates to horizontally biggest element not deleted and height - deleted element height
-            self._increased_size=(min(self._increased_size[0], biggest_width_remaining), self._increased_size[1])
-            if len(self._users_list)>self._elements_before_scrollbar:
-                #Make inner area smaller, but number of elements necessitates a scrollbar
-                self._increased_size=self._increased_size[0], self._increased_size[1]-MEDIUM_BTN_HEIGHT-MEDIUM_ELEMENT_DIV
-            else:
-                #Smallest inner area possible, scrollbar disappears
-                self._increased_size=self._starting_size
-            self._user_panel.set_scrollable_area_dimensions(self._increased_size)
+            elem[0].kill() #Delete the labels, can't be deleted with clear
+        self._users_list.clear()
+        #Reset sizing, starting from the original size
+        self._increased_size=(SMALL_PANEL-HORIZONTAL_SPACE_FOR_SCROLLBAR, PANEL_Y) 
+        self._counter=0 #Reset counter
+        self._user_panel.set_scrollable_area_dimensions(self._increased_size)
+        for elem in old_list:
+            if elem[1]!=user:
+                #Re-add all users except the one to delete
+                self._add_player(elem[1])
     
     def reset_screen(self) -> None:
         #Reset lobby name
@@ -1018,32 +987,17 @@ class DayVotingScreen(AbstractScreen):
 
     def _delete_player(self, user:Peer)->None:
         """Remove a player username to the panel if present"""
-        element_to_remove=None
-        anchors=None
+        old_list=self._player_list.copy() #Copy list
         for elem in self._player_list:
-            if elem[1]==user:
-                element_to_remove=elem
-                anchors=elem[0].anchors
-                #Save anchors
-            else:
-                if anchors!=None:
-                    #A match has been found, shift anchors (lower element gets upper element anchors)
-                    temp=elem[0].anchors
-                    elem[0].anchors=anchors
-                    anchors=temp
-                    
-        #Now delete element
-        if element_to_remove!=None:
-            self._player_list.remove(element_to_remove)
-            element_to_remove[0].kill()
-            #Scrollbar updates to horizontally biggest element not deleted and height - deleted element height
-            if len(self._player_list)>self._elements_before_scrollbar_players:
-                #Make inner area smaller, but number of elements necessitates a scrollbar
-                self._increased_size=self._increased_size[0], self._increased_size[1]-LARGE_BTN_HEIGHT-MEDIUM_ELEMENT_DIV
-            else:
-                #Smallest inner area possible, scrollbar disappears
-                self._increased_size=self._starting_size
-            self._voting_panel.set_scrollable_area_dimensions(self._increased_size)
+            elem[0].kill() #Delete the buttons, can't be deleted with clear
+        self._player_list.clear()
+        #Reset sizing, starting from the original size
+        self._increased_size=self._starting_size
+        self._voting_panel.set_scrollable_area_dimensions(self._increased_size)
+        for elem in old_list:
+            if elem[1]!=user:
+                #Re-add all users except the one to delete
+                self._add_player(elem[1])
 
     def _set_voted_player(self, user:Peer)->None:
         """Function called when the user chooses who to nominate for execution"""
