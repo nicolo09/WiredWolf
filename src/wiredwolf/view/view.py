@@ -11,7 +11,7 @@ from wiredwolf.view.custom_events import ChangeScreenType, ChatMessageType, Cust
 from wiredwolf.view.components import CallbackButton, VContainer, HContainer, EnabledButton, Text, TextField, DrawableComponent
 from wiredwolf.view.constants import ROLE_DESCRIPTION_DICT, FontSize, Screens
 from functools import partial
-from wiredwolf.view.view_constants import AUTO_SIZING, HORIZONTAL_SPACE_FOR_SCROLLBAR, MEDIUM_BTN_HEIGHT, MEDIUM_PANEL, ROLE_PANEL_X, ROLE_PANEL_Y, SMALL_PANEL, PANEL_Y, SINGLE_ELEMENT_DIV, SMALL_BTN_WIDTH, MEDIUM_ELEMENT_DIV, LARGE_ELEMENT_DIV, LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, MEDIUM_BTN_WIDTH, BACKGROUND_COLOR, SMALL_ELEMENT_DIV
+from wiredwolf.view.view_constants import AUTO_SIZING, HORIZONTAL_SPACE_FOR_SCROLLBAR, LOADING_BAR_HEIGHT, LOADING_BAR_WIDTH, MEDIUM_BTN_HEIGHT, MEDIUM_PANEL, ROLE_PANEL_X, ROLE_PANEL_Y, SMALL_PANEL, PANEL_Y, SINGLE_ELEMENT_DIV, SMALL_BTN_WIDTH, MEDIUM_ELEMENT_DIV, LARGE_ELEMENT_DIV, LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, MEDIUM_BTN_WIDTH, BACKGROUND_COLOR, SMALL_ELEMENT_DIV
 from pygame_gui.core.interfaces import IUIElementInterface
 from pygame_gui.core import UIElement
 from tkinter import messagebox
@@ -535,7 +535,7 @@ class LoadingLobbyScreen(AbstractScreen):
         """Creates the panel containing the loading element"""
         self._loading_container=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(0,0, 200, 200), anchors={'centerx':'centerx', 'centery': 'centery'}, enabled_even_for_dead=True)
         self._loading_text=pygame_gui.elements.UILabel(relative_rect=pygame.Rect((0, 0), (-1, -1)), text="Loading the lobby...", manager=self._gui_manager, anchors={'centery': 'centery', 'centerx':'centerx'}, container=self._loading_container)
-        self._loading_bar=pygame_gui.elements.UIStatusBar(pygame.rect.Rect(0,10, 100, 50), manager=self._gui_manager, container=self._loading_container, anchors={'top_target': self._loading_text, 'centerx':'centerx'})
+        self._loading_bar=pygame_gui.elements.UIStatusBar(pygame.rect.Rect(0,10, LOADING_BAR_WIDTH, LOADING_BAR_HEIGHT), manager=self._gui_manager, container=self._loading_container, anchors={'top_target': self._loading_text, 'centerx':'centerx'})
         self._current_progress=2 #For some reason if current progress is 1 there's a display error
         self._loading_bar.percent_full=self._current_progress
         self._step=1
@@ -878,7 +878,7 @@ class LoadingGameScreen(AbstractScreen):
         """Creates the panel containing the loading element"""
         self._loading_container=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(0,0, 200, 200), anchors={'centerx':'centerx', 'centery': 'centery'}, enabled_even_for_dead=True)
         self._loading_text=pygame_gui.elements.UILabel(relative_rect=pygame.Rect((0, 0), (-1, -1)), text="Starting the game...", manager=self._gui_manager, anchors={'centery': 'centery', 'centerx':'centerx'}, container=self._loading_container)
-        self._loading_bar=pygame_gui.elements.UIStatusBar(pygame.rect.Rect(0,10, 100, 50), manager=self._gui_manager, container=self._loading_container, anchors={'top_target': self._loading_text, 'centerx':'centerx'})
+        self._loading_bar=pygame_gui.elements.UIStatusBar(pygame.rect.Rect(0,10, LOADING_BAR_WIDTH, LOADING_BAR_HEIGHT), manager=self._gui_manager, container=self._loading_container, anchors={'top_target': self._loading_text, 'centerx':'centerx'})
         self._current_progress=2 #For some reason if current progress is 1 there's a display error
         self._loading_bar.percent_full=self._current_progress
         self._step=1
@@ -1689,7 +1689,7 @@ class WaitingForReconnectionScreen(AbstractScreen):
         super().__init__(screen, display, game_state_manager, gui_manager, panel_handler, global_state)
         self._panel=self._panel_handler.create_panel(self._screen_id, relative_rect=pygame.rect.Rect(0,0,MEDIUM_PANEL,PANEL_Y), anchors={"centerx":"centerx", "centery":"centery"}, enabled_even_for_dead=True)
         self._title_element=pygame_gui.elements.UILabel(relative_rect=(0,0,MEDIUM_PANEL,AUTO_SIZING), text="Wait for reconnection...", manager=self._gui_manager, anchors={"centerx":"centerx", "centery":"centery"}, container=self._panel)
-        self._loading_bar=pygame_gui.elements.UIStatusBar(pygame.rect.Rect(0,10, 100, 50), manager=self._gui_manager, container=self._panel, anchors={'top_target': self._title_element, 'centerx':'centerx'})
+        self._loading_bar=pygame_gui.elements.UIStatusBar(pygame.rect.Rect(0,10, LOADING_BAR_WIDTH, LOADING_BAR_HEIGHT), manager=self._gui_manager, container=self._panel, anchors={'top_target': self._title_element, 'centerx':'centerx'})
         self._current_progress=2 #For some reason if current progress is 1 there's a display error
         self._loading_bar.percent_full=self._current_progress
         self._step=1
