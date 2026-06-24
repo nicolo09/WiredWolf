@@ -439,6 +439,11 @@ class EventSender(ABC):
     def player_is_dead(self)->None:
         """Triggers ghost player view, called after player is executed or if player is killed by werewolves at night"""
         raise NotImplementedError("Please implement this method")
+    
+    @abstractmethod
+    def waiting_for_reconnection(self)->None:
+        """Triggers the waiting for reconnection screen"""
+        raise NotImplementedError("Please implement this method")
 
 class StatusMessages():
     """A simple class that constructs messages sent by the server, like winning and users killed"""
@@ -641,4 +646,7 @@ class CustomEventSender(EventSender):
 
     def player_is_dead(self)->None:
         self.send_event_dead_player()
+
+    def waiting_for_reconnection(self)->None:
+        self.send_event_to_screen(Screens.WAITING_FOR_RECONNECTION)
 

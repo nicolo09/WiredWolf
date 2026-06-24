@@ -269,6 +269,7 @@ class View:
         self._loading_screen=LoadingLobbyScreen(Screens.LOADING_LOBBY, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
         self._starting_game_screen=LoadingGameScreen(Screens.LOADING_GAME, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
         self._error_screen=ErrorMessageScreen(Screens.ERROR_SCREEN, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
+        self._waiting_for_reconnection_screen=WaitingForReconnectionScreen(Screens.WAITING_FOR_RECONNECTION, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
         self._dictionary:dict[Screens, AbstractScreen]={self._start_screen.screen: self._start_screen,
                           self._new_lobby_screen.screen:self._new_lobby_screen, 
                           self._search_lobby_screen.screen:self._search_lobby_screen, 
@@ -281,6 +282,7 @@ class View:
                           self._loading_screen.screen: self._loading_screen,
                           self._starting_game_screen.screen: self._starting_game_screen,
                           self._error_screen.screen: self._error_screen,
+                          self._waiting_for_reconnection_screen.screen: self._waiting_for_reconnection_screen,
                           self._day_end_screen.screen: self._day_end_screen}
         self._clock = pygame.time.Clock()
         #Activate panels of first screen
@@ -1683,7 +1685,6 @@ class RoleDisplayScreen(AbstractScreen):
         self._description.text="Description"
         self._description_container.update_on_next_draw()
 
-
 class ErrorMessageScreen(AbstractScreen):
     """The screen displaying an error message"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler, global_state:GlobalState) -> None:
@@ -1727,6 +1728,44 @@ class ErrorMessageScreen(AbstractScreen):
         self._text_element.set_text("")
         self._text=""
         self._title=""
+
+class WaitingForReconnectionScreen(AbstractScreen):
+    """The screen displayed when the user is waiting for reconnection"""
+    def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler, global_state:GlobalState) -> None:
+        super().__init__(screen, display, game_state_manager, gui_manager, panel_handler, global_state)
+        self._panel=self._panel_handler.create_panel(self._screen_id, relative_rect=pygame.rect.Rect(0,0,MEDIUM_PANEL,PANEL_Y), anchors={"centerx":"centerx", "centery":"centery"}, enabled_even_for_dead=True)
+        self._title_element=pygame_gui.elements.UILabel(relative_rect=(0,0,MEDIUM_PANEL,AUTO_SIZING), text="Wait for reconnection...", manager=self._gui_manager, anchors={"centerx":"centerx", "centery":"centery"}, container=self._panel)
+        self._loading_bar=pygame_gui.elements.UIStatusBar(pygame.rect.Rect(0,10, 100, 50), manager=self._gui_manager, container=self._panel, anchors={'top_target': self._title_element, 'centerx':'centerx'})
+        self._current_progress=2 #For some reason if current progress is 1 there's a display error
+        self._loading_bar.percent_full=self._current_progress
+        self._step=1
+
+    def run(self, event:pygame.event.Event)->None:
+        self._display.fill(BACKGROUND_COLOR) #fills the background color for the application
+        self._gui_manager.draw_ui(self._display)
+        
+        #Loading at constant speed
+        if event.type==pygame.USEREVENT:
+            self._current_progress=self._current_progress+self._step
+            if self._current_progress>=100 or self._current_progress<=2:
+                self._step=-self._step #Inverts progress
+            self._loading_bar.percent_full=self._current_progress
+
+        self._gui_manager.process_events(event) #processes pygame_gui events
+        #When lobby is created, screen changes to join lobby
+        #If received custom event
+        if event.type==self._global_state.custom_event:
+            #parse the custom event into an object
+            e=create_custom_event_from_dict(event.dict)
+            #TODO: What event need processing?
+            if isinstance(e, ChangeScreenType):
+                #If it's an error event, show error message
+                self.reset_screen() #Reset current screen for next time this is used
+                self._game_state_manager.change_screen(e.next_screen)
+
+    def reset_screen(self) -> None:
+        #Nothing to reset, static screen
+        pass 
 
 if __name__ == "__main__":
     my_app=View()
