@@ -13,6 +13,7 @@ from wiredwolf.controller.messages import BaseMessage, ChatMessage, LobbyUpdated
 from wiredwolf.controller.server import GameServer, GameServerFactory
 from wiredwolf.controller.server_plugins import ChatPlugin, GameLifecyclePlugin
 
+TEST_BIND_ADDRESS = ("127.0.0.1", DEFAULT_SERVER_PORT)
 
 async def check_is_instance(obj: Any, cls: type):
     assert isinstance(obj, cls)
@@ -25,6 +26,7 @@ async def server_conn_handler() -> AsyncGenerator[
 
     mocked = mock.AsyncMock()
     serverConnHandler = connections.AsyncTCPServerConnectionHandler(
+        bind_address=TEST_BIND_ADDRESS,
         on_new_peer=lambda peer: mocked.on_new_peer(peer),
         on_peer_disconnected=lambda peer: mocked.on_peer_disconnected(peer),
         on_new_message=lambda msg: mocked.on_new_message(msg),
@@ -132,7 +134,7 @@ async def test_wrong_sender_discard_message(
     server.add_plugin(GameLifecyclePlugin())
     await server.start_listening()
     client_handler, lobby = await browser.connect_to_lobby_directly(
-        myself, ("127.0.0.1", DEFAULT_SERVER_PORT), None
+        myself, TEST_BIND_ADDRESS, None
     )
     client_handler.set_on_message(on_client_receives_message)
     await client_handler.start_receiving()
@@ -164,8 +166,8 @@ async def test_server_connection_handler_callbacks(
 ):
     handler, mocked = server_conn_handler
     myself = Peer("Client1")
-    await handler.start_listening(("127.0.0.1", DEFAULT_SERVER_PORT))
-    reader, writer = await asyncio.open_connection("127.0.0.1", DEFAULT_SERVER_PORT)
+    await handler.start_listening()
+    reader, writer = await asyncio.open_connection(*TEST_BIND_ADDRESS)
     handler = connections.ConnectionHandlerFactory.get_client_connection_handler(
         my_self=myself,
         reader=reader,

@@ -28,8 +28,6 @@ from wiredwolf.model.game_phases import GamePhase, NightActionResult
 from wiredwolf.model.player import BasicRole, Player
 from wiredwolf.view.custom_events import EventSender
 
-# TODO: Check if the lobby is removed from advertisement when the game starts
-
 
 class GameController:
     """Handles the game logic and player interactions. This controller is implemented by means of

@@ -92,6 +92,7 @@ class GameServer:
         self._game: Game | None = None  # Placeholder for game instance
         self._server_conn_handler: ServerConnectionHandler = (
             ConnectionHandlerFactory.get_server_connection_handler(
+                bind_address=(commons.DEFAULT_SERVER_HOST, commons.DEFAULT_SERVER_PORT),
                 on_new_peer=self._on_new_peer,
                 on_peer_disconnected=self._on_peer_disconnected,
                 on_new_message=self.process_incoming_message,
@@ -102,9 +103,7 @@ class GameServer:
         self._game_actual_phase_task: Task[GamePhaseOutcome] | None = None
 
     async def start_listening(self):
-        await self._server_conn_handler.start_listening(
-            (commons.DEFAULT_SERVER_HOST, commons.DEFAULT_SERVER_PORT)
-        )
+        await self._server_conn_handler.start_listening()
 
     @property
     def connection_handler(self) -> ServerConnectionHandler:

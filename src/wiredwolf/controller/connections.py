@@ -94,12 +94,8 @@ class ServerConnectionHandler(abc.ABC):
         pass
 
     @abc.abstractmethod
-    async def start_listening(self, bind_address: tuple[str | None, int]) -> None:
-        """Start listening for new connections.
-        
-        Args:
-            bind_address (tuple[str | None, int]): The address and port to bind the server to"""
-        #TODO: This should probably be put in the constructor for generalization purposes
+    async def start_listening(self) -> None:
+        """Start listening for new connections."""
         pass
 
     @abc.abstractmethod
@@ -374,6 +370,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
 
     def __init__(
         self,
+        bind_address: tuple[str | None, int],
         on_new_peer: Callable[[Peer], CoroutineType[Any, Any, None]],
         on_peer_disconnected: Callable[[Peer], CoroutineType[Any, Any, None]],
         on_new_message: Callable[[BaseMessage], CoroutineType[Any, Any, None]],
@@ -381,6 +378,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
         | None = None,
     ):
         super().__init__()
+        self._bind_address: tuple[str | None, int] = bind_address
         self._on_new_peer: Callable[[Peer], CoroutineType[Any, Any, None]] = on_new_peer
         self._on_peer_disconnected: Callable[[Peer], CoroutineType[Any, Any, None]] = (
             on_peer_disconnected
@@ -406,19 +404,19 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 self._handle_peer_message(peer)
             )
 
-    async def start_listening(self, bind_address: tuple[str | None, int]) -> None:
+    async def start_listening(self) -> None:
         if self._server:
             raise RuntimeError("Server is already listening for new connections.")
         else:
             self._server = await asyncio.start_server(
                 self._client_connected_cb,
-                host=bind_address[0],
-                port=bind_address[1],
+                host=self._bind_address[0],
+                port=self._bind_address[1],
             )
             self._logger.info(
                 "Server started listening for new connections on %s:%d",
-                bind_address[0],
-                bind_address[1],
+                self._bind_address[0],
+                self._bind_address[1],
             )
             # keep a reference to the serve_forever task so it can be awaited/cancelled on close
             self._server_task = asyncio.create_task(self._server.serve_forever())
@@ -604,6 +602,7 @@ class ConnectionHandlerFactory:
 
     @staticmethod
     def get_server_connection_handler(
+        bind_address: tuple[str | None, int],
         on_new_peer: Callable[[Peer], CoroutineType[Any, Any, None]],
         on_peer_disconnected: Callable[[Peer], CoroutineType[Any, Any, None]],
         on_new_message: Callable[[BaseMessage], CoroutineType[Any, Any, None]],
@@ -621,6 +620,7 @@ class ConnectionHandlerFactory:
             ServerConnectionHandler: The created server connection handler.
         """
         return AsyncTCPServerConnectionHandler(
+            bind_address=bind_address,
             on_new_peer=on_new_peer,
             on_peer_disconnected=on_peer_disconnected,
             on_new_message=on_new_message,
