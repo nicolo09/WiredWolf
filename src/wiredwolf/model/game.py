@@ -50,6 +50,7 @@ class Game:
         self._phase: GamePhase = phase
         self._game_info: AbstractGameInfo = game_info
         self._day_count: int = day_count
+        self._snapshot: GameStatus = self.get_game_status()
 
     @classmethod
     def from_game_status(cls, game_status: GameStatus) -> "Game":
@@ -104,20 +105,33 @@ class Game:
             self._phase,
             self._day_count,
         )
+    
+    def get_game_snapshot(self) -> GameStatus:
+        """
+        Get the last stable state of the game.
+        Snapshot is updated at the start of each phase, before any actions are performed.
+
+        Returns:
+            GameStatus: The last saved snapshot of the game status.
+        """
+        return self._snapshot
+
 
     def advance_phase(self) -> GamePhaseOutcome:
         """
         Advance to the next game phase based on current state.
 
+        - FIRST_DAY -> NIGHT
         - DAY_DISCUSSION -> DAY_ACCUSING
         - DAY_ACCUSING -> DAY_BALLOT (if single player has most votes) or NIGHT (if tie/no votes)
-        - DAY_BALLOT -> NIGHT (after processing execution vote)
+        - DAY_BALLOT -> BALLOT_RESULT (after processing ballot votes)
+        - BALLOT_RESULT -> NIGHT 
         - NIGHT -> DAY_DISCUSSION (after processing werewolf attacks and resetting for new day)
 
         Returns:
             GamePhaseOutcome: contains the new game phase and any deaths that occurred during the transition.
         """
-        deaths: list[Player] = []
+        game_phase_outcome_builder = GamePhaseOutcomeBuilder()
 
         match self._phase:
             case GamePhase.FIRST_DAY:
@@ -127,12 +141,13 @@ class Game:
 
             case GamePhase.DAY_ACCUSING:
 
-                if (
-                    self.__get_most_voted_player(self._game_info.accusation_votes)
-                    is not None
-                ):
+                accused_player: Player | None = self.__get_most_voted_player(
+                    self._game_info.accusation_votes
+                )
+                
+                if (accused_player is not None):
                     self._phase = GamePhase.DAY_BALLOT
-                    return GamePhaseOutcome(self._phase, accused_player=self.__get_most_voted_player(self._game_info.accusation_votes))
+                    game_phase_outcome_builder.set_accused_player(accused_player)
                 else:
                     # No votes or tie in accusations, skip to night
                     self._phase = GamePhase.NIGHT
@@ -145,15 +160,15 @@ class Game:
 
                 if accused_player is not None:
                     # If the ballot votes are more than half of the voting players, the accused player is killed
+                    game_phase_outcome_builder.set_accused_player(accused_player)
                     voting_count = len(self._game_info.ballot_votes)
                     confirm_ballot_votes = sum(
                         1 for vote in self._game_info.ballot_votes.values() if vote
                     )
                     if voting_count > 0 and confirm_ballot_votes > voting_count / 2:
                         accused_player.status = Status.DEAD
-                        deaths.append(accused_player)
+                        game_phase_outcome_builder.add_death(accused_player)
                 self._phase = GamePhase.BALLOT_RESULT
-                return GamePhaseOutcome(self._phase, deaths, accused_player)
                 
             case GamePhase.BALLOT_RESULT:
                 # This phase is just a transition to NIGHT, no actions are performed here.
@@ -165,7 +180,7 @@ class Game:
 
                 if victim is not None and victim.status != Status.PROTECTED:
                     victim.status = Status.DEAD
-                    deaths.append(victim)
+                    game_phase_outcome_builder.add_death(victim)
 
                 self._game_info.reset_actions()
                 self._phase = GamePhase.DAY_DISCUSSION
@@ -179,7 +194,8 @@ class Game:
         if game_over:
             self._phase = game_over
 
-        return GamePhaseOutcome(self._phase, deaths)
+        self._snapshot = self.get_game_status()
+        return game_phase_outcome_builder.set_new_phase(self._phase).build()
 
     def perform_night_action(self, actor_id: str, target_id: str) -> NightActionResult:
         """

@@ -11,7 +11,7 @@ from wiredwolf.view.custom_events import ChangeScreenType, ChatMessageType, Cust
 from wiredwolf.view.components import CallbackButton, VContainer, HContainer, EnabledButton, Text, TextField, DrawableComponent
 from wiredwolf.view.constants import ROLE_DESCRIPTION_DICT, FontSize, Screens
 from functools import partial
-from wiredwolf.view.view_constants import AUTO_SIZING, HORIZONTAL_SPACE_FOR_SCROLLBAR, MEDIUM_BTN_HEIGHT, MEDIUM_PANEL, ROLE_PANEL_X, ROLE_PANEL_Y, SMALL_PANEL, PANEL_Y, SINGLE_ELEMENT_DIV, SMALL_BTN_WIDTH, MEDIUM_ELEMENT_DIV, LARGE_ELEMENT_DIV, LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, MEDIUM_BTN_WIDTH, BACKGROUND_COLOR, SMALL_ELEMENT_DIV
+from wiredwolf.view.view_constants import AUTO_SIZING, HORIZONTAL_SPACE_FOR_SCROLLBAR, LOADING_BAR_HEIGHT, LOADING_BAR_WIDTH, MEDIUM_BTN_HEIGHT, MEDIUM_PANEL, ROLE_PANEL_X, ROLE_PANEL_Y, SMALL_PANEL, PANEL_Y, SINGLE_ELEMENT_DIV, SMALL_BTN_WIDTH, MEDIUM_ELEMENT_DIV, LARGE_ELEMENT_DIV, LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT, MEDIUM_BTN_WIDTH, BACKGROUND_COLOR, SMALL_ELEMENT_DIV
 from pygame_gui.core.interfaces import IUIElementInterface
 from pygame_gui.core import UIElement
 from tkinter import messagebox
@@ -269,6 +269,7 @@ class View:
         self._loading_screen=LoadingLobbyScreen(Screens.LOADING_LOBBY, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
         self._starting_game_screen=LoadingGameScreen(Screens.LOADING_GAME, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
         self._error_screen=ErrorMessageScreen(Screens.ERROR_SCREEN, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
+        self._waiting_for_reconnection_screen=WaitingForReconnectionScreen(Screens.WAITING_FOR_RECONNECTION, self._display_screen, self._game_state_manager, self._gui_manager, self._panel_handler, self._global_state)
         self._dictionary:dict[Screens, AbstractScreen]={self._start_screen.screen: self._start_screen,
                           self._new_lobby_screen.screen:self._new_lobby_screen, 
                           self._search_lobby_screen.screen:self._search_lobby_screen, 
@@ -281,6 +282,7 @@ class View:
                           self._loading_screen.screen: self._loading_screen,
                           self._starting_game_screen.screen: self._starting_game_screen,
                           self._error_screen.screen: self._error_screen,
+                          self._waiting_for_reconnection_screen.screen: self._waiting_for_reconnection_screen,
                           self._day_end_screen.screen: self._day_end_screen}
         self._clock = pygame.time.Clock()
         #Activate panels of first screen
@@ -533,7 +535,7 @@ class LoadingLobbyScreen(AbstractScreen):
         """Creates the panel containing the loading element"""
         self._loading_container=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(0,0, 200, 200), anchors={'centerx':'centerx', 'centery': 'centery'}, enabled_even_for_dead=True)
         self._loading_text=pygame_gui.elements.UILabel(relative_rect=pygame.Rect((0, 0), (-1, -1)), text="Loading the lobby...", manager=self._gui_manager, anchors={'centery': 'centery', 'centerx':'centerx'}, container=self._loading_container)
-        self._loading_bar=pygame_gui.elements.UIStatusBar(pygame.rect.Rect(0,10, 100, 50), manager=self._gui_manager, container=self._loading_container, anchors={'top_target': self._loading_text, 'centerx':'centerx'})
+        self._loading_bar=pygame_gui.elements.UIStatusBar(pygame.rect.Rect(0,10, LOADING_BAR_WIDTH, LOADING_BAR_HEIGHT), manager=self._gui_manager, container=self._loading_container, anchors={'top_target': self._loading_text, 'centerx':'centerx'})
         self._current_progress=2 #For some reason if current progress is 1 there's a display error
         self._loading_bar.percent_full=self._current_progress
         self._step=1
@@ -587,17 +589,7 @@ class SearchLobbyScreen(AbstractScreen):
                 #This screen only interacts with Lobby Events
                 if e.action==LobbyType.s_action_add:
                     #Add new lobby
-                    length=len(self._lobby_list)
-                    if length==0:
-                        #First element, absolute positioning inside the container
-                        self._lobby_list.insert(length, (pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.lobby_info.name, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._lobby_panel), e.lobby_info))
-                    else:
-                        #Second element, relative positioning (below previous button)
-                        self._lobby_list.insert(length, (pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=e.lobby_info.name, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._lobby_list[length-1][0]}, container=self._lobby_panel), e.lobby_info))
-                    if length>self._elements_before_scrollbar:
-                        #Increase scrollbar size, up to self._elements_before_scrollbar buttons can fit without a scrollbar
-                        self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
-                        self._lobby_panel.set_scrollable_area_dimensions(self._increased_size)
+                    self._add_lobby(e.lobby_info)
                 else:
                     if e.action==LobbyType.s_action_remove:
                         self._remove_lobby(e.lobby_info)
@@ -620,30 +612,30 @@ class SearchLobbyScreen(AbstractScreen):
     
     def _remove_lobby(self, lobby:LobbyInfo)->None:
         """Remove a lobby from the panel if present"""
-        element_to_remove=None
-        anchors=None
+        old_list=self._lobby_list.copy() #Copy list
         for elem in self._lobby_list:
-            if elem[1]==lobby:
-                element_to_remove=elem
-                anchors=elem[0].anchors
-                #Save anchors
-            else:
-                if anchors!=None:
-                    #A match has been found, shift anchors (lower element gets upper element anchors)
-                    temp=elem[0].anchors
-                    elem[0].anchors=anchors
-                    anchors=temp
-                    
-        #Now delete element
-        if element_to_remove!=None:
-            self._lobby_list.remove(element_to_remove)
-            element_to_remove[0].kill()
-            if len(self._lobby_list)>self._elements_before_scrollbar:
-                #Make inner area smaller, but number of elements necessitates a scrollbar
-                self._increased_size=self._increased_size[0], self._increased_size[1]-LARGE_BTN_HEIGHT-MEDIUM_ELEMENT_DIV
-            else:
-                #Smallest inner area possible, scrollbar disappears
-                self._increased_size=self._starting_size
+            elem[0].kill() #Delete the buttons, can't be deleted with clear
+        self._lobby_list.clear()
+        #Reset sizing, starting from the original size
+        self._increased_size=self._starting_size
+        self._lobby_panel.set_scrollable_area_dimensions(self._increased_size)
+        for elem in old_list:
+            if elem[1]!=lobby:
+                #Re-add all users except the one to delete
+                self._add_lobby(elem[1])
+
+    def _add_lobby(self, lobby:LobbyInfo)->None:
+        """Adds a lobby to the panel"""
+        length=len(self._lobby_list)
+        if length==0:
+            #First element, absolute positioning inside the container
+            self._lobby_list.insert(length, (pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=lobby.name, manager=self._gui_manager, anchors={"centerx":"centerx"}, container=self._lobby_panel), lobby))
+        else:
+            #Second element, relative positioning (below previous button)
+            self._lobby_list.insert(length, (pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, MEDIUM_ELEMENT_DIV), (SMALL_BTN_WIDTH, LARGE_BTN_HEIGHT)), text=lobby.name, manager=self._gui_manager, anchors={"centerx":"centerx",'top_target': self._lobby_list[length-1][0]}, container=self._lobby_panel), lobby))
+        if length>self._elements_before_scrollbar:
+            #Increase scrollbar size, up to self._elements_before_scrollbar buttons can fit without a scrollbar
+            self._increased_size=(self._increased_size[0], self._increased_size[1]+LARGE_BTN_HEIGHT+MEDIUM_ELEMENT_DIV)
             self._lobby_panel.set_scrollable_area_dimensions(self._increased_size)
 
     def _try_to_join_lobby(self)->None:
@@ -778,39 +770,18 @@ class WaitingLobbyScreen(AbstractScreen):
 
     def _delete_player(self, user:Peer)->None:
         """Remove a player username to the panel if present"""
-        element_to_remove=None
-        anchors=None
-        biggest_width_remaining=0
+        old_list=self._users_list.copy() #Copy list
         for elem in self._users_list:
-            if elem[1]==user:
-                element_to_remove=elem
-                anchors=elem[0].anchors
-                #Save anchors
-            else:
-                #Get biggest width of any non-deleted element
-                biggest_width_remaining=max(biggest_width_remaining, elem[0].rect[2]) # type: ignore
-                if anchors!=None:
-                    #A match has been found, shift anchors (lower element gets upper element anchors)
-                    temp=elem[0].anchors
-                    elem[0].anchors=anchors
-                    anchors=temp
-                    
-        #Now delete element
-        if element_to_remove!=None:
-            self._users_list.remove(element_to_remove)
-            element_to_remove[0].kill() #Delete button
-            self._counter=self._counter-1
-            self._text_number.text=str(self._counter) +" players connected..."
-            self._waiting.update_on_next_draw()
-            #Scrollbar updates to horizontally biggest element not deleted and height - deleted element height
-            self._increased_size=(min(self._increased_size[0], biggest_width_remaining), self._increased_size[1])
-            if len(self._users_list)>self._elements_before_scrollbar:
-                #Make inner area smaller, but number of elements necessitates a scrollbar
-                self._increased_size=self._increased_size[0], self._increased_size[1]-MEDIUM_BTN_HEIGHT-MEDIUM_ELEMENT_DIV
-            else:
-                #Smallest inner area possible, scrollbar disappears
-                self._increased_size=self._starting_size
-            self._user_panel.set_scrollable_area_dimensions(self._increased_size)
+            elem[0].kill() #Delete the labels, can't be deleted with clear
+        self._users_list.clear()
+        #Reset sizing, starting from the original size
+        self._increased_size=(SMALL_PANEL-HORIZONTAL_SPACE_FOR_SCROLLBAR, PANEL_Y) 
+        self._counter=0 #Reset counter
+        self._user_panel.set_scrollable_area_dimensions(self._increased_size)
+        for elem in old_list:
+            if elem[1]!=user:
+                #Re-add all users except the one to delete
+                self._add_player(elem[1])
     
     def reset_screen(self) -> None:
         #Reset lobby name
@@ -907,7 +878,7 @@ class LoadingGameScreen(AbstractScreen):
         """Creates the panel containing the loading element"""
         self._loading_container=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(0,0, 200, 200), anchors={'centerx':'centerx', 'centery': 'centery'}, enabled_even_for_dead=True)
         self._loading_text=pygame_gui.elements.UILabel(relative_rect=pygame.Rect((0, 0), (-1, -1)), text="Starting the game...", manager=self._gui_manager, anchors={'centery': 'centery', 'centerx':'centerx'}, container=self._loading_container)
-        self._loading_bar=pygame_gui.elements.UIStatusBar(pygame.rect.Rect(0,10, 100, 50), manager=self._gui_manager, container=self._loading_container, anchors={'top_target': self._loading_text, 'centerx':'centerx'})
+        self._loading_bar=pygame_gui.elements.UIStatusBar(pygame.rect.Rect(0,10, LOADING_BAR_WIDTH, LOADING_BAR_HEIGHT), manager=self._gui_manager, container=self._loading_container, anchors={'top_target': self._loading_text, 'centerx':'centerx'})
         self._current_progress=2 #For some reason if current progress is 1 there's a display error
         self._loading_bar.percent_full=self._current_progress
         self._step=1
@@ -1016,32 +987,17 @@ class DayVotingScreen(AbstractScreen):
 
     def _delete_player(self, user:Peer)->None:
         """Remove a player username to the panel if present"""
-        element_to_remove=None
-        anchors=None
+        old_list=self._player_list.copy() #Copy list
         for elem in self._player_list:
-            if elem[1]==user:
-                element_to_remove=elem
-                anchors=elem[0].anchors
-                #Save anchors
-            else:
-                if anchors!=None:
-                    #A match has been found, shift anchors (lower element gets upper element anchors)
-                    temp=elem[0].anchors
-                    elem[0].anchors=anchors
-                    anchors=temp
-                    
-        #Now delete element
-        if element_to_remove!=None:
-            self._player_list.remove(element_to_remove)
-            element_to_remove[0].kill()
-            #Scrollbar updates to horizontally biggest element not deleted and height - deleted element height
-            if len(self._player_list)>self._elements_before_scrollbar_players:
-                #Make inner area smaller, but number of elements necessitates a scrollbar
-                self._increased_size=self._increased_size[0], self._increased_size[1]-LARGE_BTN_HEIGHT-MEDIUM_ELEMENT_DIV
-            else:
-                #Smallest inner area possible, scrollbar disappears
-                self._increased_size=self._starting_size
-            self._voting_panel.set_scrollable_area_dimensions(self._increased_size)
+            elem[0].kill() #Delete the buttons, can't be deleted with clear
+        self._player_list.clear()
+        #Reset sizing, starting from the original size
+        self._increased_size=self._starting_size
+        self._voting_panel.set_scrollable_area_dimensions(self._increased_size)
+        for elem in old_list:
+            if elem[1]!=user:
+                #Re-add all users except the one to delete
+                self._add_player(elem[1])
 
     def _set_voted_player(self, user:Peer)->None:
         """Function called when the user chooses who to nominate for execution"""
@@ -1683,7 +1639,6 @@ class RoleDisplayScreen(AbstractScreen):
         self._description.text="Description"
         self._description_container.update_on_next_draw()
 
-
 class ErrorMessageScreen(AbstractScreen):
     """The screen displaying an error message"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler, global_state:GlobalState) -> None:
@@ -1727,6 +1682,44 @@ class ErrorMessageScreen(AbstractScreen):
         self._text_element.set_text("")
         self._text=""
         self._title=""
+
+class WaitingForReconnectionScreen(AbstractScreen):
+    """The screen displayed when the user is waiting for reconnection"""
+    def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler, global_state:GlobalState) -> None:
+        super().__init__(screen, display, game_state_manager, gui_manager, panel_handler, global_state)
+        self._panel=self._panel_handler.create_panel(self._screen_id, relative_rect=pygame.rect.Rect(0,0,MEDIUM_PANEL,PANEL_Y), anchors={"centerx":"centerx", "centery":"centery"}, enabled_even_for_dead=True)
+        self._title_element=pygame_gui.elements.UILabel(relative_rect=(0,0,MEDIUM_PANEL,AUTO_SIZING), text="Wait for reconnection...", manager=self._gui_manager, anchors={"centerx":"centerx", "centery":"centery"}, container=self._panel)
+        self._loading_bar=pygame_gui.elements.UIStatusBar(pygame.rect.Rect(0,10, LOADING_BAR_WIDTH, LOADING_BAR_HEIGHT), manager=self._gui_manager, container=self._panel, anchors={'top_target': self._title_element, 'centerx':'centerx'})
+        self._current_progress=2 #For some reason if current progress is 1 there's a display error
+        self._loading_bar.percent_full=self._current_progress
+        self._step=1
+
+    def run(self, event:pygame.event.Event)->None:
+        self._display.fill(BACKGROUND_COLOR) #fills the background color for the application
+        self._gui_manager.draw_ui(self._display)
+        
+        #Loading at constant speed
+        if event.type==pygame.USEREVENT:
+            self._current_progress=self._current_progress+self._step
+            if self._current_progress>=100 or self._current_progress<=2:
+                self._step=-self._step #Inverts progress
+            self._loading_bar.percent_full=self._current_progress
+
+        self._gui_manager.process_events(event) #processes pygame_gui events
+        #When lobby is created, screen changes to join lobby
+        #If received custom event
+        if event.type==self._global_state.custom_event:
+            #parse the custom event into an object
+            e=create_custom_event_from_dict(event.dict)
+            #TODO: What event need processing?
+            if isinstance(e, ChangeScreenType):
+                #If it's an error event, show error message
+                self.reset_screen() #Reset current screen for next time this is used
+                self._game_state_manager.change_screen(e.next_screen)
+
+    def reset_screen(self) -> None:
+        #Nothing to reset, static screen
+        pass 
 
 if __name__ == "__main__":
     my_app=View()
