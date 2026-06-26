@@ -75,31 +75,30 @@ def test_peer_equality():
 
 
 def test_too_long_data_raises():
-    handler = connections.AsyncTCPMessageHandler(connections.PickleSerializer())
     with pytest.raises(ValueError):
-        handler.add_length_prefix(b"x" * (int("9" * handler.PREFIX_LEN) + 1))
+        connections.AsyncTCPMessageHandler.add_length_prefix(b"x" * (int("9" * connections.AsyncTCPMessageHandler.PREFIX_LEN) + 1))
 
 
 def test_base_connection_handler():
-    handler = connections.AsyncTCPMessageHandler(connections.PickleSerializer())
-    assert handler.add_length_prefix(b"test") == b"0004test"
+    assert connections.AsyncTCPMessageHandler.add_length_prefix(b"test") == b"0004test"
 
 @pytest.mark.asyncio
 async def test_send_and_receive():
-    handler = connections.AsyncTCPMessageHandler(connections.PickleSerializer())
 
     async def client():
         creader, cwriter = await asyncio.open_connection("127.0.0.1", 8888)
-        received = await handler.receive(creader)
+        handler = connections.AsyncTCPMessageHandler(connections.PickleSerializer(), creader, cwriter)
+        received = await handler.receive()
         assert received == b"test"
-        await handler.send(cwriter, b"test")
+        await handler.send(b"test")
         cwriter.close()
         await cwriter.wait_closed()
 
     async def server():
         async def client_conn_cb(sreader: StreamReader, swriter: StreamWriter):
-            await handler.send(swriter, b"test")
-            received = await handler.receive(sreader)
+            handler = connections.AsyncTCPMessageHandler(connections.PickleSerializer(), sreader, swriter)
+            await handler.send(b"test")
+            received = await handler.receive()
             assert received == b"test"
             swriter.close()
             await swriter.wait_closed()

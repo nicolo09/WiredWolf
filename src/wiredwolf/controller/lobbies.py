@@ -270,21 +270,23 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
     ) -> tuple[ClientConnectionHandler, Lobby]:
         try:
             async with asyncio.timeout(CONNECTION_TIMEOUT):
-                msg_handler: AsyncTCPMessageHandler = AsyncTCPMessageHandler(
-                    MessageHandlerFactory.getDefaultSerializer()
-                )
                 reader, writer = await asyncio.open_connection(endpoint[0], endpoint[1])
+                msg_handler: AsyncTCPMessageHandler = AsyncTCPMessageHandler(
+                    serializer=MessageHandlerFactory.getDefaultSerializer(),
+                    reader=reader,
+                    writer=writer
+                )
                 # Sending my peer info to the server
-                await msg_handler.send_obj(writer, my_self)
+                await msg_handler.send_obj(my_self)
                 # Expecting PasswordRequest or LobbyUpdatedMessage (in case no password is required) in response
-                recv_msg = await msg_handler.receive_obj(reader)
+                recv_msg = await msg_handler.receive_obj()
                 if isinstance(recv_msg, PasswordRequest):
                     # Server requested a password...
                     if lobby_password:
                         # ...send the password
                         recv_msg.password = lobby_password
-                        await msg_handler.send_obj(writer, recv_msg)
-                        lobby = await msg_handler.receive_obj(reader)
+                        await msg_handler.send_obj(recv_msg)
+                        lobby = await msg_handler.receive_obj()
                         if isinstance(lobby, Exception):
                             # The server returned an error
                             writer.close()

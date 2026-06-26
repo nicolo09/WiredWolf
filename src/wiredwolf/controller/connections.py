@@ -78,11 +78,6 @@ class ServerConnectionHandler(abc.ABC):
     """Abstract base class for server side connection handlers."""
     _logger = logging.getLogger(__name__)
 
-    def __init__(self):
-        self._message_handler: AsyncTCPMessageHandler = (
-            MessageHandlerFactory.getDefault()
-        )
-
     @abc.abstractmethod
     async def send_obj(self, receiver: Peer, obj: Any) -> None:
         """Send an object to a specific peer."""
@@ -164,12 +159,12 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
     ):
         """Initialize the client connection handler with the given peer as self, reader and writer to communicate with the server."""
         super().__init__(my_self)
-        self._message_handler: AsyncTCPMessageHandler = (
-            MessageHandlerFactory.getDefault()
+        self._message_handler: AsyncTCPMessageHandler = AsyncTCPMessageHandler(
+            serializer=MessageHandlerFactory.getDefaultSerializer(),
+            reader=reader,
+            writer=writer,
         )
         self._my_self: Peer = my_self
-        self._reader: asyncio.StreamReader = reader
-        self._writer: asyncio.StreamWriter = writer
         self._receiving_task: asyncio.Task[None] | None = None
 
     async def send_obj(self, obj: Any):
@@ -178,7 +173,7 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
         Args:
             obj (Any): The object to send.
         """
-        await self._message_handler.send_obj(self._writer, obj)
+        await self._message_handler.send_obj(obj)
 
     async def start_receiving(self) -> None:
         """Start receiving messages from the server."""
@@ -194,7 +189,7 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
             task (asyncio.Task[None]): The completed task.
         """
         # TODO: Implement reconnection logic here
-        if self._writer.is_closing():
+        if self._message_handler.writer.is_closing():
             # Since I want to close the connection myself, ignore errors from receive loop and just exit
             self._logger.info(
                 "Writer is closing, ignoring receive loop task exit status."
@@ -228,7 +223,7 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
         """Internal method to continuously receive messages."""
         while True:
             try:
-                msg: Any = await self._message_handler.receive_obj(self._reader)
+                msg: Any = await self._message_handler.receive_obj()
                 if self._on_message:
                     self._on_message(msg)
                 else:
@@ -245,8 +240,8 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
         """Closes the client connection handler."""
         try:
             #Close the writer to the server first, the server will close its writer from its side
-            self._writer.close()
-            await self._writer.wait_closed()
+            self._message_handler.writer.close()
+            await self._message_handler.writer.wait_closed()
         except ConnectionResetError:
             self._logger.info(
                 "Was trying to close connection but it was reset by server, considering it to be already closed."
@@ -274,35 +269,104 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
         self._logger.info("Client connection closed.")
 
 
-class AsyncTCPMessageHandler:  # TODO: Make this implement a MessageHandler interface
+class MessageHandler(abc.ABC):
+    """Abstract base class for message handlers that send and receive messages over a connection."""
+    
+    @abc.abstractmethod
+    async def send(self, data: bytes) -> None:
+        """Send data over the connection.
+
+        Args:
+            data (bytes): The data to send.
+        """
+        pass
+
+    @abc.abstractmethod
+    async def send_msg(self, msg: str) -> None:
+        """Send a message over the connection.
+
+        Args:
+            msg (str): The message to send.
+        """
+        pass
+
+    @abc.abstractmethod
+    async def send_obj(self, obj: Any) -> None:
+        """Send an object over the connection.
+
+        Args:
+            obj (Any): The object to send.
+        """
+        pass
+
+    @abc.abstractmethod
+    async def receive(self) -> bytes:
+        """Receive data from the connection.
+
+        Returns:
+            bytes: The received data.
+        """
+        pass
+
+    @abc.abstractmethod
+    async def receive_msg(self) -> str:
+        """Receive a message from the connection.
+
+        Returns:
+            str: The received message.
+        """
+        pass
+
+    @abc.abstractmethod
+    async def receive_obj(self) -> Any:
+        """Receive an object from the connection.
+
+        Returns:
+            Any: The received object.
+        """
+        pass
+
+
+class AsyncTCPMessageHandler(MessageHandler):
     """Message handler that uses a length-prefixed protocol to send and receive messages over asyncio TCP connections modeled with writers and readers."""
 
     PREFIX_LEN: int = 4
 
-    def __init__(self, serializer: Serializer):
+    def __init__(self, serializer: Serializer, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         self._serializer = serializer
+        self._reader = reader
+        self._writer = writer
 
-    def add_length_prefix(self, data: bytes) -> bytes:
-        if len(data) < int("9" * self.PREFIX_LEN):
+    @property
+    def writer(self) -> asyncio.StreamWriter:
+        return self._writer
+    
+    @property
+    def reader(self) -> asyncio.StreamReader:
+        return self._reader
+
+    @staticmethod
+    def add_length_prefix(data: bytes) -> bytes:
+        if len(data) < int("9" * AsyncTCPMessageHandler.PREFIX_LEN):
             # Ensure the data length is within the limit
-            bytes_len = format(len(data), "0" + str(self.PREFIX_LEN) + "d").encode(
+            bytes_len = format(len(data), "0" + str(AsyncTCPMessageHandler.PREFIX_LEN) + "d").encode(
                 "utf-8"
             )
             return bytes_len + data
         else:
             raise ValueError("Data too long")
 
-    async def send(self, endpoint: asyncio.StreamWriter, data: bytes) -> None:
+    async def send(self, data: bytes) -> None:
         """Sends data to endpoint adding length prefix before as a 4 digit int
 
         Args:
             endpoint (asyncio.StreamWriter): The writer to the endpoint
             data (bytes): The data to send
         """
-        endpoint.write(self.add_length_prefix(data))
-        await endpoint.drain()
+        self._writer.write(self.add_length_prefix(data))
+        await self._writer.drain()
 
-    async def send_msg(self, endpoint: asyncio.StreamWriter, msg: str) -> None:
+    async def send_msg(self, msg: str) -> None:
         """Sends a message to the endpoint, encoding it in UTF-8 and converting it to bytes.
 
         Args:
@@ -310,9 +374,9 @@ class AsyncTCPMessageHandler:  # TODO: Make this implement a MessageHandler inte
             msg (str): The message to send
         """
         data = msg.encode("utf-8")
-        await self.send(endpoint, data)
+        await self.send(data)
 
-    async def send_obj(self, endpoint: asyncio.StreamWriter, obj: Any) -> None:
+    async def send_obj(self, obj: Any) -> None:
         """Sends a serialized object to the endpoint.
 
         Args:
@@ -320,9 +384,9 @@ class AsyncTCPMessageHandler:  # TODO: Make this implement a MessageHandler inte
             obj (Any): The object to send
         """
         data = self._serializer.serialize(obj)
-        await self.send(endpoint, data)
+        await self.send(data)
 
-    async def receive(self, endpoint: asyncio.StreamReader) -> bytes:
+    async def receive(self) -> bytes:
         """Receives data from the endpoint, first reading the length prefix.
 
         Args:
@@ -332,13 +396,13 @@ class AsyncTCPMessageHandler:  # TODO: Make this implement a MessageHandler inte
         Raises:
             ConnectionClosedError: If the connection is closed by the other side.
         """
-        data_len = await endpoint.read(self.PREFIX_LEN)
+        data_len = await self._reader.read(self.PREFIX_LEN)
         if not data_len:
             raise ConnectionClosedError("Connection closed by the other side.")
         data_len = int(data_len.decode("utf-8").strip())
-        return await endpoint.read(data_len)
+        return await self._reader.read(data_len)
 
-    async def receive_msg(self, endpoint: asyncio.StreamReader) -> str:
+    async def receive_msg(self) -> str:
         """Receives a message from the endpoint, decoding it from UTF-8.
 
         Args:
@@ -348,20 +412,18 @@ class AsyncTCPMessageHandler:  # TODO: Make this implement a MessageHandler inte
         Raises:
             ConnectionClosedError: If the connection is closed by the other side.
         """
-        data = await self.receive(endpoint)
+        data = await self.receive()
         return data.decode("utf-8")
 
-    async def receive_obj(self, endpoint: asyncio.StreamReader) -> Any:
+    async def receive_obj(self) -> Any:
         """Receives a serialized object from the endpoint.
 
-        Args:
-            endpoint (asyncio.StreamReader): The reader to the endpoint
         Returns:
             Any: The received object
         Raises:
             ConnectionClosedError: If the connection is closed by the other side.
         """
-        data = await self.receive(endpoint)
+        data = await self.receive()
         return self._serializer.deserialize(data)
 
 
@@ -386,11 +448,8 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
         self._on_new_message: Callable[[BaseMessage], CoroutineType[Any, Any, None]] = (
             on_new_message
         )
-        self._async_message_handler = AsyncTCPMessageHandler(
-            MessageHandlerFactory.getDefaultSerializer()
-        )
         self._endpoints: dict[
-            Peer, tuple[asyncio.StreamReader, asyncio.StreamWriter]
+            Peer, AsyncTCPMessageHandler
         ] = {}
         self._status: dict[Peer, ConnectionStatus] = {}
         self._receiving_tasks: dict[Peer, asyncio.Task[None]] = {}
@@ -398,7 +457,11 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
         self._server_task: asyncio.Task[None] | None = None
         if owner_connection is not None:
             peer, reader, writer = owner_connection
-            self._endpoints[peer] = (reader, writer)
+            self._endpoints[peer] = AsyncTCPMessageHandler(
+                serializer=MessageHandlerFactory.getDefaultSerializer(),
+                reader=reader,
+                writer=writer,
+            )
             self._status[peer] = ConnectionStatus.CONNECTED
             self._receiving_tasks[peer] = asyncio.create_task(
                 self._handle_peer_message(peer)
@@ -428,12 +491,15 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
         self._logger.info("Accepted connection from %s", client_address)
         async with asyncio.timeout(CONNECTION_TIMEOUT):
             try:
+                handler = AsyncTCPMessageHandler(
+                    serializer=MessageHandlerFactory.getDefaultSerializer(),
+                    reader=reader,
+                    writer=writer
+                )
                 # First thing peer sends is their identification (serialized peer object)
-                peer: Peer = await self._async_message_handler.receive_obj(
-                    reader
-                )  # TODO: Change this to a message containing the peer info instead of just the peer object
+                peer: Peer = await handler.receive_obj()  # TODO: Change this to a message containing the peer info instead of just the peer object
                 self._logger.info("Identified new peer: %s", peer)
-                self._endpoints[peer] = (reader, writer)
+                self._endpoints[peer] = handler
                 self._status[peer] = ConnectionStatus.CONNECTING
                 await self._on_new_peer(peer)
                 # Successful connection
@@ -468,10 +534,10 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 return
 
     async def _handle_peer_message(self, peer: Peer):
-        reader, _ = self._endpoints[peer]
+        handler = self._endpoints[peer]
         while True:
             try:
-                msg: BaseMessage = await self._async_message_handler.receive_obj(reader)
+                msg: BaseMessage = await handler.receive_obj()
                 if msg.sender != peer:  # Ensure the message sender is set correctly
                     self._logger.warning(
                         "Message from %s has incorrect sender (%s) and will not be handled",
@@ -515,16 +581,16 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
 
     async def send_obj(self, receiver: Peer, obj: Any) -> None:
         if receiver in self._endpoints:
-            _, writer = self._endpoints[receiver]
-            await self._async_message_handler.send_obj(writer, obj)
+            handler = self._endpoints[receiver]
+            await handler.send_obj(obj)
         else:
             self._logger.error("No connection found for peer: %s", receiver)
             raise ValueError(f"No connection found for peer: {receiver}")
 
     async def receive_obj(self, sender: Peer) -> Any:
         if sender in self._endpoints:
-            reader, _ = self._endpoints[sender]
-            return await self._async_message_handler.receive_obj(reader)
+            handler = self._endpoints[sender]
+            return await handler.receive_obj()
         else:
             self._logger.error("No connection found for peer: %s", sender)
             raise ValueError(f"No connection found for peer: {sender}")
@@ -551,10 +617,10 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
 
             # Close all endpoint writers
             wait_closed_awaitables: list[CoroutineType[Any, Any, None]] = []
-            for peer, (_, writer) in list(self._endpoints.items()):
+            for peer, handler in list(self._endpoints.items()):
                 try:
-                    writer.close()
-                    wait_closed_awaitables.append(writer.wait_closed())
+                    handler.writer.close()
+                    wait_closed_awaitables.append(handler.writer.wait_closed())
                     self._logger.info("Closed connection with peer: %s", peer)
                 except Exception as e:
                     self._logger.warning("Error closing writer for %s: %s", peer, e)
@@ -591,10 +657,6 @@ class MessageHandlerFactory:
     @staticmethod
     def getDefaultSerializer() -> Serializer:
         return PickleSerializer()
-
-    @staticmethod
-    def getDefault() -> AsyncTCPMessageHandler:
-        return AsyncTCPMessageHandler(PickleSerializer())
 
 
 class ConnectionHandlerFactory:
