@@ -4,6 +4,7 @@ from unittest import mock
 import pytest
 from tests.controller.conftest import TEST_TIMEOUT
 
+from wiredwolf.controller.commons import Peer
 from wiredwolf.controller.controller import GameController
 from wiredwolf.controller.lobbies import LobbyInfo
 from wiredwolf.view.custom_events import EventSender
@@ -71,6 +72,32 @@ async def test_controller_join_lobby(
     )
     assert client_game_controller.lobby is not None
     assert len(client_game_controller.lobby.peers) == 2
+    
+@pytest.mark.asyncio
+async def test_controller_join_lobby_with_duplicate_id(
+    controllers: list[tuple[GameController, EventSender]],
+):
+    host_game_controller, host_event_sender = controllers[0]
+    client_game_controller, client_event_sender = controllers[1]
+    duplicate_id = "duplicate-uuid"
+    
+    host_game_controller._my_self = Peer(name="Host", uuid=duplicate_id)
+    client_game_controller._my_self = Peer(name="Client", uuid=duplicate_id)
+    
+    assert host_game_controller.my_self.uuid == client_game_controller.my_self.uuid, "Both controllers should have the same UUID for this test."
+    
+    await host_game_controller.create_lobby(name=LOBBY_NAME, password=None)
+    await make_client_join_host(
+        host_game_controller,
+        host_event_sender,
+        client_game_controller,
+        client_event_sender,
+    )
+    assert client_game_controller.lobby is not None
+    assert len(client_game_controller.lobby.peers) == 2
+    assert client_game_controller.my_self.uuid != duplicate_id, "Client's UUID should have been changed due to duplication."
+    assert host_game_controller.my_self.uuid == duplicate_id, "Host's UUID should remain unchanged."
+    assert host_game_controller.my_self.uuid != client_game_controller.my_self.uuid, "Controllers should have different UUIDs after the duplication handling." 
 
 
 async def make_client_join_host(
