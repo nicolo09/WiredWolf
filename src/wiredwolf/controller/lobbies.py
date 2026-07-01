@@ -19,7 +19,7 @@ from wiredwolf.controller.commons import (
     CONNECTION_TIMEOUT,
     MAX_PLAYERS,
     Peer,
-    id_generator,
+    lobby_id_generator,
 )
 from wiredwolf.controller.commons import PasswordRequest
 from wiredwolf.controller.messages import LobbyUpdatedMessage
@@ -47,7 +47,7 @@ class Lobby:
     owner: Peer
     name: str
     uuid: str = field(
-        default_factory=lambda: id_generator()
+        default_factory=lambda: lobby_id_generator()
     )  # TODO: Possible UUID collision will have to be handled in services code
     password: str | None = None
     peers: set[Peer] = dataclasses.field(init=False, default_factory=set[Peer])
@@ -67,7 +67,12 @@ class Lobby:
         )
 
     def check_password(self, passwd: str) -> bool:
-        """Checks if the provided password matches the lobby's password."""
+        """
+        Checks if the provided password matches the lobby's password.
+        
+        Returns:
+            bool: True if the password matches, False otherwise.
+        """
         return self.password == passwd
 
     def is_password_protected(self) -> bool:

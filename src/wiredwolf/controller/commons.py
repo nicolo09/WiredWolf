@@ -27,7 +27,7 @@ class Peer:
     """Represents a peer in the network."""
 
     name: str
-    uuid: str = field(default_factory=lambda: str(uuid.uuid4())) #TODO: Possible UUID collision will have to be handled in server code
+    uuid: str = field(default_factory=lambda: peer_id_generator())
 
 
 @dataclass(frozen=False)
@@ -37,5 +37,8 @@ class PasswordRequest:
     password: str | None = None
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
-def id_generator(size: int = 15, chars: str = string.ascii_uppercase + string.digits):
+def lobby_id_generator(size: int = 15, chars: str = string.ascii_uppercase + string.digits):
     return ''.join(random.choice(chars) for _ in range(size))
+
+def peer_id_generator() -> str:
+    return str(uuid.uuid4())

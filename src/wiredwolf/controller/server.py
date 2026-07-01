@@ -149,16 +149,15 @@ class GameServer:
                         peer, ValueError("Invalid password request.")
                     )
                     return
-                if password_response.password and self._lobby.check_password(
+                if not password_response.password or not self._lobby.check_password(
                     password_response.password
                 ):
-                    await self._add_peer_and_notify_updates(peer)
-                else:
                     await self._server_conn_handler.send_obj(
                         peer, ValueError("Incorrect password.")
                     )
-            else:
-                # If no password is set, add the peer directly
+                    return
+            collisions = await self._check_peer_uuid_collision(peer)
+            if not collisions:
                 await self._add_peer_and_notify_updates(peer)
         except Exception as e:
             self.__logger.error("Error handling new peer %s: %s", peer, e)
@@ -184,6 +183,26 @@ class GameServer:
         self._lobby.peers.add(peer)
         # Notify other peers of the updated lobby sending the updated lobby object
         await self._notify_updated_lobby()
+        
+    async def _check_peer_uuid_collision(self, peer: commons.Peer) -> bool:
+        """Checks if a peer's UUID collides with any existing peer in the lobby.
+
+        Args:
+            peer (Peer): The peer to check for UUID collision.
+
+        Returns:
+            bool: True if there is a collision, False otherwise.
+        """
+        if any(p.uuid == peer.uuid for p in self._lobby.peers):
+            self.__logger.warning("Peer with UUID %s already exists in the lobby.", peer.uuid)
+            while True: # While True because do-while does not exist in python
+                new_uuid = commons.peer_id_generator()
+                if not any(p.uuid == new_uuid for p in self._lobby.peers):
+                    self.__logger.info("Generated new UUID %s for peer %s", new_uuid, peer.name)
+                    break 
+            await self._server_conn_handler.send_obj(peer, DuplicateIdException(new_id=new_uuid))
+            return True
+        return False
 
     async def send_to_peer(self, peer: commons.Peer, message: BaseMessage):
         """Sends a message to a specific peer.
