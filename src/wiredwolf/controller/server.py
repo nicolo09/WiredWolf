@@ -24,6 +24,12 @@ from wiredwolf.model.player import BasicRole, Role, create_players
 from wiredwolf.model.game import Game
 from wiredwolf.model.game_builder import GameInfoBuilder
 
+class DuplicateIdException(Exception):
+    """Exception raised when a peer tries to connect with an ID that already exists in the lobby."""
+    
+    def __init__(self, new_id: str | None = None, message="Duplicate ID detected."):
+        super().__init__(message)
+        self.new_id: str | None = new_id
 
 class ServerPlugin(abc.ABC):
     """Abstract base class for server pieces that adds common functionalities.
