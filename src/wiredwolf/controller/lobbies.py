@@ -281,45 +281,28 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
                 reader, writer = await asyncio.open_connection(endpoint[0], endpoint[1])
                 # Sending my peer info to the server
                 await msg_handler.send_obj(writer, my_self)
-                # Expecting PasswordRequest or LobbyUpdatedMessage (in case no password is required) in response
-                recv_msg = await msg_handler.receive_obj(reader)
-                if isinstance(recv_msg, PasswordRequest):
-                    # Server requested a password...
-                    if lobby_password:
-                        # ...send the password
-                        recv_msg.password = lobby_password
-                        await msg_handler.send_obj(writer, recv_msg)
-                        lobby = await msg_handler.receive_obj(reader)
-                        if isinstance(lobby, Exception):
-                            # The server returned an error
-                            writer.close()
-                            self.__logger.error("Error received from server after sending password: %s", lobby)
-                            raise lobby
-                        elif isinstance(lobby, LobbyUpdatedMessage):
-                            # The server returned a lobby update, successfully joined
-                            return AsyncTCPClientConnectionHandler(
-                                my_self, reader, writer
-                            ), lobby.lobby
+                while True:
+                    # Expecting PasswordRequest or LobbyUpdatedMessage (in case no password is required) in response
+                    recv_msg = await msg_handler.receive_obj(reader)
+                    if isinstance(recv_msg, PasswordRequest):
+                        if lobby_password:
+                            # Server requested a password and one was provided, send it
+                            recv_msg.password = lobby_password
+                            await msg_handler.send_obj(writer, recv_msg)
                         else:
+                            # Server requested a password but none was provided
                             writer.close()
-                            self.__logger.error("Unexpected message received after sending password: %s", lobby)
-                            raise RuntimeError("Unexpected message received during connection.")
+                            raise ValueError("Lobby requires a password.")
+                    elif isinstance(recv_msg, LobbyUpdatedMessage):
+                        return AsyncTCPClientConnectionHandler(my_self, reader, writer), recv_msg.lobby
+                    elif isinstance(recv_msg, Exception): 
+                        # The server returned an error
+                        writer.close()
+                        self.__logger.error("Error received from server: %s", recv_msg)
+                        raise recv_msg
                     else:
-                        # ...but no password was provided
                         writer.close()
-                        raise ValueError("Lobby requires a password.")
-                elif isinstance(recv_msg, LobbyUpdatedMessage):
-                    if lobby_password:
-                        # Password was provided but not needed
-                        writer.close()
-                        raise ValueError("Lobby does not require a password.")
-                    # Successfully joined the lobby
-                    return AsyncTCPClientConnectionHandler(
-                        my_self, reader, writer
-                    ), recv_msg.lobby
-                else:
-                    writer.close()
-                    raise RuntimeError("Unexpected message received.")
+                        raise RuntimeError("Unexpected message received.")
         except asyncio.TimeoutError:
             raise TimeoutError("Connection to lobby timed out.")
 

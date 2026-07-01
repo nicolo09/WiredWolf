@@ -21,7 +21,7 @@ from wiredwolf.controller.messages import (
     VoteBallotMessage,
     VotePlayerMessage,
 )
-from wiredwolf.controller.server import GameServer, GameServerFactory
+from wiredwolf.controller.server import DuplicateIdException, GameServer, GameServerFactory
 from wiredwolf.controller.commons import ACK_TIMEOUT_SECONDS, DEFAULT_SERVER_PORT, Peer
 from wiredwolf.model.game import GameStatus, can_perform_action_on
 from wiredwolf.model.game_phases import GamePhase, NightActionResult
@@ -162,12 +162,19 @@ class GameController:
             lobby_name (LobbyInfo): The info of the lobby to join.
             lobby_password (str | None): The password for the lobby or None if no password is set.
         """
-        (
-            self._client_connection_handler,
-            self._lobby,
-        ) = await self._lobby_browser.connect_to_lobby_by_id(
-            self._my_self, lobby_name.uuid, lobby_password
-        )
+        while self._lobby is None or self._client_connection_handler is None:
+            try:
+                (
+                    self._client_connection_handler,
+                    self._lobby,
+                ) = await self._lobby_browser.connect_to_lobby_by_id(
+                    self._my_self, lobby_name.uuid, lobby_password
+                )
+            except DuplicateIdException as e:
+                self._logger.error("Failed to join lobby: %s", e)
+                new_uuid: str = e.new_id if e.new_id is not None else commons.peer_id_generator()
+                self._my_self = Peer(self._my_self.name, new_uuid)
+                self._logger.info("Updated UUID: %s. Retrying...", new_uuid)
         self._client_connection_handler.set_on_message(self._on_message)
         await self._client_connection_handler.start_receiving()
         return self._lobby
