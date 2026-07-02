@@ -156,9 +156,23 @@ class GameServer:
                         peer, ValueError("Incorrect password.")
                     )
                     return
-            collisions = await self._check_peer_uuid_collision(peer)
-            if not collisions:
-                await self._add_peer_and_notify_updates(peer)
+                
+            if self._check_peer_uuid_collision(peer.uuid):
+                self.__logger.warning(
+                    "Peer %s attempted to connect with a duplicate UUID %s. Generating a new UUID.", peer.name, peer.uuid
+                )
+                new_id_generated = False
+                while not new_id_generated:
+                    new_uuid = commons.peer_id_generator()
+                    if not self._check_peer_uuid_collision(new_uuid):
+                        self.__logger.info(
+                            "Generated new UUID %s for peer %s", new_uuid, peer.name
+                        )
+                        await self._server_conn_handler.send_obj(peer, DuplicateIdException(new_id=new_uuid))
+                        new_id_generated = True
+                return
+                
+            await self._add_peer_and_notify_updates(peer)
         except Exception as e:
             self.__logger.error("Error handling new peer %s: %s", peer, e)
 
@@ -184,25 +198,16 @@ class GameServer:
         # Notify other peers of the updated lobby sending the updated lobby object
         await self._notify_updated_lobby()
         
-    async def _check_peer_uuid_collision(self, peer: commons.Peer) -> bool:
+    def _check_peer_uuid_collision(self, id: str) -> bool:
         """Checks if a peer's UUID collides with any existing peer in the lobby.
 
         Args:
-            peer (Peer): The peer to check for UUID collision.
+            id (str): The UUID to check for collision.
 
         Returns:
             bool: True if there is a collision, False otherwise.
         """
-        if any(p.uuid == peer.uuid for p in self._lobby.peers):
-            self.__logger.warning("Peer with UUID %s already exists in the lobby.", peer.uuid)
-            while True: # While True because do-while does not exist in python
-                new_uuid = commons.peer_id_generator()
-                if not any(p.uuid == new_uuid for p in self._lobby.peers):
-                    self.__logger.info("Generated new UUID %s for peer %s", new_uuid, peer.name)
-                    break 
-            await self._server_conn_handler.send_obj(peer, DuplicateIdException(new_id=new_uuid))
-            return True
-        return False
+        return any(p.uuid == id for p in self._lobby.peers)
 
     async def send_to_peer(self, peer: commons.Peer, message: BaseMessage):
         """Sends a message to a specific peer.
