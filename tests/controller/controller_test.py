@@ -11,7 +11,7 @@ from wiredwolf.view.custom_events import EventSender
 
 LOBBY_NAME = "Test Lobby"
 
-
+#TODO: check premise and possibly update it
 """
 This test suite verifies the functionality of the entire game except for the view which is modeled only by the EventSender mock. 
 
