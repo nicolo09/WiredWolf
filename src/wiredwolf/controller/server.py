@@ -192,7 +192,18 @@ class GameServer:
         self.__logger.info("Lobby updated. Current peers: %s", self._lobby.peers)
 
     async def _add_peer_and_notify_updates(self, peer: commons.Peer):
-        # TODO: Check if the lobby is full and if the game already started
+        if len(self._lobby.peers) >= commons.MAX_PLAYERS:
+            self.__logger.warning("Lobby is full. Cannot add peer: %s", peer)
+            await self._server_conn_handler.send_obj(
+                peer, ValueError("Lobby is full. Cannot join.")
+            )
+            return
+        if self._game is not None:
+            self.__logger.warning("Game already started. Cannot add peer: %s", peer)
+            await self._server_conn_handler.send_obj(
+                peer, ValueError("Game already started. Cannot join.")
+            )
+            return
         # Update lobby
         self._lobby.peers.add(peer)
         # Notify other peers of the updated lobby sending the updated lobby object
