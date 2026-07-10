@@ -228,3 +228,10 @@ class ConnectionClosedMessage(BaseMessage):
             str: The info message about the connection closure.
         """
         return self._info
+    
+class HeartbeatMessage(BaseMessage):
+    """A message sent to indicate that the connection is still active"""
+
+    def __init__(self):
+        super().__init__(None)
+

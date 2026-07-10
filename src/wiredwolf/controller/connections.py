@@ -13,6 +13,7 @@ from wiredwolf.controller.commons import (
 from wiredwolf.controller.messages import (
     BaseMessage,
     ConnectionClosedMessage,
+    HeartbeatMessage,
     NotAcknowledgeMessage,
 )
 import asyncio
@@ -20,7 +21,8 @@ from asyncio import CancelledError
 
 
 PEERNAME_EXTRA_INFO = "peername"
-
+HEARTBEAT_INTERVAL = 5  # seconds
+CONNECTION_TIMEOUT_HEARTBEAT = 10  # seconds
 
 class ConnectionClosedError(Exception):
     """Exception raised when a connection is closed."""
@@ -217,6 +219,10 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
             if exc is None or isinstance(exc, ConnectionClosedError):
                 # No exception or graceful connection closed
                 self._logger.info("Receive loop task completed successfully.")
+            elif isinstance(exc, TimeoutError):
+                self._logger.warning(
+                    "Receive loop task timed out. Connection may be lost."
+                )
             else:
                 self._logger.error("Receive loop task encountered an error: %s", exc)
             if self._on_message:
@@ -228,16 +234,21 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
         """Internal method to continuously receive messages."""
         while True:
             try:
-                msg: Any = await self._message_handler.receive_obj(self._reader)
-                if self._on_message:
-                    self._on_message(msg)
-                else:
-                    self._logger.warning(
+                async with asyncio.timeout(CONNECTION_TIMEOUT_HEARTBEAT):
+                    msg: Any = await self._message_handler.receive_obj(self._reader)
+                    if self._on_message:
+                        self._on_message(msg) 
+                    else:
+                        self._logger.warning(
                         "Received message but no on_message callback is set."
-                    )
+                        )
             except asyncio.CancelledError:
                 self._logger.info("Receive loop cancelled.")
                 return
+            except TimeoutError as e:
+                #TODO: Connection with server is considered killed, handle possible reconnection
+                self._logger.info("Receive loop timed out.")
+                raise e
             except Exception as e:
                 raise e
 
@@ -374,8 +385,10 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
         on_new_peer: Callable[[Peer], CoroutineType[Any, Any, None]],
         on_peer_disconnected: Callable[[Peer], CoroutineType[Any, Any, None]],
         on_new_message: Callable[[BaseMessage], CoroutineType[Any, Any, None]],
+        callback_failed_heartbeat: Callable[[Peer], CoroutineType[Any, Any, None]]|None=None,
         owner_connection: tuple[Peer, asyncio.StreamReader, asyncio.StreamWriter]
         | None = None,
+        
     ):
         super().__init__()
         self._bind_address: tuple[str | None, int] = bind_address
@@ -396,6 +409,8 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
         self._receiving_tasks: dict[Peer, asyncio.Task[None]] = {}
         self._server: asyncio.Server | None = None
         self._server_task: asyncio.Task[None] | None = None
+        self._heartbeat_task: asyncio.Task[None] | None = None
+        self._callback_failed_heartbeat: Callable[[Peer], CoroutineType[Any, Any, None]] | None = callback_failed_heartbeat
         if owner_connection is not None:
             peer, reader, writer = owner_connection
             self._endpoints[peer] = (reader, writer)
@@ -420,6 +435,22 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
             )
             # keep a reference to the serve_forever task so it can be awaited/cancelled on close
             self._server_task = asyncio.create_task(self._server.serve_forever())
+            self._heartbeat_task = asyncio.create_task(self._send_heartbeat())
+
+    async def _send_heartbeat(self):
+        """A function that sends a heartbeat message to all connected peers regularly"""
+        while True:
+            await asyncio.sleep(HEARTBEAT_INTERVAL) 
+            for peer in list(self._endpoints.keys()):
+                try:
+                    await self.send_obj(peer, HeartbeatMessage())
+                except Exception as e:
+                    self._logger.error(
+                        "Error sending heartbeat to %s: %s", peer, e
+                    )
+                    #TODO: handle properly what happens next
+                    if self._callback_failed_heartbeat!=None:
+                        await self._callback_failed_heartbeat(peer)
 
     async def _client_connected_cb(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter

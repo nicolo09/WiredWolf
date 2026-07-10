@@ -9,7 +9,7 @@ from tests.controller.conftest import TEST_TIMEOUT
 from wiredwolf.controller.commons import DEFAULT_SERVER_PORT, Peer
 import wiredwolf.controller.connections as connections
 from wiredwolf.controller.lobbies import Lobby, TcpMdnsLobbyBrowser
-from wiredwolf.controller.messages import BaseMessage, ChatMessage, LobbyUpdatedMessage, NotAcknowledgeMessage
+from wiredwolf.controller.messages import BaseMessage, ChatMessage, HeartbeatMessage, LobbyUpdatedMessage, NotAcknowledgeMessage
 from wiredwolf.controller.server import GameServer, GameServerFactory
 from wiredwolf.controller.server_plugins import ChatPlugin, GameLifecyclePlugin
 
@@ -200,3 +200,119 @@ async def test_server_connection_handler_callbacks(
         await handler.close()
     except connections.ConnectionClosedError:
         pass
+
+@pytest.mark.asyncio
+async def test_heartbeat():
+    """Test that check that an heartbeat is recived by the client"""
+    heartbeat_event = asyncio.Event()
+    async def callback(p: Peer):
+        assert isinstance(p, Peer)
+    async def callback2(m: BaseMessage):
+        #Server callback, don't care
+        assert isinstance(m, BaseMessage)
+
+    def callback_on_message(m: BaseMessage):
+        #Client callback, check if we received a heartbeat message
+        if isinstance(m, HeartbeatMessage):
+            heartbeat_event.set()
+    sockets = socketpair()
+    server_reader, server_writer = await asyncio.open_connection(sock=sockets[0])
+    client_reader, client_writer = await asyncio.open_connection(sock=sockets[1])
+    server_peer = Peer("Server")
+    client_peer = Peer("Client")
+    server=connections.AsyncTCPServerConnectionHandler(("0.0.0.0", 0), callback , callback, callback2, callback, (server_peer, server_reader, server_writer))
+    client=connections.AsyncTCPClientConnectionHandler(client_peer, client_reader, client_writer)
+    client.set_on_message(callback_on_message) #What happens when you recive a message, is calling the function
+    await server.start_listening()
+    await client.start_receiving()
+    try:
+        async with timeout(connections.CONNECTION_TIMEOUT_HEARTBEAT):
+            await heartbeat_event.wait()
+    except asyncio.TimeoutError:
+        pytest.fail("Heartbeat message not received in time")
+
+@pytest.mark.asyncio
+async def test_heartbeat_client_gets_disconnection():
+    """Test that check that the client can get when the heartbeat is disrupted"""
+    heartbeat_event = asyncio.Event()
+    closed_event = asyncio.Event()
+    async def callback(p: Peer):
+        assert isinstance(p, Peer)
+    async def callback2(m: BaseMessage):
+        #Server callback, don't care
+        assert isinstance(m, BaseMessage)
+
+    def callback_on_message(m: BaseMessage):
+        #Client callback, check if we received a heartbeat message
+        if isinstance(m, HeartbeatMessage):
+            heartbeat_event.set()
+        elif isinstance(m, connections.ConnectionClosedMessage):
+            closed_event.set()
+    sockets = socketpair()
+    server_reader, server_writer = await asyncio.open_connection(sock=sockets[0])
+    client_reader, client_writer = await asyncio.open_connection(sock=sockets[1])
+    server_peer = Peer("Server")
+    client_peer = Peer("Client")
+    server=connections.AsyncTCPServerConnectionHandler(("0.0.0.0", 0), callback , callback, callback2, callback, (server_peer, server_reader, server_writer))
+    client=connections.AsyncTCPClientConnectionHandler(client_peer, client_reader, client_writer)
+    client.set_on_message(callback_on_message) #What happens when you recive a message, is calling the function
+    await server.start_listening()
+    await client.start_receiving()
+    try:
+        async with timeout(connections.CONNECTION_TIMEOUT_HEARTBEAT):
+            await heartbeat_event.wait()
+    except asyncio.TimeoutError:
+        pytest.fail("Heartbeat message not received in time")
+
+    if server._heartbeat_task is not None:
+        server._heartbeat_task.cancel() #Stop the heartbeat, to simulate a disconnection
+
+    try:
+        async with timeout(connections.CONNECTION_TIMEOUT_HEARTBEAT*2):
+            await closed_event.wait()
+    except asyncio.TimeoutError:
+        pytest.fail("ConnectionClosedMessage not received in time")
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_server_reacts_to_disconnection():
+    """Test that check that the server recives the client disconnection and calls the callback"""
+    heartbeat_event = asyncio.Event()
+    heartbeat_failed_event = asyncio.Event()
+    async def callback(p: Peer):
+        assert isinstance(p, Peer)
+    async def callback2(m: BaseMessage):
+        #Server callback, don't care
+        assert isinstance(m, BaseMessage)
+
+    def callback_on_message(m: BaseMessage):
+        #Client callback, check if we received a heartbeat message
+        if isinstance(m, HeartbeatMessage):
+            heartbeat_event.set()
+
+    async def callback_on_heartbeat_failed(p: Peer):
+        heartbeat_failed_event.set()
+
+    sockets = socketpair()
+    server_reader, server_writer = await asyncio.open_connection(sock=sockets[0])
+    client_reader, client_writer = await asyncio.open_connection(sock=sockets[1])
+    server_peer = Peer("Server")
+    client_peer = Peer("Client")
+    server=connections.AsyncTCPServerConnectionHandler(("0.0.0.0", 0), callback , callback, callback2, callback_on_heartbeat_failed, (server_peer, server_reader, server_writer))
+    client=connections.AsyncTCPClientConnectionHandler(client_peer, client_reader, client_writer)
+    client.set_on_message(callback_on_message) #What happens when you recive a message, is calling the function
+    await server.start_listening()
+    await client.start_receiving()
+    try:
+        async with timeout(connections.CONNECTION_TIMEOUT_HEARTBEAT):
+            await heartbeat_event.wait()
+    except asyncio.TimeoutError:
+        pytest.fail("Heartbeat message not received in time")
+    
+    sockets[0].close() #Close the server socket, to simulate a disconnection
+    try:
+        async with timeout(connections.CONNECTION_TIMEOUT_HEARTBEAT*2):
+            await heartbeat_failed_event.wait()
+    except asyncio.TimeoutError:
+        pytest.fail("Heartbeat failed event not received in time")
+
