@@ -9,8 +9,6 @@ from zeroconf import ServiceInfo
 from wiredwolf.controller.connections import (
     AsyncTCPClientConnectionHandler,
     AsyncTCPMessageHandler,
-)
-from wiredwolf.controller.connections import (
     ClientConnectionHandler,
     MessageHandlerFactory,
 )
@@ -18,6 +16,7 @@ from wiredwolf.controller.connections import (
 from wiredwolf.controller.commons import (
     CONNECTION_TIMEOUT,
     MAX_PLAYERS,
+    MIN_PLAYERS,
     Peer,
     lobby_id_generator,
 )
@@ -51,9 +50,11 @@ class Lobby:
     )  # TODO: Possible UUID collision will have to be handled in services code
     password: str | None = None
     peers: set[Peer] = dataclasses.field(init=False, default_factory=set[Peer])
+    max_peers: int = MAX_PLAYERS
 
     def __post_init__(self):
         """Initializes the lobby by adding the owner to the peers list."""
+        self.max_peers = max(self.max_peers, MIN_PLAYERS)
         self.peers.add(self.owner)
 
     def lobby_info(self) -> LobbyInfo:
@@ -63,7 +64,7 @@ class Lobby:
             has_password=self.is_password_protected(),
             uuid=self.uuid,
             peers_number=len(self.peers),
-            max_peers=MAX_PLAYERS,
+            max_peers=self.max_peers,
         )
 
     def check_password(self, passwd: str) -> bool:

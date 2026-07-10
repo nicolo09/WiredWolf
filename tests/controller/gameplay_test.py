@@ -4,7 +4,7 @@ import pytest
 import pytest_asyncio
 from tests.controller.conftest import TEST_TIMEOUT
 from tests.controller.utils import TestFactory
-from wiredwolf.controller.commons import FIRST_DAY_PHASE_DURATION_SECONDS, Peer
+from wiredwolf.controller.commons import FIRST_DAY_PHASE_DURATION_SECONDS, MAX_PLAYERS, Peer
 from wiredwolf.controller.connections import ClientConnectionHandler
 from wiredwolf.controller.lobbies import Lobby
 from wiredwolf.controller.messages import (
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 @pytest_asyncio.fixture
 async def lobby_owner_server_clients(request: pytest.FixtureRequest):
     owner = Peer("Owner")
-    lobby = Lobby(owner, "Test Lobby", password=None)
+    lobby = Lobby(owner, "Test Lobby", password=None, max_peers=max(request.param, MAX_PLAYERS))
     server, handlers = await TestFactory.create_tcp_server_with_connected_clients(
         request.param, lobby
     )
@@ -49,7 +49,7 @@ async def test_start_game_with_too_few_or_too_many_players(
         logger.info(msg)
         if isinstance(msg, GameStartedMessage):
             pytest.fail(
-                "GameStartedMessage should not be received with too few players"
+                f"GameStartedMessage should not be received with {len(handlers)} players"
             )
         elif isinstance(msg, NotAcknowledgeMessage):
             event.set()
@@ -62,7 +62,7 @@ async def test_start_game_with_too_few_or_too_many_players(
             await event.wait()
     except TimeoutError:
         logger.info("Test timed out waiting for event")
-        pytest.fail("No exception received as expected with too few players")
+        pytest.fail(f"No exception received as expected with {len(handlers)} players")
 
 
 @pytest.mark.asyncio
