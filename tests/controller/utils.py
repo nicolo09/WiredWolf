@@ -3,7 +3,7 @@ import logging
 from typing import Any
 
 from wiredwolf.controller.commons import DEFAULT_SERVER_PORT, Peer
-from wiredwolf.controller.connections import (
+from wiredwolf.controller.connections.connections import (
     ClientConnectionHandler,
     AsyncTCPServerConnectionHandler
 )

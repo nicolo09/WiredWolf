@@ -3,7 +3,7 @@ import logging
 from asyncio import Task
 from socket import socketpair
 from wiredwolf.controller import commons
-from wiredwolf.controller.connections import (
+from wiredwolf.controller.connections.connections import (
     ClientConnectionHandler,
     ConnectionHandlerFactory,
     ServerConnectionHandler,
@@ -396,6 +396,6 @@ class GameServerFactory:
         for plugin in await get_plugins_list():
             server.add_plugin(plugin)
         client_conn_handler = ConnectionHandlerFactory.get_client_connection_handler(
-            lobby.owner, client_reader, client_writer
+            lobby.owner, client_reader, client_writer, ("localhost", commons.DEFAULT_SERVER_PORT)
         )
         return server, client_conn_handler

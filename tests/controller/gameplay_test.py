@@ -5,7 +5,7 @@ import pytest_asyncio
 from tests.controller.conftest import TEST_TIMEOUT
 from tests.controller.utils import TestFactory
 from wiredwolf.controller.commons import FIRST_DAY_PHASE_DURATION_SECONDS, MAX_PLAYERS, Peer
-from wiredwolf.controller.connections import ClientConnectionHandler
+from wiredwolf.controller.connections.connections import ClientConnectionHandler
 from wiredwolf.controller.lobbies import Lobby
 from wiredwolf.controller.messages import (
     BaseMessage,

@@ -3,7 +3,7 @@ import ipaddress
 import logging
 import socket
 from zeroconf import NonUniqueNameException, ServiceBrowser, ServiceInfo, ServiceListener, Zeroconf
-from wiredwolf.controller.network import PsutilNetworkExplorer
+from wiredwolf.controller.connections.network import PsutilNetworkExplorer
 
 
 class CallbackCachedServiceListener(ServiceListener):

@@ -4,7 +4,7 @@ import logging
 from typing import Any
 
 from wiredwolf.controller import commons
-from wiredwolf.controller.connections import ClientConnectionHandler
+from wiredwolf.controller.connections.connections import ClientConnectionHandler
 from wiredwolf.controller.lobbies import LobbyBrowser, LobbyBrowserFactory, LobbyInfo
 from wiredwolf.controller.lobbies import Lobby
 from wiredwolf.controller.messages import (
@@ -45,6 +45,15 @@ class GameController:
         self._waiting_for_ack: dict[str, tuple[asyncio.Event, Any]] = {}
         self._game_status: GameStatus | None = None
         self._event_sender: EventSender = event_sender
+
+    @property
+    def connection_handler(self) -> ClientConnectionHandler | None:
+        """Gets the client connection handler.
+
+        Returns:
+            ClientConnectionHandler | None: The client connection handler, or None if not connected.
+        """
+        return self._client_connection_handler
 
     @property
     def my_self(self) -> Peer:

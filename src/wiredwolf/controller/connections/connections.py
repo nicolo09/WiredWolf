@@ -162,7 +162,7 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
     _logger = logging.getLogger(__name__)
 
     def __init__(
-        self, my_self: Peer, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+        self, my_self: Peer, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, endpoint: tuple[str, int]
     ):
         """Initialize the client connection handler with the given peer as self, reader and writer to communicate with the server."""
         super().__init__(my_self)
@@ -172,7 +172,17 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
         self._my_self: Peer = my_self
         self._reader: asyncio.StreamReader = reader
         self._writer: asyncio.StreamWriter = writer
+        self._endpoint: tuple[str, int] = endpoint
         self._receiving_task: asyncio.Task[None] | None = None
+
+    @property
+    def endpoint(self) -> tuple[str, int]:
+        """Get the endpoint (host, port) of the server this client is connected to.
+
+        Returns:
+            tuple[str, int]: The endpoint of the server.
+        """
+        return self._endpoint
 
     async def send_obj(self, obj: Any):
         """Send an object to the server.
@@ -663,6 +673,7 @@ class ConnectionHandlerFactory:
         my_self: Peer,
         reader: asyncio.StreamReader,
         writer: asyncio.StreamWriter,
+        endpoint: tuple[str, int]
     ) -> ClientConnectionHandler:
         """Creates and returns a new ClientConnectionHandler.
 
@@ -673,4 +684,4 @@ class ConnectionHandlerFactory:
         Returns:
             ClientConnectionHandler: The created client connection handler.
         """
-        return AsyncTCPClientConnectionHandler(my_self, reader, writer)
+        return AsyncTCPClientConnectionHandler(my_self, reader, writer, endpoint)

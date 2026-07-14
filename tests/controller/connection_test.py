@@ -7,7 +7,7 @@ import pytest
 import pytest_asyncio
 from tests.controller.conftest import TEST_TIMEOUT
 from wiredwolf.controller.commons import DEFAULT_SERVER_PORT, Peer
-import wiredwolf.controller.connections as connections
+import wiredwolf.controller.connections.connections as connections
 from wiredwolf.controller.lobbies import Lobby, TcpMdnsLobbyBrowser
 from wiredwolf.controller.messages import BaseMessage, ChatMessage, HeartbeatMessage, LobbyUpdatedMessage, NotAcknowledgeMessage
 from wiredwolf.controller.server import GameServer, GameServerFactory

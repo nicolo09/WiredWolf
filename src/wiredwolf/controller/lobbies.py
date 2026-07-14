@@ -6,7 +6,7 @@ import dataclasses
 import logging
 
 from zeroconf import ServiceInfo
-from wiredwolf.controller.connections import (
+from wiredwolf.controller.connections.connections import (
     AsyncTCPClientConnectionHandler,
     AsyncTCPMessageHandler,
     ClientConnectionHandler,
@@ -271,41 +271,58 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
         else:
             raise RuntimeError("No lobby is currently being published.")
 
-    async def _connect(
-        self, endpoint: tuple[str, int], my_self: Peer, lobby_password: str | None
-    ) -> tuple[ClientConnectionHandler, Lobby]:
+    async def _open_connection(
+        self, endpoint: tuple[str, int]
+    ) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
         try:
             async with asyncio.timeout(CONNECTION_TIMEOUT):
-                msg_handler: AsyncTCPMessageHandler = AsyncTCPMessageHandler(
-                    MessageHandlerFactory.getDefaultSerializer()
-                )
-                reader, writer = await asyncio.open_connection(endpoint[0], endpoint[1])
-                # Sending my peer info to the server
-                await msg_handler.send_obj(writer, my_self)
-                while True:
-                    # Expecting PasswordRequest or LobbyUpdatedMessage (in case no password is required) in response
-                    recv_msg = await msg_handler.receive_obj(reader)
-                    if isinstance(recv_msg, PasswordRequest):
-                        if lobby_password:
-                            # Server requested a password and one was provided, send it
-                            recv_msg.password = lobby_password
-                            await msg_handler.send_obj(writer, recv_msg)
-                        else:
-                            # Server requested a password but none was provided
-                            writer.close()
-                            raise ValueError("Lobby requires a password.")
-                    elif isinstance(recv_msg, LobbyUpdatedMessage):
-                        return AsyncTCPClientConnectionHandler(my_self, reader, writer), recv_msg.lobby
-                    elif isinstance(recv_msg, Exception): 
-                        # The server returned an error
-                        writer.close()
-                        self.__logger.error("Error received from server: %s", recv_msg)
-                        raise recv_msg
-                    else:
-                        writer.close()
-                        raise RuntimeError("Unexpected message received.")
+                return await asyncio.open_connection(endpoint[0], endpoint[1])
         except asyncio.TimeoutError:
             raise TimeoutError("Connection to lobby timed out.")
+
+    async def _exchange_lobby_info(self, my_self: Peer, endpoint: tuple[str, int], reader: asyncio.StreamReader, writer: asyncio.StreamWriter, lobby_password: str | None):
+        msg_handler: AsyncTCPMessageHandler = AsyncTCPMessageHandler(
+                            MessageHandlerFactory.getDefaultSerializer()
+                        )
+        # Sending my peer info to the server
+        await msg_handler.send_obj(writer, my_self)
+        while True: #FIXME Why is there a while true here?
+            # Expecting PasswordRequest or LobbyUpdatedMessage (in case no password is required) in response
+            recv_msg = await msg_handler.receive_obj(reader)
+            if isinstance(recv_msg, PasswordRequest):
+                if lobby_password:
+                    # Server requested a password and one was provided, send it
+                    recv_msg.password = lobby_password
+                    await msg_handler.send_obj(writer, recv_msg)
+                else:
+                    # Server requested a password but none was provided
+                    writer.close()
+                    raise ValueError("Lobby requires a password.")
+            elif isinstance(recv_msg, LobbyUpdatedMessage):
+                return AsyncTCPClientConnectionHandler(my_self, reader, writer, endpoint), recv_msg.lobby
+            elif isinstance(recv_msg, Exception): 
+                # The server returned an error
+                writer.close()
+                self.__logger.error("Error received from server: %s", recv_msg)
+                raise recv_msg
+            else:
+                writer.close()
+                raise RuntimeError("Unexpected message received.")
+
+    async def connect_to_peer(
+        self, my_self: Peer, peer_endpoint: tuple[str, int]
+    ) -> ClientConnectionHandler:
+        """
+        Connects directly to a peer at the given endpoint.
+
+        Args:
+            peer_endpoint (tuple[str, int]): The (IP, port) endpoint of the peer to connect to.
+
+        Returns:
+            tuple[ClientConnectionHandler]: The connected client handler.
+        """
+        reader, writer = await self._open_connection(peer_endpoint)
+        return AsyncTCPClientConnectionHandler(my_self, reader, writer, peer_endpoint)
 
     async def connect_to_lobby_directly(
         self, my_self: Peer, address: tuple[str, int], lobby_password: str | None
@@ -321,7 +338,8 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
             tuple[ClientConnectionHandler, Lobby]: The connected client handler and the joined lobby.
         """
 
-        return await self._connect(address, my_self, lobby_password)
+        reader, writer = await self._open_connection(address)
+        return await self._exchange_lobby_info(my_self, address, reader, writer, lobby_password)
 
     async def connect_to_lobby_by_id(
         self, my_self: Peer, lobby_id: str, lobby_password: str | None
@@ -343,7 +361,8 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
 
         for ip, port in endpoints:
             try:
-                return await self._connect((ip, port), my_self, lobby_password)
+                reader, writer = await self._open_connection((ip, port))
+                return await self._exchange_lobby_info(my_self, (ip, port), reader, writer, lobby_password)
             except (ConnectionError, TimeoutError):
                 self.__logger.warning(f"Failed to connect to lobby {lobby_id} at {ip}:{port}, trying next endpoint if available...")
                 continue
