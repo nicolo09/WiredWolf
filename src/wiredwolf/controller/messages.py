@@ -235,3 +235,50 @@ class HeartbeatMessage(BaseMessage):
     def __init__(self):
         super().__init__(None)
 
+class RecoveredConnectionsMessage(BaseMessage):
+    """A message sent to indicate how many connections a peer has recovered after a disconnection"""
+
+    def __init__(self, sender: Peer | None, connections: int):
+        super().__init__(sender)
+        self._connections = connections
+
+    @property
+    def connections(self) -> int:
+        """Gets the number of connections recovered.
+        Returns:
+            int: The number of connections recovered.
+        """
+        return self._connections
+    
+class CandidateForElectionMessage(BaseMessage):
+    """A message sent to indicate that a peer is a candidate for election"""
+
+    def __init__(self, sender: Peer | None):
+        super().__init__(sender)
+
+class ApproveCandidateMessage(BaseMessage):
+    """A message sent to indicate that a peer approves a candidate for election"""
+
+    def __init__(self, sender: Peer | None):
+        super().__init__(sender)
+        
+class MasterElectedMessage(BaseMessage):
+    """A message sent to indicate that a new master has been elected"""
+
+    def __init__(self, sender: Peer | None, new_master: Peer | None):
+        super().__init__(sender)
+        self._new_master = new_master
+
+    @property
+    def new_master(self) -> Peer | None:
+        """Gets the new master peer.
+        Returns:
+            Peer | None: The new master peer.
+        """
+        return self._new_master
+    
+class ElectionFailedMessage(BaseMessage):
+    """A message sent to indicate that the peer didn't become the new master"""
+
+    def __init__(self, sender: Peer | None):
+        super().__init__(sender)
