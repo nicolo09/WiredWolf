@@ -162,7 +162,7 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
     _logger = logging.getLogger(__name__)
 
     def __init__(
-        self, my_self: Peer, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, endpoint: tuple[str, int]
+        self, my_self: Peer, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, endpoint: tuple[str, int], on_disconnect: Callable[[], CoroutineType[Any, Any, None]] | None = None
     ):
         """Initialize the client connection handler with the given peer as self, reader and writer to communicate with the server."""
         super().__init__(my_self)
@@ -174,6 +174,7 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
         self._writer: asyncio.StreamWriter = writer
         self._endpoint: tuple[str, int] = endpoint
         self._receiving_task: asyncio.Task[None] | None = None
+        self._on_disconnect: Callable[[], CoroutineType[Any, Any, None]] | None = on_disconnect
 
     @property
     def endpoint(self) -> tuple[str, int]:
@@ -258,6 +259,8 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
             except TimeoutError as e:
                 #TODO: Connection with server is considered killed, handle possible reconnection
                 self._logger.info("Receive loop timed out.")
+                if self._on_disconnect:
+                    await self._on_disconnect() #FIXME: should this be used here?
                 raise e
             except Exception as e:
                 raise e
@@ -673,7 +676,8 @@ class ConnectionHandlerFactory:
         my_self: Peer,
         reader: asyncio.StreamReader,
         writer: asyncio.StreamWriter,
-        endpoint: tuple[str, int]
+        endpoint: tuple[str, int],
+        on_disconnect: Callable[[], CoroutineType[Any, Any, None]] | None = None,
     ) -> ClientConnectionHandler:
         """Creates and returns a new ClientConnectionHandler.
 
@@ -681,7 +685,9 @@ class ConnectionHandlerFactory:
             my_self (Peer): The peer representing this client.
             reader (asyncio.StreamReader): The reader for the connection.
             writer (asyncio.StreamWriter): The writer for the connection.
+            endpoint (tuple[str, int]): The (IP, port) endpoint of the server to connect to. #FIXME is this correct?
+            on_disconnect (Callable[[], CoroutineType[Any, Any, None]] | None): Optional callback to be invoked when the connection is lost.
         Returns:
             ClientConnectionHandler: The created client connection handler.
         """
-        return AsyncTCPClientConnectionHandler(my_self, reader, writer, endpoint)
+        return AsyncTCPClientConnectionHandler(my_self, reader, writer, endpoint, on_disconnect)

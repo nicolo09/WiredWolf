@@ -4,6 +4,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 import dataclasses
 import logging
+from types import CoroutineType
+from typing import Any
 
 from zeroconf import ServiceInfo
 from wiredwolf.controller.connections.connections import (
@@ -280,7 +282,15 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
         except asyncio.TimeoutError:
             raise TimeoutError("Connection to lobby timed out.")
 
-    async def _exchange_lobby_info(self, my_self: Peer, endpoint: tuple[str, int], reader: asyncio.StreamReader, writer: asyncio.StreamWriter, lobby_password: str | None):
+    async def _exchange_lobby_info(
+        self,
+        my_self: Peer,
+        endpoint: tuple[str, int],
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
+        lobby_password: str | None,
+        on_disconnect: Callable[[], CoroutineType[Any, Any, None]] | None = None,
+    ) -> tuple[ClientConnectionHandler, Lobby]:
         msg_handler: AsyncTCPMessageHandler = AsyncTCPMessageHandler(
                             MessageHandlerFactory.getDefaultSerializer()
                         )
@@ -299,7 +309,7 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
                     writer.close()
                     raise ValueError("Lobby requires a password.")
             elif isinstance(recv_msg, LobbyUpdatedMessage):
-                return AsyncTCPClientConnectionHandler(my_self, reader, writer, endpoint), recv_msg.lobby
+                return AsyncTCPClientConnectionHandler(my_self, reader, writer, endpoint, on_disconnect), recv_msg.lobby
             elif isinstance(recv_msg, Exception): 
                 # The server returned an error
                 writer.close()
@@ -310,19 +320,21 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
                 raise RuntimeError("Unexpected message received.")
 
     async def connect_to_peer(
-        self, my_self: Peer, peer_endpoint: tuple[str, int]
+        self, my_self: Peer, peer_endpoint: tuple[str, int], on_disconnect: Callable[[], CoroutineType[Any, Any, None]] | None = None
     ) -> ClientConnectionHandler:
         """
         Connects directly to a peer at the given endpoint.
 
         Args:
+            my_self (Peer): The peer object representing the client.
             peer_endpoint (tuple[str, int]): The (IP, port) endpoint of the peer to connect to.
+            on_disconnect (Callable[[], CoroutineType[Any, Any, None]] | None): Optional callback to be invoked when the connection is lost.
 
         Returns:
             tuple[ClientConnectionHandler]: The connected client handler.
         """
         reader, writer = await self._open_connection(peer_endpoint)
-        return AsyncTCPClientConnectionHandler(my_self, reader, writer, peer_endpoint)
+        return AsyncTCPClientConnectionHandler(my_self, reader, writer, peer_endpoint, on_disconnect)
 
     async def connect_to_lobby_directly(
         self, my_self: Peer, address: tuple[str, int], lobby_password: str | None
