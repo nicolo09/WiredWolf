@@ -45,18 +45,42 @@ class GamePhaseOutcomeBuilder:
         self._accused_player: Player | None = None
 
     def set_new_phase(self, new_phase: GamePhase) -> "GamePhaseOutcomeBuilder":
+        """Sets the new phase for the GamePhaseOutcome being built.
+        Args:
+            new_phase (GamePhase): The new phase to set.
+        Returns:
+            GamePhaseOutcomeBuilder: The builder instance for chaining.
+        """
         self._new_phase = new_phase
         return self
 
     def add_death(self, player: Player) -> "GamePhaseOutcomeBuilder":
+        """Adds a player to the list of deaths for the GamePhaseOutcome being built.
+        Args:
+            player (Player): The player who died.
+        Returns:
+            GamePhaseOutcomeBuilder: The builder instance for chaining.
+        """
         self._deaths.append(player)
         return self
 
     def set_accused_player(self, player: Player) -> "GamePhaseOutcomeBuilder":
+        """Sets the accused player for the GamePhaseOutcome being built.
+        Args:
+            player (Player): The player who was accused.
+        Returns:
+            GamePhaseOutcomeBuilder: The builder instance for chaining.
+        """
         self._accused_player = player
         return self
 
     def build(self) -> GamePhaseOutcome:
+        """Builds and returns a GamePhaseOutcome instance based on the current state of the builder.
+        Returns:
+            GamePhaseOutcome: The constructed GamePhaseOutcome instance.
+        Raises:
+            ValueError: If the new phase has not been set before calling this method.
+        """
         if self._new_phase is None:
             raise ValueError("New phase must be set before building GamePhaseOutcome.")
         return GamePhaseOutcome(
@@ -64,6 +88,12 @@ class GamePhaseOutcomeBuilder:
             deaths=self._deaths,
             accused_player=self._accused_player,
         )
+        
+    def reset(self) -> None:
+        """Resets the builder to its initial state."""
+        self._new_phase = None
+        self._deaths = []
+        self._accused_player = None
 
 
 @dataclass

@@ -50,6 +50,7 @@ class Game:
         self._phase: GamePhase = phase
         self._game_info: AbstractGameInfo = game_info
         self._day_count: int = day_count
+        self._phase_outcome_builder: GamePhaseOutcomeBuilder = GamePhaseOutcomeBuilder()
         self._snapshot: GameStatus = self.get_game_status()
 
     @classmethod
@@ -131,7 +132,7 @@ class Game:
         Returns:
             GamePhaseOutcome: contains the new game phase and any deaths that occurred during the transition.
         """
-        game_phase_outcome_builder = GamePhaseOutcomeBuilder()
+        self._snapshot = self.get_game_status()
 
         match self._phase:
             case GamePhase.FIRST_DAY:
@@ -147,7 +148,7 @@ class Game:
                 
                 if (accused_player is not None):
                     self._phase = GamePhase.DAY_BALLOT
-                    game_phase_outcome_builder.set_accused_player(accused_player)
+                    self._phase_outcome_builder.set_accused_player(accused_player)
                 else:
                     # No votes or tie in accusations, skip to night
                     self._phase = GamePhase.NIGHT
@@ -160,14 +161,14 @@ class Game:
 
                 if accused_player is not None:
                     # If the ballot votes are more than half of the voting players, the accused player is killed
-                    game_phase_outcome_builder.set_accused_player(accused_player)
+                    self._phase_outcome_builder.set_accused_player(accused_player)
                     voting_count = len(self._game_info.ballot_votes)
                     confirm_ballot_votes = sum(
                         1 for vote in self._game_info.ballot_votes.values() if vote
                     )
                     if voting_count > 0 and confirm_ballot_votes > voting_count / 2:
                         accused_player.status = Status.DEAD
-                        game_phase_outcome_builder.add_death(accused_player)
+                        self._phase_outcome_builder.add_death(accused_player)
                 self._phase = GamePhase.BALLOT_RESULT
                 
             case GamePhase.BALLOT_RESULT:
@@ -180,7 +181,7 @@ class Game:
 
                 if victim is not None and victim.status != Status.PROTECTED:
                     victim.status = Status.DEAD
-                    game_phase_outcome_builder.add_death(victim)
+                    self._phase_outcome_builder.add_death(victim)
 
                 self._game_info.reset_actions()
                 self._phase = GamePhase.DAY_DISCUSSION
@@ -194,8 +195,9 @@ class Game:
         if game_over:
             self._phase = game_over
 
-        self._snapshot = self.get_game_status()
-        return game_phase_outcome_builder.set_new_phase(self._phase).build()
+        outcome = self._phase_outcome_builder.set_new_phase(self._phase).build()
+        self._phase_outcome_builder.reset()  # Reset the builder for the next phase
+        return outcome
 
     def perform_night_action(self, actor_id: str, target_id: str) -> NightActionResult:
         """
@@ -282,9 +284,9 @@ class Game:
 
         self._game_info.handle_ballot_vote(voter, vote)
 
-    def kill_player(self, player_id: str) -> GamePhase:
+    def kill_player(self, player_id: str) -> GamePhase: #TODO: this method must be called AFTER calling advance_phase of the snapshot, otherwise valid actions would be removed
         """
-        Kills a player in any moment of the game.
+        Kills a player in any moment of the game and cancels any action performed by that player in the current phase.
         How the elimination is handled is defined by the GameInfo object.
 
         Should only be used by the game controller to remove a player from the game.
@@ -317,8 +319,27 @@ class Game:
             )
             if game_over:
                 self._phase = game_over
-
+                
+        self._phase_outcome_builder.add_death(player)
         return self._phase
+    
+    def set_player_as_dead(self, player_id: str) -> None:
+        """
+        Sets a player's status to DEAD, but doesn't cancel any actions performed by that player in the current phase.
+
+        Args:
+            player_id (str): The ID of the player to set as dead.
+
+        Raises:
+            MissingPlayerError: If player does not exist.
+        """
+        player: Player | None = self.__get_player_from_id(player_id)
+
+        if not player:
+            raise MissingPlayerError(f"Player with ID {player_id} does not exist.")
+
+        player.status = Status.DEAD
+        self._phase_outcome_builder.add_death(player)
 
     def __get_player_from_id(self, player_id: str) -> Player | None:
         """
