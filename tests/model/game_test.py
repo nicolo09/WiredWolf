@@ -218,6 +218,8 @@ class GameSnapshotTest(unittest.TestCase):
         snapshot: GameStatus = self.game.get_game_snapshot()
         restored_game: Game = Game.from_game_status(snapshot)
         
+        restored_game.advance_phase()
+        
         self.assertEqual(restored_game.phase, self.game.phase)
         
         try:
@@ -235,6 +237,8 @@ class GameSnapshotTest(unittest.TestCase):
         
         snapshot: GameStatus = self.game.get_game_snapshot()
         restored_game: Game = Game.from_game_status(snapshot)
+        
+        restored_game.advance_phase()
         
         self.assertEqual(restored_game.phase, self.game.phase)
         

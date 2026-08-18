@@ -72,7 +72,9 @@ class GameLifecyclePlugin(ServerPlugin):
             if message.sender != server.lobby.owner:
                 return NotAcknowledgeMessage(message.id, message.sender, PermissionError("Only the lobby owner can start the game.")), True
             await server.start_game()
-        return AcknowledgeMessage(message.id, message.sender, "Game started successfully."), True
+            return AcknowledgeMessage(message.id, message.sender, "Game started successfully."), True
+        else:
+            raise ValueError(f"Unhandled message type: {type(message)}")
 
 
 class VotingPlugin(ServerPlugin):
