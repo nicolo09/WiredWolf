@@ -47,6 +47,7 @@ async def client_conn_handler():
         my_self=peer,
         reader=client_reader,
         writer=client_writer,
+        endpoint=client_writer.get_extra_info("Server")
     )
 
     yield handler
@@ -172,6 +173,7 @@ async def test_server_connection_handler_callbacks(
         my_self=myself,
         reader=reader,
         writer=writer,
+        endpoint=writer.get_extra_info("Server")
     )
     handler.set_on_message(lambda msg: mocked.on_new_client_message(msg))
     await handler.start_receiving()
@@ -221,7 +223,7 @@ async def test_heartbeat():
     server_peer = Peer("Server")
     client_peer = Peer("Client")
     server=connections.AsyncTCPServerConnectionHandler(("0.0.0.0", 0), callback , callback, callback2, callback, (server_peer, server_reader, server_writer))
-    client=connections.AsyncTCPClientConnectionHandler(client_peer, client_reader, client_writer)
+    client=connections.AsyncTCPClientConnectionHandler(client_peer, client_reader, client_writer, endpoint=client_writer.get_extra_info("Server"))
     client.set_on_message(callback_on_message) #What happens when you recive a message, is calling the function
     await server.start_listening()
     await client.start_receiving()
@@ -236,11 +238,15 @@ async def test_heartbeat_client_gets_disconnection():
     """Test that check that the client can get when the heartbeat is disrupted"""
     heartbeat_event = asyncio.Event()
     closed_event = asyncio.Event()
+    disconnect_got=asyncio.Event()
     async def callback(p: Peer):
         assert isinstance(p, Peer)
     async def callback2(m: BaseMessage):
         #Server callback, don't care
         assert isinstance(m, BaseMessage)
+
+    async def callback_on_disconnect():
+        disconnect_got.set()
 
     def callback_on_message(m: BaseMessage):
         #Client callback, check if we received a heartbeat message
@@ -254,7 +260,7 @@ async def test_heartbeat_client_gets_disconnection():
     server_peer = Peer("Server")
     client_peer = Peer("Client")
     server=connections.AsyncTCPServerConnectionHandler(("0.0.0.0", 0), callback , callback, callback2, callback, (server_peer, server_reader, server_writer))
-    client=connections.AsyncTCPClientConnectionHandler(client_peer, client_reader, client_writer)
+    client=connections.AsyncTCPClientConnectionHandler(client_peer, client_reader, client_writer, endpoint=client_writer.get_extra_info("Server"), on_disconnect=callback_on_disconnect)
     client.set_on_message(callback_on_message) #What happens when you recive a message, is calling the function
     await server.start_listening()
     await client.start_receiving()
@@ -266,6 +272,12 @@ async def test_heartbeat_client_gets_disconnection():
 
     if server._heartbeat_task is not None:
         server._heartbeat_task.cancel() #Stop the heartbeat, to simulate a disconnection
+
+    try:
+        async with timeout(connections.CONNECTION_TIMEOUT_HEARTBEAT*2):
+                await disconnect_got.wait()
+    except asyncio.TimeoutError:
+                pytest.fail("Callback not received in time")
 
     try:
         async with timeout(connections.CONNECTION_TIMEOUT_HEARTBEAT*2):
@@ -299,7 +311,7 @@ async def test_heartbeat_server_reacts_to_disconnection():
     server_peer = Peer("Server")
     client_peer = Peer("Client")
     server=connections.AsyncTCPServerConnectionHandler(("0.0.0.0", 0), callback , callback, callback2, callback_on_heartbeat_failed, (server_peer, server_reader, server_writer))
-    client=connections.AsyncTCPClientConnectionHandler(client_peer, client_reader, client_writer)
+    client=connections.AsyncTCPClientConnectionHandler(client_peer, client_reader, client_writer, endpoint=client_writer.get_extra_info("Server"))
     client.set_on_message(callback_on_message) #What happens when you recive a message, is calling the function
     await server.start_listening()
     await client.start_receiving()
