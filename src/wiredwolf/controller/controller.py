@@ -118,6 +118,12 @@ class GameController(Recoverable):
         if self._game_status and self._game_status.phase in [GamePhase.VILLAGERS_VICTORY, GamePhase.WEREWOLVES_VICTORY]:
             self._logger.info("Game has ended. No need to recover connection.")
             return 
+        
+        async def show_error_and_go_home(error: str):
+            self._event_sender.error_occurred("Connection closed", error)
+            await asyncio.sleep(commons.ERROR_PAUSE_TIME)  # Wait for a moment to let the user read the message
+            self._event_sender.error_ended_go_to_home()
+        
         self._logger.warning("Connection lost. Attempting to recover...")
         # TODO: Choose if the controller should try to recover the connection
         if self._connection_recoverer:
@@ -127,13 +133,10 @@ class GameController(Recoverable):
                     await self._server.start_game()                
             except RecoveryFailedException as e:
                 self._logger.error("Failed to recover connection.")
-                async def show_error_and_go_home():
-                    self._event_sender.error_occurred("Connection closed", str(e))
-                    await asyncio.sleep(commons.ERROR_PAUSE_TIME)  # Wait for a moment to let the user read the message
-                    self._event_sender.error_ended_go_to_home()
-                asyncio.create_task(show_error_and_go_home())
+                asyncio.create_task(show_error_and_go_home(str(e)))
         else:
             self._logger.error("No connection recoverer available.")
+            asyncio.create_task(show_error_and_go_home("Connection lost and cannot recover it."))
 
     async def create_lobby(self, name: str, password: str | None = None) -> Lobby:
         """Creates a new lobby and local server.

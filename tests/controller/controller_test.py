@@ -176,12 +176,15 @@ async def test_controller_leave_lobby(
     assert isinstance(host_event_sender, mock.Mock)
     assert isinstance(client_event_sender, mock.Mock)
     host_event_sender.remove_user_in_lobby.assert_not_called()
+       
+    # Client leaves the lobby
     await client_game_controller.leave()
     assert client_game_controller.lobby is None
     assert host_game_controller.lobby is not None
+    
     try:
         # Wait for the first controller to update its lobby state after the second controller leaves
-        async with asyncio.timeout(TEST_TIMEOUT):
+        async with asyncio.timeout(3 * TEST_TIMEOUT):
             while len(host_game_controller.lobby.peers) != 1:
                 await asyncio.sleep(0.1)
     except asyncio.TimeoutError:

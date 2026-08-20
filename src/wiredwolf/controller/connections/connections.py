@@ -442,6 +442,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
         self._server: asyncio.Server | None = None
         self._server_task: asyncio.Task[None] | None = None
         self._heartbeat_task: asyncio.Task[None] | None = None
+        self._reconnect_timeout_task: asyncio.Task[None] | None = None
         if owner_connection is not None:
             peer, reader, writer = owner_connection
             self._endpoints[peer] = (reader, writer)
@@ -476,8 +477,9 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 try:
                     await self.send_obj(peer, HeartbeatMessage())
                 except Exception as e:
-                    self._logger.error("Error sending heartbeat to %s: %s", peer, e)
-                    await self._on_peer_error(peer)
+                    if self._status.get(peer) == ConnectionStatus.CONNECTED:
+                        self._logger.error("Error sending heartbeat to %s: %s", peer, e)
+                        await self._on_peer_error(peer)
 
     async def _on_peer_error(self, peer: Peer) -> None:
         """Handles errors with a peer connection.
@@ -488,6 +490,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
         self._status[peer] = ConnectionStatus.RECOVERING
         try:
             if not self._server:
+                # Start a new server for recovery connections
                 self._server = await asyncio.start_server(
                     self._client_recovery_cb,
                     host=self._bind_address[0],
@@ -499,12 +502,21 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                     self._bind_address[1],
                 )
                 self._server_task = asyncio.create_task(self._server.serve_forever())
+            # If a reconnect timeout task is already running, cancel it and start a new one
+            # This ensures that the server will only close after the last peer has had a chance to reconnect
             if self._reconnect_timeout_task:
                 self._reconnect_timeout_task.cancel()
-            self._reconnect_timeout_task = asyncio.create_task(self._wait_and_close_server(MAX_RECONNECT_TIMEOUT))
+            self._reconnect_timeout_task = asyncio.create_task(
+                self._wait_and_close_server(MAX_RECONNECT_TIMEOUT)
+            )
         except Exception:
-            self._endpoints.pop(peer)
-            self._status.pop(peer)
+            # If an error occurs the peer is considered disconnected and the server will not wait for it to reconnect
+            self._endpoints.pop(peer, None)
+            self._status.pop(peer, None)
+            #FIXME: does this make sense?
+            receiving_task = self._receiving_tasks.pop(peer, None)
+            if receiving_task is not None and not receiving_task.done():
+                receiving_task.cancel()
             await self._on_peer_disconnected(peer)
             
     async def _wait_and_close_server(self, timeout: float):
@@ -519,13 +531,20 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 "Closing server after waiting for %s seconds.", timeout
             )
             self.stop_new_connections()
-            for peer, status in self._status.items():
+            disconnected_peers: list[Peer] = []
+            for peer, status in list(self._status.items()):
                 if status == ConnectionStatus.RECOVERING:
                     self._logger.info(
                         "Peer %s is still in recovering state after timeout.", peer
                     )
                     await self._on_peer_disconnected(peer)
-                    self._status.pop(peer)
+                    disconnected_peers.append(peer)
+            for peer in disconnected_peers:
+                self._status.pop(peer, None)
+                self._endpoints.pop(peer, None)
+                receiving_task = self._receiving_tasks.pop(peer, None)
+                if receiving_task is not None and not receiving_task.done():
+                    receiving_task.cancel()
         
     async def _client_recovery_cb(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
@@ -546,6 +565,11 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                     reader
                 )
                 if peer in self._status and self._status[peer] == ConnectionStatus.RECOVERING:
+                    # Peer has successfully reconnected, update its status and start receiving messages
+                    old_task = self._receiving_tasks.pop(peer, None)
+                    if old_task is not None and not old_task.done():
+                        old_task.cancel()
+                    self._endpoints[peer] = (reader, writer)
                     await self._on_peer_recovery(peer)
                     self._status[peer] = ConnectionStatus.CONNECTED
                     self._receiving_tasks[peer] = asyncio.create_task(
@@ -585,6 +609,9 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 return
             finally:
                 if ConnectionStatus.RECOVERING not in self._status.values():
+                    if self._reconnect_timeout_task and not self._reconnect_timeout_task.done():
+                        self._reconnect_timeout_task.cancel()
+                    self._reconnect_timeout_task = None
                     # If no more peers are in recovering state, stop the server from accepting new connections
                     self.stop_new_connections()
         
@@ -743,12 +770,20 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 except (Exception, CancelledError):
                     pass
 
+            if self._heartbeat_task:
+                self._heartbeat_task.cancel()
+
+            if self._reconnect_timeout_task:
+                self._reconnect_timeout_task.cancel()
+
             # Clear internal state
             self._endpoints.clear()
             self._status.clear()
             self._receiving_tasks.clear()
             self._server = None
             self._server_task = None
+            self._heartbeat_task = None
+            self._reconnect_timeout_task = None
             self._logger.info("All connections closed.")
 
 
