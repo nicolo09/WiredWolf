@@ -5,6 +5,7 @@ from typing import Any
 
 from wiredwolf.controller import commons
 from wiredwolf.controller.connections.connections import ClientConnectionHandler
+from wiredwolf.controller.connections.recovery import ConnectionRecoverer, RecoveryFailedException, TCPConnectionRecoverer
 from wiredwolf.controller.lobbies import LobbyBrowser, LobbyBrowserFactory, LobbyInfo
 from wiredwolf.controller.lobbies import Lobby
 from wiredwolf.controller.messages import (
@@ -42,6 +43,7 @@ class GameController:
         self._server: GameServer | None = None
         self._my_self: Peer
         self._client_connection_handler: ClientConnectionHandler | None = None
+        self._connection_recoverer: ConnectionRecoverer | None = TCPConnectionRecoverer() #TODO: This should not be passed but created on need by a factory
         self._waiting_for_ack: dict[str, tuple[asyncio.Event, Any]] = {}
         self._game_status: GameStatus | None = None
         self._event_sender: EventSender = event_sender
@@ -110,6 +112,28 @@ class GameController:
             username (str): The username to set.
         """
         self._my_self = Peer(username)
+        
+    async def _on_disconnect(self):
+        """Handles the disconnection event by attempting to recover the connection."""
+        if self._game_status and self._game_status.phase in [GamePhase.VILLAGERS_VICTORY, GamePhase.WEREWOLVES_VICTORY]:
+            self._logger.info("Game has ended. No need to recover connection.")
+            return 
+        self._logger.warning("Connection lost. Attempting to recover...")
+        # TODO: Choose if the controller should try to recover the connection
+        if self._connection_recoverer:
+            try:
+                self._lobby, self._server, self._client_connection_handler, self._game_status = await self._connection_recoverer.recover(self)
+                if self._server:
+                    await self._server.start_game()                
+            except RecoveryFailedException as e:
+                self._logger.error("Failed to recover connection.")
+                async def show_error_and_go_home():
+                    self._event_sender.error_occurred("Connection closed", str(e))
+                    await asyncio.sleep(commons.ERROR_PAUSE_TIME)  # Wait for a moment to let the user read the message
+                    self._event_sender.error_ended_go_to_home()
+                asyncio.create_task(show_error_and_go_home())
+        else:
+            self._logger.error("No connection recoverer available.")
 
     async def create_lobby(self, name: str, password: str | None = None) -> Lobby:
         """Creates a new lobby and local server.
@@ -131,6 +155,7 @@ class GameController:
                 self._client_connection_handler,
             ) = await GameServerFactory.get_game_server(self.lobby)
             self._client_connection_handler.set_on_message(self._on_message)
+            self._client_connection_handler.set_on_disconnect(self._on_disconnect)
             await self._client_connection_handler.start_receiving()
             await self._server.start_listening()
             self._lobby_browser = LobbyBrowserFactory.get_lobby_browser()
@@ -345,15 +370,6 @@ class GameController:
                     self._logger.warning(
                         "Received chat message with missing sender or message content."
                     )
-            case ConnectionClosedMessage():
-                self._logger.info("Connection closed message received: %s", message.info)
-                #TODO: Should not try to recover connection or show an error if the connection was closed because the user left the lobby
-                #TODO: Should also not show an error if the connection was closed because the game ended
-                async def show_error_and_go_home():
-                    self._event_sender.error_occurred("Connection closed", message.info)
-                    await asyncio.sleep(commons.ERROR_PAUSE_TIME)  # Wait for a moment to let the user read the message
-                    self._event_sender.error_ended_go_to_home()
-                asyncio.create_task(show_error_and_go_home())
             case _:
                 self._logger.warning("Unhandled message type: %s", type(message))
 

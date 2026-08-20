@@ -78,6 +78,7 @@ class ConnectionStatus(Enum):
 
 class ServerConnectionHandler(abc.ABC):
     """Abstract base class for server side connection handlers."""
+
     _logger = logging.getLogger(__name__)
 
     def __init__(self):
@@ -138,6 +139,16 @@ class ClientConnectionHandler(abc.ABC):
         """
         self._on_message = on_message
 
+    def set_on_disconnect(
+        self, on_disconnect: Callable[[], CoroutineType[Any, Any, None]]
+    ) -> None:
+        """Set the callback function to handle disconnection events.
+
+        Args:
+            on_disconnect (Callable[[], CoroutineType[Any, Any, None]]): The callback function.
+        """
+        self._on_disconnect = on_disconnect
+
     @abc.abstractmethod
     async def send_obj(self, obj: Any) -> None:
         """Send an object to the server.
@@ -162,7 +173,11 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
     _logger = logging.getLogger(__name__)
 
     def __init__(
-        self, my_self: Peer, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, endpoint: tuple[str, int], on_disconnect: Callable[[], CoroutineType[Any, Any, None]] | None = None
+        self,
+        my_self: Peer,
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
+        endpoint: tuple[str, int],
     ):
         """Initialize the client connection handler with the given peer as self, reader and writer to communicate with the server."""
         super().__init__(my_self)
@@ -174,7 +189,7 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
         self._writer: asyncio.StreamWriter = writer
         self._endpoint: tuple[str, int] = endpoint
         self._receiving_task: asyncio.Task[None] | None = None
-        self._on_disconnect: Callable[[], CoroutineType[Any, Any, None]] | None = on_disconnect
+        self._on_disconnect: Callable[[], CoroutineType[Any, Any, None]] | None = None
 
     @property
     def endpoint(self) -> tuple[str, int]:
@@ -206,7 +221,6 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
         Args:
             task (asyncio.Task[None]): The completed task.
         """
-        # TODO: Implement reconnection logic here
         if self._writer.is_closing():
             # Since I want to close the connection myself, ignore errors from receive loop and just exit
             self._logger.info(
@@ -218,6 +232,19 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
         else:
             try:
                 exc = task.exception()
+                if exc is None:
+                    # No exception or graceful connection closed
+                    self._logger.info("Receive loop task completed successfully.")
+                elif isinstance(exc, ConnectionClosedError) or isinstance(
+                    exc, TimeoutError
+                ):
+                    self._logger.warning(
+                        "Receive loop task timed out or connection closed. Connection may be lost."
+                    )
+                else:
+                    self._logger.error(
+                        "Receive loop task encountered an error: %s", exc
+                    )
             except asyncio.CancelledError:
                 self._logger.info("Receive loop task was cancelled.")
                 return
@@ -226,20 +253,8 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
                     "Error while retrieving receive loop task during close: %s", e
                 )
                 return
-
-            if exc is None or isinstance(exc, ConnectionClosedError):
-                # No exception or graceful connection closed
-                self._logger.info("Receive loop task completed successfully.")
-            elif isinstance(exc, TimeoutError):
-                self._logger.warning(
-                    "Receive loop task timed out. Connection may be lost."
-                )
-            else:
-                self._logger.error("Receive loop task encountered an error: %s", exc)
-            if self._on_message:
-                self._on_message(
-                    ConnectionClosedMessage("Connection closed by the server.")
-                )
+            if self._on_disconnect:
+                asyncio.create_task(self._on_disconnect())
 
     async def _receive_loop(self) -> None:
         """Internal method to continuously receive messages."""
@@ -248,27 +263,27 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
                 async with asyncio.timeout(CONNECTION_TIMEOUT_HEARTBEAT):
                     msg: Any = await self._message_handler.receive_obj(self._reader)
                     if self._on_message:
-                        self._on_message(msg) 
+                        self._on_message(msg)
                     else:
                         self._logger.warning(
-                        "Received message but no on_message callback is set."
+                            "Received message but no on_message callback is set."
                         )
             except asyncio.CancelledError:
                 self._logger.info("Receive loop cancelled.")
                 return
             except TimeoutError as e:
-                #TODO: Connection with server is considered killed, handle possible reconnection
-                self._logger.info("Receive loop timed out.")
-                if self._on_disconnect:
-                    await self._on_disconnect() #FIXME: should this be used here?
+                # Connection timed out, no heartbeat received in time
+                self._logger.error("Receive loop timed out.")
                 raise e
             except Exception as e:
+                # Error receiving message
+                self._logger.error("Error receiving message: %s", e)
                 raise e
 
     async def close(self) -> None:
         """Closes the client connection handler."""
         try:
-            #Close the writer to the server first, the server will close its writer from its side
+            # Close the writer to the server first, the server will close its writer from its side
             self._writer.close()
             await self._writer.wait_closed()
         except ConnectionResetError:

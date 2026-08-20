@@ -7,8 +7,10 @@ import abc
 from wiredwolf.controller import commons
 from wiredwolf.controller.connections.connections import AsyncTCPClientConnectionHandler, ClientConnectionHandler, ConnectionHandlerFactory, ServerConnectionHandler
 from wiredwolf.controller.controller import GameController
-from wiredwolf.controller.lobbies import TcpMdnsLobbyBrowser
+from wiredwolf.controller.lobbies import Lobby, TcpMdnsLobbyBrowser
 from wiredwolf.controller.messages import BaseMessage, CandidateForElectionMessage, ElectionFailedMessage, MasterElectedMessage, RecoveredConnectionsMessage, ApproveCandidateMessage
+from wiredwolf.controller.server import GameServer
+from wiredwolf.model.game import GameStatus
 
 DIRECT_RECONNECTION_TIMEOUT = 5  # seconds
 DIRECT_RECONNECTION_RETRIES = 3  # number of retries for direct reconnection
@@ -35,11 +37,15 @@ class RecoveryPhase(Enum): #TODO: some phases might be useless
     RESTORING_GAME = 6
     LOST_CONNECTION = 7
     RECOVERY_FAILED = 8
+    
+class RecoveryFailedException(Exception):
+    """Exception raised when the recovery process fails."""
+    pass
 
 class ConnectionRecoverer(abc.ABC):
     
     @abc.abstractmethod
-    async def recover(self, controller: GameController) -> None:
+    async def recover(self, controller: GameController) -> tuple[Lobby, GameServer | None, ClientConnectionHandler, GameStatus]:
         """
         Tries to recover the connection of the given GameController.
 
@@ -61,7 +67,7 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
         self._backups: set[commons.Peer] = set()  # Set of backup peers that can be used for recovery
         self._can_candidate: bool = False  # Flag to indicate if candidation is allowed after the timeout
 
-    async def recover(self, controller: GameController) -> None:
+    async def recover(self, controller: GameController) -> tuple[Lobby, GameServer | None, ClientConnectionHandler, GameStatus]:
         """
         Tries to recover the TCP connection of the given GameController.
 
@@ -170,7 +176,8 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                         if peers_status.get(peer) == ConnectionStatus.DISCONNECTED:
                             try:
                                 async with asyncio.timeout(NEW_CONNECTION_TIMEOUT):  # Set a timeout for the new connection attempt
-                                    client_conn_handler = await lobby_browser.connect_to_peer(controller.my_self, (commons.DEFAULT_SERVER_HOST, commons.DEFAULT_SERVER_PORT), on_disconnect=lambda: on_peer_disconnection(peer))
+                                    client_conn_handler = await lobby_browser.connect_to_peer(controller.my_self, (commons.DEFAULT_SERVER_HOST, commons.DEFAULT_SERVER_PORT)) #FIXME: should use the peer's actual endpoint, not the default one
+                                    client_conn_handler.set_on_disconnect(lambda peer=peer: on_peer_disconnection(peer)) 
                                     self.__logger.info("Successfully connected to peer: %s", peer)
                                     peers_status[peer] = ConnectionStatus.CONNECTED
                                     peers_connections[peer] = 0

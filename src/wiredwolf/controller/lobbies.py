@@ -288,8 +288,7 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
         endpoint: tuple[str, int],
         reader: asyncio.StreamReader,
         writer: asyncio.StreamWriter,
-        lobby_password: str | None,
-        on_disconnect: Callable[[], CoroutineType[Any, Any, None]] | None = None,
+        lobby_password: str | None
     ) -> tuple[ClientConnectionHandler, Lobby]:
         msg_handler: AsyncTCPMessageHandler = AsyncTCPMessageHandler(
                             MessageHandlerFactory.getDefaultSerializer()
@@ -309,7 +308,7 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
                     writer.close()
                     raise ValueError("Lobby requires a password.")
             elif isinstance(recv_msg, LobbyUpdatedMessage):
-                return AsyncTCPClientConnectionHandler(my_self, reader, writer, endpoint, on_disconnect), recv_msg.lobby
+                return AsyncTCPClientConnectionHandler(my_self, reader, writer, endpoint), recv_msg.lobby
             elif isinstance(recv_msg, Exception): 
                 # The server returned an error
                 writer.close()
@@ -320,7 +319,7 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
                 raise RuntimeError("Unexpected message received.")
 
     async def connect_to_peer(
-        self, my_self: Peer, peer_endpoint: tuple[str, int], on_disconnect: Callable[[], CoroutineType[Any, Any, None]] | None = None
+        self, my_self: Peer, peer_endpoint: tuple[str, int]
     ) -> ClientConnectionHandler:
         """
         Connects directly to a peer at the given endpoint.
@@ -334,7 +333,7 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
             tuple[ClientConnectionHandler]: The connected client handler.
         """
         reader, writer = await self._open_connection(peer_endpoint)
-        return AsyncTCPClientConnectionHandler(my_self, reader, writer, peer_endpoint, on_disconnect)
+        return AsyncTCPClientConnectionHandler(my_self, reader, writer, peer_endpoint)
 
     async def connect_to_lobby_directly(
         self, my_self: Peer, address: tuple[str, int], lobby_password: str | None

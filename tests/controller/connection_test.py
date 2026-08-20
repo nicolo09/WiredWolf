@@ -260,8 +260,9 @@ async def test_heartbeat_client_gets_disconnection():
     server_peer = Peer("Server")
     client_peer = Peer("Client")
     server=connections.AsyncTCPServerConnectionHandler(("0.0.0.0", 0), callback , callback, callback2, callback, (server_peer, server_reader, server_writer))
-    client=connections.AsyncTCPClientConnectionHandler(client_peer, client_reader, client_writer, endpoint=client_writer.get_extra_info("Server"), on_disconnect=callback_on_disconnect)
+    client=connections.AsyncTCPClientConnectionHandler(client_peer, client_reader, client_writer, endpoint=client_writer.get_extra_info("Server"))
     client.set_on_message(callback_on_message) #What happens when you recive a message, is calling the function
+    client.set_on_disconnect(callback_on_disconnect)
     await server.start_listening()
     await client.start_receiving()
     try:
