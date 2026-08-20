@@ -264,33 +264,42 @@ class GameServer:
 
     async def start_game(self) -> None:
         self.__logger.info("Starting game in lobby: %s", self._lobby)
-        # Create game instance based on lobby peers and roles
-        if len(self._lobby.peers) < commons.MIN_PLAYERS:
-            raise ValueError("Not enough players to start the game.")
-        if len(self._lobby.peers) > commons.MAX_PLAYERS:
-            raise ValueError("Too many players to start the game.")
-        roles: set[Role] = {BasicRole.CLAIRVOYANT}
-        if len(self._lobby.peers) >= commons.PLAYERS_TO_ADD_MEDIUM:
-            # Add Medium for 9+ players
-            roles.add(BasicRole.MEDIUM)
-        if len(self._lobby.peers) >= commons.PLAYERS_TO_ADD_ESCORT:
-            # Add Escort and an extra werewolf for 16+ players
-            roles.add(BasicRole.ESCORT)
-        game_info = GameInfoBuilder.new().with_roles(roles).build()
-        players = create_players(
-            {peer.uuid: peer.name for peer in self._lobby.peers},
-            game_info.get_all_handled_roles(),
-        )
-        self._game = Game(players, game_info)
-        assert self._game.phase is GamePhase.FIRST_DAY
-        self.__logger.info("Game started with players: %s", players)
-        await self.send_to_all(GameStartedMessage(self._game.get_game_status()))
-        self._game_actual_phase_task = asyncio.create_task(
-            self.wait_and_advance_game(commons.FIRST_DAY_PHASE_DURATION_SECONDS)
-        )
-        self._game_actual_phase_task.add_done_callback(
-            lambda outcome: self.on_game_phase_advanced(outcome)
-        )
+        if self._game is None:
+            # Create game instance based on lobby peers and roles
+            if len(self._lobby.peers) < commons.MIN_PLAYERS:
+                raise ValueError("Not enough players to start the game.")
+            if len(self._lobby.peers) > commons.MAX_PLAYERS:
+                raise ValueError("Too many players to start the game.")
+            roles: set[Role] = {BasicRole.CLAIRVOYANT}
+            if len(self._lobby.peers) >= commons.PLAYERS_TO_ADD_MEDIUM:
+                # Add Medium for 9+ players
+                roles.add(BasicRole.MEDIUM)
+            if len(self._lobby.peers) >= commons.PLAYERS_TO_ADD_ESCORT:
+                # Add Escort and an extra werewolf for 16+ players
+                roles.add(BasicRole.ESCORT)
+            game_info = GameInfoBuilder.new().with_roles(roles).build()
+            players = create_players(
+                {peer.uuid: peer.name for peer in self._lobby.peers},
+                game_info.get_all_handled_roles(),
+            )
+            self._game = Game(players, game_info)
+            self.__logger.info("Game started with players: %s", players)
+            await self.send_to_all(GameStartedMessage(self._game.get_game_status()))
+            self._game_actual_phase_task = asyncio.create_task(
+                self.wait_and_advance_game(commons.FIRST_DAY_PHASE_DURATION_SECONDS)
+            )
+            self._game_actual_phase_task.add_done_callback(
+                lambda outcome: self.on_game_phase_advanced(outcome)
+            )
+        else:
+            self.__logger.info("Game resumed with players: %s", self._game.players)
+            await self.send_to_all(GameStartedMessage(self._game.get_game_status()))
+            self._game_actual_phase_task = asyncio.create_task(
+                self.wait_and_advance_game(commons.PHASE_DURATION_SECONDS)
+            )
+            self._game_actual_phase_task.add_done_callback(
+                lambda outcome: self.on_game_phase_advanced(outcome)
+            )
 
     def on_game_phase_advanced(self, outcome: Task[GamePhaseOutcome]):
         # If the game is not over, set up the next phase timer
