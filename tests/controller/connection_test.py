@@ -30,6 +30,7 @@ async def server_conn_handler() -> AsyncGenerator[
         on_new_peer=lambda peer: mocked.on_new_peer(peer),
         on_peer_disconnected=lambda peer: mocked.on_peer_disconnected(peer),
         on_new_message=lambda msg: mocked.on_new_message(msg),
+        on_peer_recovery=lambda peer: mocked.on_peer_recovery(peer)
     )
     yield serverConnHandler, mocked
     await serverConnHandler.close()

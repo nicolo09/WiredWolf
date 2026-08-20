@@ -25,6 +25,7 @@ from wiredwolf.controller.commons import (
 from wiredwolf.controller.commons import PasswordRequest
 from wiredwolf.controller.messages import LobbyUpdatedMessage
 from wiredwolf.controller.services import CallbackCachedServiceListener, ServiceManager
+from wiredwolf.model.game import GameStatus
 
 
 SERVICE_TYPE: str = "_wiredwolflobby._tcp.local."
@@ -351,6 +352,29 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
 
         reader, writer = await self._open_connection(address)
         return await self._exchange_lobby_info(my_self, address, reader, writer, lobby_password)
+    
+    async def reconnect_to_lobby(
+        self, my_self: Peer, address: tuple[str, int]
+    ) -> tuple[ClientConnectionHandler, Lobby, GameStatus]:
+        """
+        Attempts to reconnect to a previously joined lobby at the given address.
+
+        Args:
+            my_self (Peer): The peer object representing the client.
+            address (tuple[str, int]): The (IP, port) address of the lobby to reconnect to.
+        Returns:
+            tuple[ClientConnectionHandler, Lobby, GameStatus]: The connected client handler, the joined lobby, and the game status.
+        """
+        reader, writer = await self._open_connection(address)
+        handler = MessageHandlerFactory.getDefault()
+        await handler.send_obj(writer, my_self)
+        lobby, game_status = await handler.receive_obj(reader)
+        if isinstance(lobby, Lobby) and isinstance(game_status, GameStatus):
+            return AsyncTCPClientConnectionHandler(my_self, reader, writer, address), lobby, game_status
+        else:
+            writer.close()
+            raise RuntimeError("Unexpected message received during reconnection.")
+        
 
     async def connect_to_lobby_by_id(
         self, my_self: Peer, lobby_id: str, lobby_password: str | None

@@ -19,10 +19,11 @@ from wiredwolf.controller.messages import (
 import asyncio
 from asyncio import CancelledError
 
-
 PEERNAME_EXTRA_INFO = "peername"
 HEARTBEAT_INTERVAL = 5  # seconds
 CONNECTION_TIMEOUT_HEARTBEAT = 10  # seconds
+MAX_RECONNECT_TIMEOUT = 10  # seconds
+
 
 class ConnectionClosedError(Exception):
     """Exception raised when a connection is closed."""
@@ -413,10 +414,10 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
         on_new_peer: Callable[[Peer], CoroutineType[Any, Any, None]],
         on_peer_disconnected: Callable[[Peer], CoroutineType[Any, Any, None]],
         on_new_message: Callable[[BaseMessage], CoroutineType[Any, Any, None]],
-        callback_failed_heartbeat: Callable[[Peer], CoroutineType[Any, Any, None]]|None=None,
-        owner_connection: tuple[Peer, asyncio.StreamReader, asyncio.StreamWriter]
-        | None = None,
-        
+        on_peer_recovery: Callable[[Peer], CoroutineType[Any, Any, None]],
+        owner_connection: (
+            tuple[Peer, asyncio.StreamReader, asyncio.StreamWriter] | None
+        ) = None,
     ):
         super().__init__()
         self._bind_address: tuple[str | None, int] = bind_address
@@ -426,6 +427,9 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
         )
         self._on_new_message: Callable[[BaseMessage], CoroutineType[Any, Any, None]] = (
             on_new_message
+        )
+        self._on_peer_recovery: Callable[[Peer], CoroutineType[Any, Any, None]] = (
+            on_peer_recovery
         )
         self._async_message_handler = AsyncTCPMessageHandler(
             MessageHandlerFactory.getDefaultSerializer()
@@ -438,7 +442,6 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
         self._server: asyncio.Server | None = None
         self._server_task: asyncio.Task[None] | None = None
         self._heartbeat_task: asyncio.Task[None] | None = None
-        self._callback_failed_heartbeat: Callable[[Peer], CoroutineType[Any, Any, None]] | None = callback_failed_heartbeat
         if owner_connection is not None:
             peer, reader, writer = owner_connection
             self._endpoints[peer] = (reader, writer)
@@ -446,6 +449,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
             self._receiving_tasks[peer] = asyncio.create_task(
                 self._handle_peer_message(peer)
             )
+        self._heartbeat_task = asyncio.create_task(self._send_heartbeat())
 
     async def start_listening(self) -> None:
         if self._server:
@@ -463,22 +467,127 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
             )
             # keep a reference to the serve_forever task so it can be awaited/cancelled on close
             self._server_task = asyncio.create_task(self._server.serve_forever())
-            self._heartbeat_task = asyncio.create_task(self._send_heartbeat())
 
     async def _send_heartbeat(self):
         """A function that sends a heartbeat message to all connected peers regularly"""
         while True:
-            await asyncio.sleep(HEARTBEAT_INTERVAL) 
+            await asyncio.sleep(HEARTBEAT_INTERVAL)
             for peer in list(self._endpoints.keys()):
                 try:
                     await self.send_obj(peer, HeartbeatMessage())
                 except Exception as e:
-                    self._logger.error(
-                        "Error sending heartbeat to %s: %s", peer, e
+                    self._logger.error("Error sending heartbeat to %s: %s", peer, e)
+                    await self._on_peer_error(peer)
+
+    async def _on_peer_error(self, peer: Peer) -> None:
+        """Handles errors with a peer connection.
+
+        Args:
+            peer (Peer): The peer with the error.
+        """
+        self._status[peer] = ConnectionStatus.RECOVERING
+        try:
+            if not self._server:
+                self._server = await asyncio.start_server(
+                    self._client_recovery_cb,
+                    host=self._bind_address[0],
+                    port=self._bind_address[1],
+                )
+                self._logger.info(
+                    "Server started listening for new connections on %s:%d",
+                    self._bind_address[0],
+                    self._bind_address[1],
+                )
+                self._server_task = asyncio.create_task(self._server.serve_forever())
+            if self._reconnect_timeout_task:
+                self._reconnect_timeout_task.cancel()
+            self._reconnect_timeout_task = asyncio.create_task(self._wait_and_close_server(MAX_RECONNECT_TIMEOUT))
+        except Exception:
+            self._endpoints.pop(peer)
+            self._status.pop(peer)
+            await self._on_peer_disconnected(peer)
+            
+    async def _wait_and_close_server(self, timeout: float):
+        """Waits for a specified timeout and then closes the server if it's still running.
+
+        Args:
+            timeout (float): The time in seconds to wait before closing the server.
+        """
+        await asyncio.sleep(timeout)
+        if self._server:
+            self._logger.info(
+                "Closing server after waiting for %s seconds.", timeout
+            )
+            self.stop_new_connections()
+            for peer, status in self._status.items():
+                if status == ConnectionStatus.RECOVERING:
+                    self._logger.info(
+                        "Peer %s is still in recovering state after timeout.", peer
                     )
-                    #TODO: handle properly what happens next
-                    if self._callback_failed_heartbeat!=None:
-                        await self._callback_failed_heartbeat(peer)
+                    await self._on_peer_disconnected(peer)
+                    self._status.pop(peer)
+        
+    async def _client_recovery_cb(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ):
+        """
+        Callback for handling incoming recovery connections attempts from peers.
+        
+        Args:
+            reader (asyncio.StreamReader): The stream reader for the connection.
+            writer (asyncio.StreamWriter): The stream writer for the connection.
+        """
+        client_address = writer.get_extra_info(PEERNAME_EXTRA_INFO)
+        self._logger.info("Accepted connection from %s", client_address)
+        async with asyncio.timeout(CONNECTION_TIMEOUT):
+            try:
+                # First thing peer sends is their identification (serialized peer object)
+                peer: Peer = await self._async_message_handler.receive_obj(
+                    reader
+                )
+                if peer in self._status and self._status[peer] == ConnectionStatus.RECOVERING:
+                    await self._on_peer_recovery(peer)
+                    self._status[peer] = ConnectionStatus.CONNECTED
+                    self._receiving_tasks[peer] = asyncio.create_task(
+                        self._handle_peer_message(peer)
+                    )
+                else:
+                    self._logger.warning(
+                        "Received recovery connection from %s, but peer is not in recovering state.",
+                        peer,
+                    )
+                    writer.close()
+                    await writer.wait_closed()
+                    return                
+            except ConnectionClosedError:
+                # Peer tried to connect but closed the connection before ending the handshake
+                self._logger.warning(
+                    "Connection from %s closed before identification.", client_address
+                )
+                writer.close()
+                await writer.wait_closed()
+                return
+            except TimeoutError:
+                # Peer did not identify in time
+                self._logger.warning(
+                    "Connection from %s timed out during identification.",
+                    client_address,
+                )
+                writer.close()
+                await writer.wait_closed()
+                return
+            except Exception as e:
+                self._logger.error(
+                    "Error during connection from %s: %s", client_address, e
+                )
+                writer.close()
+                await writer.wait_closed()
+                return
+            finally:
+                if ConnectionStatus.RECOVERING not in self._status.values():
+                    # If no more peers are in recovering state, stop the server from accepting new connections
+                    self.stop_new_connections()
+        
 
     async def _client_connected_cb(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
@@ -555,14 +664,11 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                         )
             except ConnectionClosedError:
                 self._logger.info("Connection closed by peer: %s", peer)
-                self._endpoints.pop(peer)
-                self._status.pop(peer)
-                await self._on_peer_disconnected(peer)
+                await self._on_peer_error(peer)
                 return
             except Exception as e:
                 self._logger.error("Error receiving message from %s: %s", peer, e)
-                self._status[peer] = ConnectionStatus.ERROR
-                await self._on_peer_disconnected(peer)
+                await self._on_peer_error(peer)
                 return
 
     def stop_new_connections(self):
@@ -665,15 +771,19 @@ class ConnectionHandlerFactory:
         on_new_peer: Callable[[Peer], CoroutineType[Any, Any, None]],
         on_peer_disconnected: Callable[[Peer], CoroutineType[Any, Any, None]],
         on_new_message: Callable[[BaseMessage], CoroutineType[Any, Any, None]],
-        owner_connection: tuple[Peer, asyncio.StreamReader, asyncio.StreamWriter]
-        | None = None,
+        on_peer_recovery: Callable[[Peer], CoroutineType[Any, Any, None]],
+        owner_connection: (
+            tuple[Peer, asyncio.StreamReader, asyncio.StreamWriter] | None
+        ) = None,
     ) -> ServerConnectionHandler:
         """Creates and returns a new ServerConnectionHandler.
 
         Args:
+            bind_address (tuple[str | None, int]): The address to bind the server to.
             on_new_peer (Callable[[Peer], CoroutineType[Any, Any, None]]): The callback for new peer connections.
             on_peer_disconnected (Callable[[Peer], CoroutineType[Any, Any, None]]): The callback for peer disconnections.
             on_new_message (Callable[[BaseMessage], CoroutineType[Any, Any, None]]): The callback for new messages.
+            on_peer_recovery (Callable[[Peer], CoroutineType[Any, Any, None]]): The callback for peer recovery.
 
         Returns:
             ServerConnectionHandler: The created server connection handler.
@@ -683,6 +793,7 @@ class ConnectionHandlerFactory:
             on_new_peer=on_new_peer,
             on_peer_disconnected=on_peer_disconnected,
             on_new_message=on_new_message,
+            on_peer_recovery=on_peer_recovery,
             owner_connection=owner_connection,
         )
 
@@ -692,7 +803,6 @@ class ConnectionHandlerFactory:
         reader: asyncio.StreamReader,
         writer: asyncio.StreamWriter,
         endpoint: tuple[str, int],
-        on_disconnect: Callable[[], CoroutineType[Any, Any, None]] | None = None,
     ) -> ClientConnectionHandler:
         """Creates and returns a new ClientConnectionHandler.
 
@@ -700,9 +810,8 @@ class ConnectionHandlerFactory:
             my_self (Peer): The peer representing this client.
             reader (asyncio.StreamReader): The reader for the connection.
             writer (asyncio.StreamWriter): The writer for the connection.
-            endpoint (tuple[str, int]): The (IP, port) endpoint of the server to connect to. #FIXME is this correct?
-            on_disconnect (Callable[[], CoroutineType[Any, Any, None]] | None): Optional callback to be invoked when the connection is lost.
+            endpoint (tuple[str, int]): The (IP, port) endpoint of the server to connect to.
         Returns:
             ClientConnectionHandler: The created client connection handler.
         """
-        return AsyncTCPClientConnectionHandler(my_self, reader, writer, endpoint, on_disconnect)
+        return AsyncTCPClientConnectionHandler(my_self, reader, writer, endpoint)

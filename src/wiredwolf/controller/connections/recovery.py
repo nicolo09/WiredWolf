@@ -116,9 +116,9 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
             for tries in range(DIRECT_RECONNECTION_RETRIES):
                 try:
                     async with asyncio.timeout(DIRECT_RECONNECTION_TIMEOUT):  # Set a timeout for the direct reconnection attempt
-                        await lobby_browser.connect_to_lobby_directly(controller.my_self, connection_handler.endpoint, None)
+                        restored_client_conn_handler, restored_lobby, restored_game_status = await lobby_browser.reconnect_to_lobby(controller.my_self, connection_handler.endpoint)
                         self.__logger.info("Direct reconnection attempt %d succeeded.", tries + 1)
-                        #TODO: Add logic to handle successful reconnection, e.g. reinitialize the controller's connection handler and game state...
+                        return restored_lobby, None, restored_client_conn_handler, restored_game_status       
                 except (asyncio.TimeoutError, Exception) as e:
                     # This attempt timed out or failed for another reason, log the warning and continue to the next attempt
                     self.__logger.warning("Direct reconnection attempt failed after %d tries.", tries + 1)
@@ -198,7 +198,8 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                     (commons.DEFAULT_SERVER_HOST, commons.DEFAULT_SERVER_PORT),
                     on_new_peer=on_new_peer_connection,
                     on_peer_disconnected=on_peer_disconnection,
-                    on_new_message=on_new_message
+                    on_new_message=on_new_message,
+                    on_peer_recovery=on_new_peer_connection  #FIXME: This is just a placeholder, handle it properly
                 )
                 await self._server_conn_handler.start_listening()
                 # ...and in the meanwhile we try to connect to other peers in the lobby

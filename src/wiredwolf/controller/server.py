@@ -101,6 +101,7 @@ class GameServer:
                 bind_address=(commons.DEFAULT_SERVER_HOST, commons.DEFAULT_SERVER_PORT),
                 on_new_peer=self._on_new_peer,
                 on_peer_disconnected=self._on_peer_disconnected,
+                on_peer_recovery=self._on_peer_recovery,
                 on_new_message=self.process_incoming_message,
                 owner_connection=owner_connection,
             )
@@ -175,6 +176,10 @@ class GameServer:
             await self._add_peer_and_notify_updates(peer)
         except Exception as e:
             self.__logger.error("Error handling new peer %s: %s", peer, e)
+
+    async def _on_peer_recovery(self, peer: commons.Peer):
+        await self._server_conn_handler.send_obj(peer, (self._lobby, self._game.get_game_status() if self._game else None))
+        self.__logger.info("Peer recovered: %s", peer)
 
     async def _on_peer_disconnected(self, peer: commons.Peer):
         self.__logger.info("Peer disconnected: %s", peer)
