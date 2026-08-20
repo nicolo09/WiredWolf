@@ -5,7 +5,7 @@ from typing import Any
 
 from wiredwolf.controller import commons
 from wiredwolf.controller.connections.connections import ClientConnectionHandler
-from wiredwolf.controller.connections.recovery import ConnectionRecoverer, RecoveryFailedException, TCPConnectionRecoverer
+from wiredwolf.controller.connections.recovery import ConnectionRecoverer, RecoveryFailedException, TCPConnectionRecoverer, Recoverable
 from wiredwolf.controller.lobbies import LobbyBrowser, LobbyBrowserFactory, LobbyInfo
 from wiredwolf.controller.lobbies import Lobby
 from wiredwolf.controller.messages import (
@@ -30,7 +30,7 @@ from wiredwolf.model.player import BasicRole, Player
 from wiredwolf.view.custom_events import EventSender
 
 
-class GameController:
+class GameController(Recoverable):
     """Handles the game logic and player interactions. This controller is implemented by means of
     TCP connections and mDNS for lobby discovery.
     """

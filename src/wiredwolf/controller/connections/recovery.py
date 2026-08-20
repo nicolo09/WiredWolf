@@ -6,11 +6,42 @@ import abc
 
 from wiredwolf.controller import commons
 from wiredwolf.controller.connections.connections import AsyncTCPClientConnectionHandler, ClientConnectionHandler, ConnectionHandlerFactory, ServerConnectionHandler
-from wiredwolf.controller.controller import GameController
-from wiredwolf.controller.lobbies import Lobby, TcpMdnsLobbyBrowser
+from wiredwolf.controller.lobbies import Lobby, LobbyBrowser, TcpMdnsLobbyBrowser
 from wiredwolf.controller.messages import BaseMessage, CandidateForElectionMessage, ElectionFailedMessage, MasterElectedMessage, RecoveredConnectionsMessage, ApproveCandidateMessage
-from wiredwolf.controller.server import GameServer
+from wiredwolf.controller.server import GameServer, GameServerFactory
 from wiredwolf.model.game import GameStatus
+
+class Recoverable(abc.ABC):
+    """Interface for classes that can be recovered by a ConnectionRecoverer."""
+    
+    @property
+    @abc.abstractmethod
+    def my_self(self) -> commons.Peer:
+        """
+        Returns the current peer instance.
+        """
+        
+    @property
+    @abc.abstractmethod
+    def lobby_browser(self) -> LobbyBrowser:
+        """
+        Returns the lobby browser instance.
+        """
+        
+    @property
+    @abc.abstractmethod
+    def connection_handler(self) -> ClientConnectionHandler | None:
+        """
+        Returns the connection handler instance.
+        """
+        
+    @property
+    @abc.abstractmethod
+    def lobby(self) -> Lobby | None:
+        """
+        Returns the current lobby instance, or None if not in a lobby.
+        """
+
 
 DIRECT_RECONNECTION_TIMEOUT = 5  # seconds
 DIRECT_RECONNECTION_RETRIES = 3  # number of retries for direct reconnection
@@ -45,12 +76,12 @@ class RecoveryFailedException(Exception):
 class ConnectionRecoverer(abc.ABC):
     
     @abc.abstractmethod
-    async def recover(self, controller: GameController) -> tuple[Lobby, GameServer | None, ClientConnectionHandler, GameStatus]:
+    async def recover(self, controller: Recoverable) -> tuple[Lobby, GameServer | None, ClientConnectionHandler, GameStatus]:
         """
-        Tries to recover the connection of the given GameController.
+        Tries to recover the connection of the given Recoverable.
 
         Args:
-            controller (GameController): The GameController instance to recover.
+            controller (Recoverable): The Recoverable instance to recover.
         """
 
 class TCPConnectionRecoverer(ConnectionRecoverer):
@@ -67,12 +98,12 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
         self._backups: set[commons.Peer] = set()  # Set of backup peers that can be used for recovery
         self._can_candidate: bool = False  # Flag to indicate if candidation is allowed after the timeout
 
-    async def recover(self, controller: GameController) -> tuple[Lobby, GameServer | None, ClientConnectionHandler, GameStatus]:
+    async def recover(self, controller: Recoverable) -> tuple[Lobby, GameServer | None, ClientConnectionHandler, GameStatus]:
         """
-        Tries to recover the TCP connection of the given GameController.
+        Tries to recover the TCP connection of the given Recoverable.
 
         Args:
-            controller (GameController): The GameController instance to recover.
+            controller (Recoverable): The Recoverable instance to recover.
         """
         self._clean()  # Reset internal state before starting recovery
 
