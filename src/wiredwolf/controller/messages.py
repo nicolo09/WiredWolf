@@ -282,3 +282,42 @@ class ElectionFailedMessage(BaseMessage):
 
     def __init__(self, sender: Peer | None):
         super().__init__(sender)
+
+class NewPeerMessage(BaseMessage):
+    """A message sent to indicate that a new peer has joined the lobby"""
+
+    def __init__(self, peer: Peer, address: str):
+        super().__init__(None)
+        self._new_peer = peer
+        self._address = address
+
+    @property
+    def new_peer(self) -> Peer:
+        """Gets the new peer that joined the lobby.
+        Returns:
+            Peer: The new peer that joined the lobby.
+        """
+        return self._new_peer
+
+    @property
+    def address(self) -> str:
+        """Gets the address of the new peer.
+        Returns:
+            str: The address of the new peer.
+        """
+        return self._address
+    
+class RemovedPeerMessage(BaseMessage):
+    """A message sent to indicate that a peer has left the lobby"""
+
+    def __init__(self, peer: Peer):
+        super().__init__(None)
+        self._removed_peer = peer
+
+    @property
+    def removed_peer(self) -> Peer:
+        """Gets the peer that left the lobby.
+        Returns:
+            Peer: The peer that left the lobby.
+        """
+        return self._removed_peer

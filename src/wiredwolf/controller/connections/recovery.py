@@ -208,21 +208,25 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                         if peers_status.get(peer) == ConnectionStatus.DISCONNECTED:
                             try:
                                 async with asyncio.timeout(NEW_CONNECTION_TIMEOUT):  # Set a timeout for the new connection attempt
-                                    client_conn_handler = await lobby_browser.connect_to_peer(controller.my_self, (commons.DEFAULT_SERVER_HOST, commons.DEFAULT_SERVER_PORT)) #FIXME: should use the peer's actual endpoint, not the default one
-                                    client_conn_handler.set_on_disconnect(lambda peer=peer: on_peer_disconnection(peer)) 
-                                    self.__logger.info("Successfully connected to peer: %s", peer)
-                                    peers_status[peer] = ConnectionStatus.CONNECTED
-                                    peers_connections[peer] = 0
-                                    peers_connections[controller.my_self] = len(self._get_connected_peers(peers_status))
-                                    client_conn_handler.set_on_message(on_message)
-                                    self._client_conn_handlers[peer] = client_conn_handler
-                                    await self._send_message_to_all(
-                                        RecoveredConnectionsMessage(
-                                            controller.my_self,
-                                            len(self._get_connected_peers(peers_status)),
-                                        ),
-                                        peers_status,
-                                    )
+                                    address = connection_handler.other_peers.get(peer)
+                                    if address is not None:
+                                        client_conn_handler = await lobby_browser.connect_to_peer(controller.my_self, (address, commons.DEFAULT_SERVER_PORT))
+                                        client_conn_handler.set_on_disconnect(lambda peer=peer: on_peer_disconnection(peer)) 
+                                        self.__logger.info("Successfully connected to peer: %s", peer)
+                                        peers_status[peer] = ConnectionStatus.CONNECTED
+                                        peers_connections[peer] = 0
+                                        peers_connections[controller.my_self] = len(self._get_connected_peers(peers_status))
+                                        client_conn_handler.set_on_message(on_message)
+                                        self._client_conn_handlers[peer] = client_conn_handler
+                                        await self._send_message_to_all(
+                                            RecoveredConnectionsMessage(
+                                                controller.my_self,
+                                                len(self._get_connected_peers(peers_status)),
+                                            ),
+                                            peers_status,
+                                        )
+                                    else:
+                                        self.__logger.warning("No address found for peer: %s, skipping connection attempt.", peer)
                             except (asyncio.TimeoutError, Exception) as e:
                                 self.__logger.error("Attempt %d Failed to connect to peer: %s", new_connection_attempt + 1, peer)
                     await asyncio.sleep(NEW_CONNECTION_WAIT_BETWEEN_RETRY)  # Wait a bit before retrying

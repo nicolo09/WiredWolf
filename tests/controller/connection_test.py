@@ -1,7 +1,7 @@
 from asyncio import StreamReader, StreamWriter, timeout
 import asyncio
 from socket import socketpair
-from typing import Any, AsyncGenerator
+from typing import Any, AsyncGenerator, cast
 from unittest import mock
 import pytest
 import pytest_asyncio
@@ -340,3 +340,88 @@ async def test_connection_recovery():
         await reconnect_handler.close()
     finally:
         await handler.close()
+
+async def _connect_two_clients(
+    browser: TcpMdnsLobbyBrowser,
+    server: GameServer,
+) -> tuple[
+    Peer,
+    connections.AsyncTCPClientConnectionHandler,
+    Peer,
+    connections.AsyncTCPClientConnectionHandler,
+]:
+    """Start the server and connect two clients, returning their peers and handlers."""
+    await server.start_listening()
+
+    first_peer = Peer("Client1")
+    first_handler = cast(
+        connections.AsyncTCPClientConnectionHandler,
+        (await browser.connect_to_lobby_directly(
+            first_peer, TEST_BIND_ADDRESS, None
+        ))[0],
+    )
+    await first_handler.start_receiving()
+
+    second_peer = Peer("Client2")
+    second_handler = cast(
+        connections.AsyncTCPClientConnectionHandler,
+        (await browser.connect_to_lobby_directly(
+            second_peer, TEST_BIND_ADDRESS, None
+        ))[0],
+    )
+    await second_handler.start_receiving()
+
+    return first_peer, first_handler, second_peer, second_handler
+
+
+async def _close_handlers(handlers: list[connections.AsyncTCPClientConnectionHandler]) -> None:
+    """Close all given client handlers, ignoring ConnectionClosedError."""
+    for handler in handlers:
+        try:
+            await handler.close()
+        except connections.ConnectionClosedError:
+            pass
+
+
+@pytest.mark.asyncio
+async def test_address_propagation_on_new_peer(
+    browser: TcpMdnsLobbyBrowser, server: GameServer
+):
+    first_peer, first_handler, second_peer, second_handler = await _connect_two_clients(browser, server)
+
+    try:
+        async with timeout(TEST_TIMEOUT):
+            while (
+                second_peer not in first_handler.other_peers
+                and first_peer not in second_handler.other_peers
+            ):
+                await asyncio.sleep(0.05)
+
+    except asyncio.TimeoutError:
+        pytest.fail("Peers did not receive each other's addresses in time")
+
+    finally:
+        await _close_handlers([first_handler, second_handler])
+
+
+@pytest.mark.asyncio
+async def test_address_propagation_on_disconnection(
+    browser: TcpMdnsLobbyBrowser, server: GameServer
+):
+    _, first_handler, second_peer, second_handler = await _connect_two_clients(browser, server)
+
+    try:
+        await asyncio.sleep(0.5)  # Allow some time for the peers to exchange addresses
+
+        # Now disconnect the second peer and check if the first peer is notified
+        await second_handler.close()
+
+        async with timeout(3 * TEST_TIMEOUT):
+            while second_peer in first_handler.other_peers:
+                await asyncio.sleep(0.05)
+
+    except asyncio.TimeoutError:
+        pytest.fail("Peers did not update their addresses on disconnection in time")
+
+    finally:
+        await _close_handlers([first_handler, second_handler])

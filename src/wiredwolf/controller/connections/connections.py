@@ -14,7 +14,9 @@ from wiredwolf.controller.messages import (
     BaseMessage,
     ConnectionClosedMessage,
     HeartbeatMessage,
+    NewPeerMessage,
     NotAcknowledgeMessage,
+    RemovedPeerMessage,
 )
 import asyncio
 from asyncio import CancelledError
@@ -27,7 +29,6 @@ MAX_RECONNECT_TIMEOUT = 10  # seconds
 
 class ConnectionClosedError(Exception):
     """Exception raised when a connection is closed."""
-
     pass
 
 
@@ -189,6 +190,7 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
         self._reader: asyncio.StreamReader = reader
         self._writer: asyncio.StreamWriter = writer
         self._endpoint: tuple[str, int] = endpoint
+        self._other_peers: dict[Peer, str] = {}  # Dictionary to store other peers and their addresses
         self._receiving_task: asyncio.Task[None] | None = None
         self._on_disconnect: Callable[[], CoroutineType[Any, Any, None]] | None = None
 
@@ -200,6 +202,15 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
             tuple[str, int]: The endpoint of the server.
         """
         return self._endpoint
+    
+    @property
+    def other_peers(self) -> dict[Peer, str]:
+        """Get the dictionary of other known peers and their addresses.
+
+        Returns:
+            dict[Peer, str]: The dictionary of other known peers and their addresses.
+        """
+        return self._other_peers
 
     async def send_obj(self, obj: Any):
         """Send an object to the server.
@@ -263,7 +274,11 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
             try:
                 async with asyncio.timeout(CONNECTION_TIMEOUT_HEARTBEAT):
                     msg: Any = await self._message_handler.receive_obj(self._reader)
-                    if self._on_message:
+                    if isinstance(msg, NewPeerMessage):
+                        self._other_peers[msg.new_peer] = msg.address
+                    elif isinstance(msg, RemovedPeerMessage):
+                        self._other_peers.pop(msg.removed_peer, None)
+                    elif self._on_message:
                         self._on_message(msg)
                     else:
                         self._logger.warning(
@@ -437,6 +452,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
         self._endpoints: dict[
             Peer, tuple[asyncio.StreamReader, asyncio.StreamWriter]
         ] = {}
+        self._client_addresses: dict[Peer, str] = {}
         self._status: dict[Peer, ConnectionStatus] = {}
         self._receiving_tasks: dict[Peer, asyncio.Task[None]] = {}
         self._server: asyncio.Server | None = None
@@ -518,6 +534,10 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
             if receiving_task is not None and not receiving_task.done():
                 receiving_task.cancel()
             await self._on_peer_disconnected(peer)
+            # Inform other peers about the disconnection
+            for other_peer in self._client_addresses.keys():
+                await self.send_obj(other_peer, RemovedPeerMessage(peer))
+            self._client_addresses.pop(peer, None)
             
     async def _wait_and_close_server(self, timeout: float):
         """Waits for a specified timeout and then closes the server if it's still running.
@@ -545,6 +565,10 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 receiving_task = self._receiving_tasks.pop(peer, None)
                 if receiving_task is not None and not receiving_task.done():
                     receiving_task.cancel()
+                # Inform other peers about the disconnection
+                for other_peer in self._client_addresses.keys():
+                    await self.send_obj(other_peer, RemovedPeerMessage(peer))
+                self._client_addresses.pop(peer, None)
         
     async def _client_recovery_cb(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
@@ -628,6 +652,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                     reader
                 )  # TODO: Change this to a message containing the peer info instead of just the peer object
                 self._logger.info("Identified new peer: %s", peer)
+                self._client_addresses[peer] = client_address
                 self._endpoints[peer] = (reader, writer)
                 self._status[peer] = ConnectionStatus.CONNECTING
                 await self._on_new_peer(peer)
@@ -637,6 +662,16 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 self._receiving_tasks[peer] = asyncio.create_task(
                     self._handle_peer_message(peer)
                 )
+                for other_peer in self._client_addresses.keys():
+                    if other_peer != peer:
+                        # Update all other clients about the new peer
+                        await self.send_obj(
+                            other_peer, NewPeerMessage(peer, client_address)
+                        )
+                        # Update the new peer about all other connected peers
+                        await self.send_obj(
+                            peer, NewPeerMessage(other_peer, self._client_addresses[other_peer])
+                        )    
             except ConnectionClosedError:
                 # Peer tried to connect but closed the connection before ending the handshake
                 self._logger.warning(
