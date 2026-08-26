@@ -61,6 +61,8 @@ CANDIDATE_FOR_ELECTION_DELAY_RANGE = (0, 6)  # seconds, range for random delay b
 CANDIDATION_AWAIT = 5  # seconds, timeout for candidation phase
 ELECTION_TIMEOUT = 120  # seconds, timeout for election phase #TODO: Too low? Too high?
 
+AWAIT_CONNECTIONS = 10 # seconds, time the new master waits to let the peers connect to the new game server
+
 class ConnectionStatus(Enum):
     CONNECTED = "connected"
     DISCONNECTED = "disconnected"
