@@ -9,7 +9,7 @@ from wiredwolf.controller.connections.connections import AsyncTCPClientConnectio
 from wiredwolf.controller.lobbies import Lobby, LobbyBrowser, TcpMdnsLobbyBrowser
 from wiredwolf.controller.messages import BaseMessage, CandidateForElectionMessage, ElectionFailedMessage, MasterElectedMessage, RecoveredConnectionsMessage, ApproveCandidateMessage
 from wiredwolf.controller.server import GameServer, GameServerFactory
-from wiredwolf.model.game import GameStatus
+from wiredwolf.model.game import Game, GameStatus
 
 class Recoverable(abc.ABC):
     """Interface for classes that can be recovered by a ConnectionRecoverer."""
@@ -41,6 +41,12 @@ class Recoverable(abc.ABC):
         """
         Returns the current lobby instance, or None if not in a lobby.
         """
+    
+    @property
+    @abc.abstractmethod
+    def game_status(self) -> GameStatus | None:
+        """
+        Returns the current game status, or None if not in a game."""
 
 
 DIRECT_RECONNECTION_TIMEOUT = 5  # seconds
@@ -129,6 +135,7 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
             # Direct reconnection failed, we open a server conn handler to let other peer connect to us...
             self._phase = RecoveryPhase.CONNECTING_TO_PEERS
             lobby = controller.lobby
+            known_peers = connection_handler.other_peers.copy()
             if lobby is not None:
                 peers_status: dict[commons.Peer, ConnectionStatus] = {peer: ConnectionStatus.DISCONNECTED for peer in lobby.peers if peer != controller.my_self}
                 peers_connections: dict[commons.Peer, int] = {controller.my_self: 0} # Number of active connection each peer has recovered
@@ -208,7 +215,7 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                         if peers_status.get(peer) == ConnectionStatus.DISCONNECTED:
                             try:
                                 async with asyncio.timeout(NEW_CONNECTION_TIMEOUT):  # Set a timeout for the new connection attempt
-                                    address = connection_handler.other_peers.get(peer)
+                                    address = known_peers.get(peer)
                                     if address is not None:
                                         client_conn_handler = await lobby_browser.connect_to_peer(controller.my_self, (address, commons.DEFAULT_SERVER_PORT))
                                         client_conn_handler.set_on_disconnect(lambda peer=peer: on_peer_disconnection(peer)) 
@@ -293,14 +300,26 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                     finally:
                         if timer_task is not None:
                             timer_task.cancel()  # Cancel the timer task if it's still running
+                            
+                    # Close all connections established during the election phase
+                    await self._server_conn_handler.close()
+                    for client_conn_handler in self._client_conn_handlers.values():
+                        await client_conn_handler.close()
 
                     if self._new_master and self._phase != RecoveryPhase.RECOVERY_FAILED:
                         self.__logger.info("New master elected: %s", self._new_master)
-                        # TODO: handle recovery of the game
                         if self._new_master == controller.my_self:
-                            # Everybody will connect to me, so I must close the connections to peers
-                            for client_conn_handler in self._client_conn_handlers.values():
-                                await client_conn_handler.close()
+                            
+                            if controller.game_status is not None:  
+                                new_game = Game.from_game_status(controller.game_status)  # Create a new Game instance from the current game status
+                                new_lobby = Lobby.change_owner(lobby, controller.my_self)  # Create a new lobby with the current peer as the owner
+                                                  
+                                new_game_server, new_client_conn_handler = await GameServerFactory.get_game_server(new_lobby, new_game)  # Create a new GameServer with the new lobby and game
+                                await asyncio.sleep(AWAIT_CONNECTIONS) # Wait a bit to let other peers connect to the new server
+                                return new_lobby, new_game_server, new_client_conn_handler, new_game.get_game_status()
+                            else:
+                                self.__logger.error("Game instance is None after becoming the new master.")
+                                raise RuntimeError("Game instance is None after becoming the new master.")
                         else:
                             await self._send_message_to_all(
                                 MasterElectedMessage(controller.my_self, self._new_master),

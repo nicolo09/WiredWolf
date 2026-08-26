@@ -82,6 +82,24 @@ class Lobby:
     def is_password_protected(self) -> bool:
         """Returns whether the lobby is password-protected."""
         return self.password is not None
+    
+    @staticmethod
+    def change_owner(lobby: "Lobby", new_owner: Peer) -> "Lobby":
+        """Returns a copy of the lobby object with a new owner.
+        
+        Args:
+            lobby (Lobby): The original lobby object.
+            new_owner (Peer): The new owner of the lobby.
+        Returns:
+            Lobby: A new lobby object with the updated owner and a new UUID.
+        """
+        return Lobby(
+            owner=new_owner,
+            name=lobby.name,
+            uuid=lobby_id_generator(),  # Generate a new UUID for the new lobby
+            password=lobby.password,
+            max_peers=lobby.max_peers,
+        )
 
 
 class LobbyNotFoundError(Exception):

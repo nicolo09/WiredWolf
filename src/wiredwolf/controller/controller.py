@@ -81,6 +81,14 @@ class GameController(Recoverable):
             Lobby: The current lobby.
         """
         return copy.deepcopy(self._lobby)
+    
+    @property
+    def game_status(self) -> GameStatus | None:
+        """Gets the current game status (this is a copy, changes are not reflected in the controller).
+        Returns:
+            GameStatus | None: The current game status, or None if not in a game.
+        """
+        return copy.deepcopy(self._game_status)
 
     def my_self_as_player(self) -> Player | None:
         """Gets the local player as a Player object if the lobby and game status are available.
@@ -130,7 +138,7 @@ class GameController(Recoverable):
             try:
                 self._lobby, self._server, self._client_connection_handler, self._game_status = await self._connection_recoverer.recover(self)
                 if self._server:
-                    await self._server.start_game()                
+                    await self._server.start_game()
             except RecoveryFailedException as e:
                 self._logger.error("Failed to recover connection.")
                 asyncio.create_task(show_error_and_go_home(str(e)))

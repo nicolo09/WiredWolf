@@ -93,9 +93,17 @@ class GameServer:
         self,
         lobby: Lobby,
         owner_connection: tuple[commons.Peer, asyncio.StreamReader, asyncio.StreamWriter],
+        game: Game | None = None,
     ):
+        """Creates a new GameServer
+
+        Args:
+            lobby (Lobby): The lobby this server will serve the game to
+            owner_connection (tuple[commons.Peer, asyncio.StreamReader, asyncio.StreamWriter]): The direct connection of the owner of the lobby to the server
+            game (Game | None, optional): A Game instance to resume a game. Defaults to None, which means a new game will be created when starting the game.
+        """
         self._lobby: Lobby = lobby
-        self._game: Game | None = None  # Placeholder for game instance
+        self._game: Game | None = game
         self._server_conn_handler: ServerConnectionHandler = (
             ConnectionHandlerFactory.get_server_connection_handler(
                 bind_address=(commons.DEFAULT_SERVER_HOST, commons.DEFAULT_SERVER_PORT),
@@ -203,7 +211,7 @@ class GameServer:
                 peer, ValueError("Lobby is full. Cannot join.")
             )
             return
-        if self._game is not None:
+        if self._game_actual_phase_task is not None: # If the game is not running, the task is None
             self.__logger.warning("Game already started. Cannot add peer: %s", peer)
             await self._server_conn_handler.send_obj(
                 peer, ValueError("Game already started. Cannot join.")
@@ -391,12 +399,13 @@ class GameServer:
 class GameServerFactory:
     @staticmethod
     async def get_game_server(
-        lobby: Lobby,
+        lobby: Lobby, game: Game | None = None
     ) -> tuple[GameServer, ClientConnectionHandler]:
         """Creates and returns a new GameServer instance and the owner ClientConnectionHandler.
 
         Args:
             lobby (Lobby): The lobby to be managed by the server.
+            game (Game | None): A Game instance to resume a game. Defaults to None, which means a new game will be created when starting the game.
         Returns:
             tuple[GameServer, ClientConnectionHandler]: The created GameServer and the owner's ClientConnectionHandler.
         """
@@ -405,7 +414,7 @@ class GameServerFactory:
         client_reader, client_writer = await asyncio.open_connection(sock=client_socket)
         server_reader, server_writer = await asyncio.open_connection(sock=server_socket)
         server = GameServer(
-            lobby, owner_connection=(lobby.owner, server_reader, server_writer)
+            lobby, owner_connection=(lobby.owner, server_reader, server_writer), game=game
         )
         for plugin in await get_plugins_list():
             server.add_plugin(plugin)
