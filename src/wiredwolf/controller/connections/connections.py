@@ -19,7 +19,9 @@ from wiredwolf.controller.messages import (
     RemovedPeerMessage,
 )
 import asyncio
-from asyncio import CancelledError
+from asyncio import CancelledError, Future
+
+from wiredwolf.controller.server import Server
 
 PEERNAME_EXTRA_INFO = "peername"
 HEARTBEAT_INTERVAL = 5  # seconds
@@ -420,32 +422,26 @@ class AsyncTCPMessageHandler:  # TODO: Make this implement a MessageHandler inte
         return self._serializer.deserialize(data)
 
 
+class ReconnectedOutcome(Enum):
+    """Enum representing the outcome of a peer reconnection attempt."""
+    SUCCESS = 1
+    FAILURE = 2
+
 class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
     """Server connection handler implementation using asyncio and TCP sockets."""
 
     def __init__(
         self,
         bind_address: tuple[str | None, int],
-        on_new_peer: Callable[[Peer], CoroutineType[Any, Any, None]],
-        on_peer_disconnected: Callable[[Peer], CoroutineType[Any, Any, None]],
-        on_new_message: Callable[[BaseMessage], CoroutineType[Any, Any, None]],
-        on_peer_recovery: Callable[[Peer], CoroutineType[Any, Any, None]],
+        server: Server,
         owner_connection: (
             tuple[Peer, asyncio.StreamReader, asyncio.StreamWriter] | None
-        ) = None,
+        ) = None
     ):
         super().__init__()
+        self._recovery_futures: dict[Peer, Future[ReconnectedOutcome]] = {}
         self._bind_address: tuple[str | None, int] = bind_address
-        self._on_new_peer: Callable[[Peer], CoroutineType[Any, Any, None]] = on_new_peer
-        self._on_peer_disconnected: Callable[[Peer], CoroutineType[Any, Any, None]] = (
-            on_peer_disconnected
-        )
-        self._on_new_message: Callable[[BaseMessage], CoroutineType[Any, Any, None]] = (
-            on_new_message
-        )
-        self._on_peer_recovery: Callable[[Peer], CoroutineType[Any, Any, None]] = (
-            on_peer_recovery
-        )
+        self._server: Server = server
         self._async_message_handler = AsyncTCPMessageHandler(
             MessageHandlerFactory.getDefaultSerializer()
         )
@@ -455,7 +451,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
         self._client_addresses: dict[Peer, str] = {}
         self._status: dict[Peer, ConnectionStatus] = {}
         self._receiving_tasks: dict[Peer, asyncio.Task[None]] = {}
-        self._server: asyncio.Server | None = None
+        self._tcp_server: asyncio.Server | None = None
         self._server_task: asyncio.Task[None] | None = None
         self._heartbeat_task: asyncio.Task[None] | None = None
         self._reconnect_timeout_task: asyncio.Task[None] | None = None
@@ -469,10 +465,10 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
         self._heartbeat_task = asyncio.create_task(self._send_heartbeat())
 
     async def start_listening(self) -> None:
-        if self._server:
+        if self._tcp_server:
             raise RuntimeError("Server is already listening for new connections.")
         else:
-            self._server = await asyncio.start_server(
+            self._tcp_server = await asyncio.start_server(
                 self._client_connected_cb,
                 host=self._bind_address[0],
                 port=self._bind_address[1],
@@ -483,7 +479,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 self._bind_address[1],
             )
             # keep a reference to the serve_forever task so it can be awaited/cancelled on close
-            self._server_task = asyncio.create_task(self._server.serve_forever())
+            self._server_task = asyncio.create_task(self._tcp_server.serve_forever())
 
     async def _send_heartbeat(self):
         """A function that sends a heartbeat message to all connected peers regularly"""
@@ -503,37 +499,52 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
         Args:
             peer (Peer): The peer with the error.
         """
-        self._status[peer] = ConnectionStatus.RECOVERING
-        try:
-            if not self._server:
-                # Start a new server for recovery connections
-                self._server = await asyncio.start_server(
-                    self._client_recovery_cb,
-                    host=self._bind_address[0],
-                    port=self._bind_address[1],
+        if self._server.should_recover_connections:
+            future = asyncio.get_event_loop().create_future()
+            self._recovery_futures[peer] = future
+            await self._server._on_peer_error(peer, future)
+            self._status[peer] = ConnectionStatus.RECOVERING
+            try:
+                if not self._tcp_server:
+                    # Start a new server for recovery connections
+                    self._tcp_server = await asyncio.start_server(
+                        self._client_recovery_cb,
+                        host=self._bind_address[0],
+                        port=self._bind_address[1],
+                    )
+                    self._logger.info(
+                        "Server started listening for new connections on %s:%d",
+                        self._bind_address[0],
+                        self._bind_address[1],
+                    )
+                    self._server_task = asyncio.create_task(self._tcp_server.serve_forever())
+                # If a reconnect timeout task is already running, cancel it and start a new one
+                # This ensures that the server will only close after the last peer has had a chance to reconnect
+                if self._reconnect_timeout_task:
+                    self._reconnect_timeout_task.cancel()
+                self._reconnect_timeout_task = asyncio.create_task(
+                    self._wait_and_close_server(MAX_RECONNECT_TIMEOUT)
                 )
-                self._logger.info(
-                    "Server started listening for new connections on %s:%d",
-                    self._bind_address[0],
-                    self._bind_address[1],
-                )
-                self._server_task = asyncio.create_task(self._server.serve_forever())
-            # If a reconnect timeout task is already running, cancel it and start a new one
-            # This ensures that the server will only close after the last peer has had a chance to reconnect
-            if self._reconnect_timeout_task:
-                self._reconnect_timeout_task.cancel()
-            self._reconnect_timeout_task = asyncio.create_task(
-                self._wait_and_close_server(MAX_RECONNECT_TIMEOUT)
-            )
-        except Exception:
-            # If an error occurs the peer is considered disconnected and the server will not wait for it to reconnect
+            except Exception:
+                # If an error occurs the peer is considered disconnected and the server will not wait for it to reconnect
+                self._endpoints.pop(peer, None)
+                self._status.pop(peer, None)
+                receiving_task = self._receiving_tasks.pop(peer, None)
+                if receiving_task is not None and not receiving_task.done():
+                    receiving_task.cancel()
+                self._recovery_futures[peer].set_result(ReconnectedOutcome.FAILURE)
+                self._recovery_futures.pop(peer, None)
+                # Inform other peers about the disconnection
+                for other_peer in self._client_addresses.keys():
+                    await self.send_obj(other_peer, RemovedPeerMessage(peer))
+                self._client_addresses.pop(peer, None)
+        else:
+            # If the server is not set to recover connections, treat the peer as disconnected
             self._endpoints.pop(peer, None)
             self._status.pop(peer, None)
-            #FIXME: does this make sense?
             receiving_task = self._receiving_tasks.pop(peer, None)
             if receiving_task is not None and not receiving_task.done():
                 receiving_task.cancel()
-            await self._on_peer_disconnected(peer)
             # Inform other peers about the disconnection
             for other_peer in self._client_addresses.keys():
                 await self.send_obj(other_peer, RemovedPeerMessage(peer))
@@ -546,7 +557,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
             timeout (float): The time in seconds to wait before closing the server.
         """
         await asyncio.sleep(timeout)
-        if self._server:
+        if self._tcp_server:
             self._logger.info(
                 "Closing server after waiting for %s seconds.", timeout
             )
@@ -557,7 +568,8 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                     self._logger.info(
                         "Peer %s is still in recovering state after timeout.", peer
                     )
-                    await self._on_peer_disconnected(peer)
+                    self._recovery_futures[peer].set_result(ReconnectedOutcome.FAILURE)
+                    self._recovery_futures.pop(peer, None)
                     disconnected_peers.append(peer)
             for peer in disconnected_peers:
                 self._status.pop(peer, None)
@@ -594,7 +606,9 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                     if old_task is not None and not old_task.done():
                         old_task.cancel()
                     self._endpoints[peer] = (reader, writer)
-                    await self._on_peer_recovery(peer)
+                    # Inform the GameServer that the peer has successfully reconnected
+                    self._recovery_futures[peer].set_result(ReconnectedOutcome.SUCCESS)
+                    self._recovery_futures.pop(peer, None)
                     self._status[peer] = ConnectionStatus.CONNECTED
                     self._receiving_tasks[peer] = asyncio.create_task(
                         self._handle_peer_message(peer)
@@ -655,7 +669,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 self._client_addresses[peer] = client_address
                 self._endpoints[peer] = (reader, writer)
                 self._status[peer] = ConnectionStatus.CONNECTING
-                await self._on_new_peer(peer)
+                await self._server._on_new_peer(peer)
                 # Successful connection
                 self._logger.info("New peer connected: %s", peer)
                 self._status[peer] = ConnectionStatus.CONNECTED
@@ -716,7 +730,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                     )  # TODO: Define a proper exception for this case
                 else:
                     try:
-                        await self._on_new_message(msg)
+                        await self._server.process_incoming_message(msg)
                     except Exception as e:
                         self._logger.error(
                             "Error handling message from %s: %s", peer, e
@@ -734,10 +748,10 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 return
 
     def stop_new_connections(self):
-        if self._server is None:
+        if self._tcp_server is None:
             raise RuntimeError("Server is not currently accepting new connections.")
         else:
-            self._server.close()
+            self._tcp_server.close()
             self._logger.info("Stopped accepting new connections.")
 
     async def send_obj(self, receiver: Peer, obj: Any) -> None:
@@ -790,9 +804,9 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 await asyncio.gather(*wait_closed_awaitables, return_exceptions=True)
 
             # Wait for the server to be fully closed and the serve_forever task to complete
-            if self._server:
+            if self._tcp_server:
                 try:
-                    await self._server.wait_closed()
+                    await self._tcp_server.wait_closed()
                 except Exception as e:
                     self._logger.warning(
                         "Error while waiting for server to close: %s", e
@@ -815,7 +829,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
             self._endpoints.clear()
             self._status.clear()
             self._receiving_tasks.clear()
-            self._server = None
+            self._tcp_server = None
             self._server_task = None
             self._heartbeat_task = None
             self._reconnect_timeout_task = None
@@ -838,33 +852,25 @@ class ConnectionHandlerFactory:
     @staticmethod
     def get_server_connection_handler(
         bind_address: tuple[str | None, int],
-        on_new_peer: Callable[[Peer], CoroutineType[Any, Any, None]],
-        on_peer_disconnected: Callable[[Peer], CoroutineType[Any, Any, None]],
-        on_new_message: Callable[[BaseMessage], CoroutineType[Any, Any, None]],
-        on_peer_recovery: Callable[[Peer], CoroutineType[Any, Any, None]],
+        server: Server,
         owner_connection: (
             tuple[Peer, asyncio.StreamReader, asyncio.StreamWriter] | None
-        ) = None,
+        ) = None
     ) -> ServerConnectionHandler:
         """Creates and returns a new ServerConnectionHandler.
 
         Args:
             bind_address (tuple[str | None, int]): The address to bind the server to.
-            on_new_peer (Callable[[Peer], CoroutineType[Any, Any, None]]): The callback for new peer connections.
-            on_peer_disconnected (Callable[[Peer], CoroutineType[Any, Any, None]]): The callback for peer disconnections.
-            on_new_message (Callable[[BaseMessage], CoroutineType[Any, Any, None]]): The callback for new messages.
-            on_peer_recovery (Callable[[Peer], CoroutineType[Any, Any, None]]): The callback for peer recovery.
+            server (Server): The server instance.
+            owner_connection (tuple[Peer, asyncio.StreamReader, asyncio.StreamWriter] | None): The direct connection of the owner of the lobby to the server.
 
         Returns:
             ServerConnectionHandler: The created server connection handler.
         """
         return AsyncTCPServerConnectionHandler(
             bind_address=bind_address,
-            on_new_peer=on_new_peer,
-            on_peer_disconnected=on_peer_disconnected,
-            on_new_message=on_new_message,
-            on_peer_recovery=on_peer_recovery,
-            owner_connection=owner_connection,
+            server=server,
+            owner_connection=owner_connection
         )
 
     @staticmethod

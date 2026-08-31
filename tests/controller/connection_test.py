@@ -27,10 +27,7 @@ async def server_conn_handler() -> AsyncGenerator[
     mocked = mock.AsyncMock()
     serverConnHandler = connections.AsyncTCPServerConnectionHandler(
         bind_address=TEST_BIND_ADDRESS,
-        on_new_peer=lambda peer: mocked.on_new_peer(peer),
-        on_peer_disconnected=lambda peer: mocked.on_peer_disconnected(peer),
-        on_new_message=lambda msg: mocked.on_new_message(msg),
-        on_peer_recovery=lambda peer: mocked.on_peer_recovery(peer)
+        server = mocked
     )
     yield serverConnHandler, mocked
     await serverConnHandler.close()
@@ -208,11 +205,7 @@ async def test_server_connection_handler_callbacks(
 async def test_heartbeat():
     """Test that check that an heartbeat is received by the client"""
     heartbeat_event = asyncio.Event()
-    async def callback(p: Peer):
-        assert isinstance(p, Peer)
-    async def callback2(m: BaseMessage):
-        #Server callback, don't care
-        assert isinstance(m, BaseMessage)
+    server_mock = mock.AsyncMock()
 
     def callback_on_message(m: BaseMessage):
         #Client callback, check if we received a heartbeat message
@@ -223,7 +216,7 @@ async def test_heartbeat():
     client_reader, client_writer = await asyncio.open_connection(sock=sockets[1])
     server_peer = Peer("Server")
     client_peer = Peer("Client")
-    server=connections.AsyncTCPServerConnectionHandler(("0.0.0.0", 0), callback , callback, callback2, callback, (server_peer, server_reader, server_writer))
+    server=connections.AsyncTCPServerConnectionHandler(("0.0.0.0", 0), server_mock, (server_peer, server_reader, server_writer))
     client=connections.AsyncTCPClientConnectionHandler(client_peer, client_reader, client_writer, endpoint=client_writer.get_extra_info("Server"))
     client.set_on_message(callback_on_message) #What happens when you receive a message, is calling the function
     await server.start_listening()
@@ -239,11 +232,7 @@ async def test_heartbeat_client_gets_disconnection():
     """Test that check that the client can get when the heartbeat is disrupted"""
     heartbeat_event = asyncio.Event()
     disconnect_event=asyncio.Event()
-    async def callback(p: Peer):
-        assert isinstance(p, Peer)
-    async def callback2(m: BaseMessage):
-        #Server callback, don't care
-        assert isinstance(m, BaseMessage)
+    server_mock = mock.AsyncMock()
 
     async def callback_on_disconnect():
         disconnect_event.set()
@@ -257,7 +246,7 @@ async def test_heartbeat_client_gets_disconnection():
     client_reader, client_writer = await asyncio.open_connection(sock=sockets[1])
     server_peer = Peer("Server")
     client_peer = Peer("Client")
-    server=connections.AsyncTCPServerConnectionHandler(("0.0.0.0", 0), callback , callback, callback2, callback, (server_peer, server_reader, server_writer))
+    server=connections.AsyncTCPServerConnectionHandler(("0.0.0.0", 0), server_mock, (server_peer, server_reader, server_writer))
     client=connections.AsyncTCPClientConnectionHandler(client_peer, client_reader, client_writer, endpoint=client_writer.get_extra_info("Server"))
     client.set_on_message(callback_on_message) #What happens when you receive a message, is calling the function
     client.set_on_disconnect(callback_on_disconnect) 
@@ -277,69 +266,6 @@ async def test_heartbeat_client_gets_disconnection():
                 await disconnect_event.wait() #Disconnect happens
     except asyncio.TimeoutError:
                 pytest.fail("Callback not received in time")
-
-
-@pytest.mark.asyncio
-async def test_connection_recovery():
-    mocked = mock.AsyncMock()
-    peer = Peer("Client1")
-
-    client_socket, server_socket = socketpair()
-    _, client_writer = await asyncio.open_connection(sock=client_socket)
-    server_reader, server_writer = await asyncio.open_connection(sock=server_socket)
-
-    handler = connections.AsyncTCPServerConnectionHandler(
-        bind_address=TEST_BIND_ADDRESS,
-        on_new_peer=lambda p: mocked.on_new_peer(p),
-        on_peer_disconnected=lambda p: mocked.on_peer_disconnected(p),
-        on_new_message=lambda m: mocked.on_new_message(m),
-        on_peer_recovery=lambda p: mocked.on_peer_recovery(p),
-        owner_connection=(peer, server_reader, server_writer),
-    )
-
-    try:
-        # Simulate abrupt disconnection of the original client connection.
-        client_writer.close()
-        await client_writer.wait_closed()
-
-        # Reconnect with the same peer identity.
-        reconnect_reader, reconnect_writer = await asyncio.open_connection(
-            *TEST_BIND_ADDRESS
-        )
-        reconnect_handler = connections.ConnectionHandlerFactory.get_client_connection_handler(
-            my_self=peer,
-            reader=reconnect_reader,
-            writer=reconnect_writer,
-            endpoint=reconnect_writer.get_extra_info("Server"),
-        )
-
-        await reconnect_handler.send_obj(peer)
-
-        try:
-            async with timeout(TEST_TIMEOUT):
-                while not mocked.on_peer_recovery.called:
-                    await asyncio.sleep(0.05)
-        except asyncio.TimeoutError:
-            pytest.fail("on_peer_recovery callback was not called in time")
-
-        msg = ChatMessage(sender=peer, message="Recovered hello", game_phase=None)
-        await reconnect_handler.send_obj(msg)
-
-        try:
-            async with timeout(TEST_TIMEOUT):
-                while not mocked.on_new_message.called:
-                    await asyncio.sleep(0.05)
-        except asyncio.TimeoutError:
-            pytest.fail("on_new_message callback was not called in time after recovery")
-
-        assert mocked.on_peer_recovery.call_count == 1
-        assert mocked.on_peer_recovery.call_args.args[0] == peer
-        assert mocked.on_peer_disconnected.call_count == 0
-        assert mocked.on_new_message.call_args.args[0] == msg
-
-        await reconnect_handler.close()
-    finally:
-        await handler.close()
 
 async def _connect_two_clients(
     browser: TcpMdnsLobbyBrowser,

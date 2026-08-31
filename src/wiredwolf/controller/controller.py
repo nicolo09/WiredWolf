@@ -17,7 +17,9 @@ from wiredwolf.controller.messages import (
     LobbyUpdatedMessage,
     NightActionMessage,
     NotAcknowledgeMessage,
+    PauseGameMessage,
     PhaseAdvanceMessage,
+    ResumeGameMessage,
     StartGameMessage,
     VoteBallotMessage,
     VotePlayerMessage,
@@ -381,6 +383,14 @@ class GameController(Recoverable):
                     self._logger.warning(
                         "Received chat message with missing sender or message content."
                     )
+            case PauseGameMessage():
+                # Pause the game
+                self._logger.info("Game has been paused.")
+                self._event_sender.error_occurred("Game Paused", "The game has been paused by the server.")
+            case ResumeGameMessage():
+                # Resume the game
+                self._logger.info("Game has been resumed.")
+                self._event_sender.error_ended()
             case _:
                 self._logger.warning("Unhandled message type: %s", type(message))
 

@@ -5,10 +5,10 @@ import logging
 import abc
 
 from wiredwolf.controller import commons
-from wiredwolf.controller.connections.connections import AsyncTCPClientConnectionHandler, ClientConnectionHandler, ConnectionHandlerFactory, ServerConnectionHandler
+from wiredwolf.controller.connections.connections import AsyncTCPClientConnectionHandler, ClientConnectionHandler, ConnectionHandlerFactory, ReconnectedOutcome, ServerConnectionHandler
 from wiredwolf.controller.lobbies import Lobby, LobbyBrowser, TcpMdnsLobbyBrowser
 from wiredwolf.controller.messages import BaseMessage, CandidateForElectionMessage, ElectionFailedMessage, MasterElectedMessage, RecoveredConnectionsMessage, ApproveCandidateMessage
-from wiredwolf.controller.server import GameServer, GameServerFactory
+from wiredwolf.controller.server import GameServer, GameServerFactory, Server
 from wiredwolf.model.game import Game, GameStatus
 
 class Recoverable(abc.ABC):
@@ -172,11 +172,11 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                                         self._new_master = best_backup
                                 else:
                                     self._phase = RecoveryPhase.READY_FOR_ELECTION
-
-                async def on_new_peer_connection(peer: commons.Peer):
-                    self.__logger.info("New peer connection established with peer: %s", peer)
-                    peers_status[peer] = ConnectionStatus.CONNECTED
-                    peers_connections[peer] = 0
+                
+                async def on_peer_disconnection(peer: commons.Peer):
+                    self.__logger.info("Peer disconnected: %s", peer)
+                    peers_status[peer] = ConnectionStatus.DISCONNECTED
+                    peers_connections.pop(peer, None)
                     peers_connections[controller.my_self] = len(self._get_connected_peers(peers_status))
                     await self._send_message_to_all(
                         RecoveredConnectionsMessage(
@@ -185,30 +185,46 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                         ),
                         peers_status,
                     )
-
-                async def on_peer_disconnection(peer: commons.Peer):
-                        self.__logger.info("Peer disconnected: %s", peer)
-                        peers_status[peer] = ConnectionStatus.DISCONNECTED
-                        peers_connections.pop(peer, None)
-                        peers_connections[controller.my_self] = len(self._get_connected_peers(peers_status))
-                        await self._send_message_to_all(
+                    
+                class BackupServer(Server):
+                    """A backup server used to recover connections with other peers after the main server becomes unreachable.
+                    """
+                    
+                    def __init__(self, conn_recoverer: TCPConnectionRecoverer, controller: Recoverable):
+                        super().__init__()
+                        self._conn_recoverer = conn_recoverer
+                        self._controller = controller
+                
+                    async def _on_new_peer(self, peer: commons.Peer):
+                        self._conn_recoverer.__logger.info("New peer connection established with peer: %s", peer)
+                        peers_status[peer] = ConnectionStatus.CONNECTED
+                        peers_connections[peer] = 0
+                        peers_connections[controller.my_self] = len(self._conn_recoverer._get_connected_peers(peers_status))
+                        await self._conn_recoverer._send_message_to_all(
                             RecoveredConnectionsMessage(
                                 controller.my_self,
-                                len(self._get_connected_peers(peers_status)),
+                                len(self._conn_recoverer._get_connected_peers(peers_status)),
                             ),
                             peers_status,
                         )
 
-                async def on_new_message(message: BaseMessage):
-                    self.__logger.info("New message received: %s", message)
-                    on_message(message)  # Call the on_message method to handle the received message
+                    async def _on_peer_disconnected(self, peer: commons.Peer):
+                        await on_peer_disconnection(peer)  # Call the on_peer_disconnection method to handle the disconnection
+                        
+                    async def _on_peer_error(self, peer: commons.Peer, outcome: asyncio.Future[ReconnectedOutcome]):
+                        pass #TODO: implement error handling for peer recovery if needed
+                    
+                    async def process_incoming_message(self, message: BaseMessage):
+                        self._conn_recoverer.__logger.info("New message received: %s", message)
+                        on_message(message)  # Call the on_message method to handle the received message
+                        
+                    @property
+                    async def should_recover_connections(self) -> bool:
+                        return True  #FIXME: Always allow recovery of connections for the backup server?
 
                 self._server_conn_handler = ConnectionHandlerFactory.get_server_connection_handler(
                     (commons.DEFAULT_SERVER_HOST, commons.DEFAULT_SERVER_PORT),
-                    on_new_peer=on_new_peer_connection,
-                    on_peer_disconnected=on_peer_disconnection,
-                    on_new_message=on_new_message,
-                    on_peer_recovery=on_new_peer_connection  #FIXME: This is just a placeholder, handle it properly
+                    server=BackupServer(self, controller)
                 )
                 await self._server_conn_handler.start_listening()
                 # ...and in the meanwhile we try to connect to other peers in the lobby
@@ -327,7 +343,6 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                                 MasterElectedMessage(controller.my_self, self._new_master),
                                 peers_status
                             )
-                            await self._server_conn_handler.close()  # Close the server connection handler if I'm not the new master
                     else:
                         self.__logger.error("Recovery failed, could not elect a new master.")
                 else:

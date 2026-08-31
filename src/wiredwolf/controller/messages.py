@@ -321,3 +321,15 @@ class RemovedPeerMessage(BaseMessage):
             Peer: The peer that left the lobby.
         """
         return self._removed_peer
+
+class PauseGameMessage(BaseMessage):
+    """A message sent by the server to indicate that the game has been paused due to an error"""
+
+    def __init__(self, sender: Peer | None):
+        super().__init__(sender)
+        
+class ResumeGameMessage(BaseMessage):
+    """A message sent by the server to indicate that the game has been resumed after a pause"""
+
+    def __init__(self, sender: Peer | None):
+        super().__init__(sender)
