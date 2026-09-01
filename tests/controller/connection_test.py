@@ -24,7 +24,7 @@ async def server_conn_handler() -> AsyncGenerator[
     tuple[connections.AsyncTCPServerConnectionHandler, mock.Mock], None
 ]:
 
-    mocked = mock.AsyncMock()
+    mocked = mock.AsyncMock(spec=GameServer)
     serverConnHandler = connections.AsyncTCPServerConnectionHandler(
         bind_address=TEST_BIND_ADDRESS,
         server = mocked
@@ -163,41 +163,46 @@ async def test_double_call_to_start_receiving(
 async def test_server_connection_handler_callbacks(
     server_conn_handler: tuple[connections.AsyncTCPServerConnectionHandler, mock.Mock]
 ):
-    handler, mocked = server_conn_handler
+    server_handler, mocked = server_conn_handler
     myself = Peer("Client1")
-    await handler.start_listening()
+    await server_handler.start_listening()
     reader, writer = await asyncio.open_connection(*TEST_BIND_ADDRESS)
-    handler = connections.ConnectionHandlerFactory.get_client_connection_handler(
+    client_handler = connections.ConnectionHandlerFactory.get_client_connection_handler(
         my_self=myself,
         reader=reader,
         writer=writer,
         endpoint=writer.get_extra_info("Server")
     )
-    handler.set_on_message(lambda msg: mocked.on_new_client_message(msg))
-    await handler.start_receiving()
-    await handler.send_obj(myself)
+    await client_handler.start_receiving()
+    await client_handler.send_obj(myself)
     try:
         async with timeout(5):
-            while not mocked.on_new_peer.called:
+            while mocked._on_new_peer.await_count == 0:
                 await asyncio.sleep(0.1)
     except asyncio.TimeoutError:
         pytest.fail("on_new_peer callback was not called in time")
-    assert mocked.on_new_peer.call_count == 1, "on_new_peer should be called once"
-    peer_arg = mocked.on_new_peer.call_args.args[0]
+    assert mocked._on_new_peer.await_count == 1, "on_new_peer should be called once"
+    peer_arg = mocked._on_new_peer.await_args.args[0]
     assert peer_arg == myself, "on_new_peer should be called with the correct Peer instance"
     msg = ChatMessage(sender=myself, message="Hello", game_phase=None)
-    await handler.send_obj(msg)
+    await client_handler.send_obj(msg)
     try:
         async with timeout(5):
-            while not mocked.on_new_message.called:
+            while not any(
+                call.args[0] == msg
+                for call in mocked.process_incoming_message.await_args_list
+            ):
                 await asyncio.sleep(0.1)
     except asyncio.TimeoutError:
-        pytest.fail("on_new_message callback was not called in time")
-    assert mocked.on_new_message.call_count == 1, "on_new_message should be called once"
-    msg_arg = mocked.on_new_message.call_args.args[0]
-    assert msg_arg == msg, "on_new_message should be called with the correct message"
+        pytest.fail("process_incoming_message callback was not called in time")
+    msg_args = [
+        call.args[0]
+        for call in mocked.process_incoming_message.await_args_list
+        if call.args[0] == msg
+    ]
+    assert len(msg_args) == 1, "process_incoming_message should receive the chat message once"
     try:
-        await handler.close()
+        await client_handler.close()
     except connections.ConnectionClosedError:
         pass
 
