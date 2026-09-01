@@ -3,7 +3,7 @@ import pytest
 import pytest_asyncio
 from wiredwolf.controller.commons import DEFAULT_SERVER_PORT, Peer
 from wiredwolf.controller.lobbies import Lobby, TcpMdnsLobbyBrowser
-from wiredwolf.controller.game_server import GameServer, GameServerFactory
+from wiredwolf.controller.server.game_server import GameServer, GameServerFactory
 
 
 PASSWORD: str = "password123"

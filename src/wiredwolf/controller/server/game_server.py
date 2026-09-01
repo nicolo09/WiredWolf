@@ -3,7 +3,7 @@ import logging
 from asyncio import Future, Task
 from socket import socketpair
 from wiredwolf.controller import commons
-from wiredwolf.controller.server_base import Server
+from wiredwolf.controller.server.server_base import Server
 from wiredwolf.controller.connections.connections import (
     ClientConnectionHandler,
     ConnectionHandlerFactory,
@@ -436,7 +436,7 @@ class GameServerFactory:
         Returns:
             tuple[GameServer, ClientConnectionHandler]: The created GameServer and the owner's ClientConnectionHandler.
         """
-        from wiredwolf.controller.server_plugins import get_plugins_list
+        from wiredwolf.controller.server.server_plugins import get_plugins_list
         client_socket, server_socket = socketpair()
         client_reader, client_writer = await asyncio.open_connection(sock=client_socket)
         server_reader, server_writer = await asyncio.open_connection(sock=server_socket)

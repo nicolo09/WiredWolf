@@ -22,7 +22,7 @@ from wiredwolf.controller.messages import (
 import asyncio
 from asyncio import CancelledError, Future
 
-from wiredwolf.controller.server_base import Server
+from wiredwolf.controller.server.server_base import Server
 
 PEERNAME_EXTRA_INFO = "peername"
 HEARTBEAT_INTERVAL = 5  # seconds

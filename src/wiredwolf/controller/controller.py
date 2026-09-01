@@ -24,7 +24,7 @@ from wiredwolf.controller.messages import (
     VoteBallotMessage,
     VotePlayerMessage,
 )
-from wiredwolf.controller.server import DuplicateIdException, GameServer, GameServerFactory
+from wiredwolf.controller.server.game_server import DuplicateIdException, GameServer, GameServerFactory
 from wiredwolf.controller.commons import ACK_TIMEOUT_SECONDS, DEFAULT_SERVER_PORT, Peer
 from wiredwolf.model.game import GameStatus, can_perform_action_on
 from wiredwolf.model.game_phases import GamePhase, NightActionResult

@@ -3,7 +3,7 @@ import pytest
 import pytest_asyncio
 from wiredwolf.controller.commons import Peer
 from wiredwolf.controller.messages import AcknowledgeMessage, ChatMessage, NotAcknowledgeMessage
-from wiredwolf.controller.server_plugins import ChatPlugin
+from wiredwolf.controller.server.server_plugins import ChatPlugin
 from wiredwolf.model.game_phases import GamePhase
 from wiredwolf.model.player import BasicRole, Player, Status
 

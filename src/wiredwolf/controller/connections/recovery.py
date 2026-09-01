@@ -9,8 +9,8 @@ from wiredwolf.controller.commons import ReconnectedOutcome
 from wiredwolf.controller.connections.connections import AsyncTCPClientConnectionHandler, ClientConnectionHandler, ConnectionHandlerFactory, ServerConnectionHandler
 from wiredwolf.controller.lobbies import Lobby, LobbyBrowser, TcpMdnsLobbyBrowser
 from wiredwolf.controller.messages import BaseMessage, CandidateForElectionMessage, ElectionFailedMessage, MasterElectedMessage, RecoveredConnectionsMessage, ApproveCandidateMessage
-from wiredwolf.controller.game_server import GameServer, GameServerFactory
-from wiredwolf.controller.server_base import Server
+from wiredwolf.controller.server.game_server import GameServer, GameServerFactory
+from wiredwolf.controller.server.server_base import Server
 from wiredwolf.model.game import Game, GameStatus
 
 class Recoverable(abc.ABC):
