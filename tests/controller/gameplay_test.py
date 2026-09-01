@@ -14,7 +14,7 @@ from wiredwolf.controller.messages import (
     PhaseAdvanceMessage,
     StartGameMessage,
 )
-from wiredwolf.controller.server import GameServer
+from wiredwolf.controller.game_server import GameServer
 
 logger = logging.getLogger(__name__)
 

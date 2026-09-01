@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from enum import Enum
 import random
 import string
 import uuid
@@ -36,6 +37,13 @@ class PasswordRequest:
 
     password: str | None = None
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
+
+
+class ReconnectedOutcome(Enum):
+    """Enum representing the outcome of a peer reconnection attempt."""
+    SUCCESS = 1
+    FAILURE = 2
+
 
 def lobby_id_generator(size: int = 15, chars: str = string.ascii_uppercase + string.digits):
     return ''.join(random.choice(chars) for _ in range(size))

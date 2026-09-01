@@ -10,7 +10,7 @@ from wiredwolf.controller.commons import DEFAULT_SERVER_PORT, Peer
 import wiredwolf.controller.connections.connections as connections
 from wiredwolf.controller.lobbies import Lobby, TcpMdnsLobbyBrowser
 from wiredwolf.controller.messages import BaseMessage, ChatMessage, HeartbeatMessage, LobbyUpdatedMessage, NotAcknowledgeMessage
-from wiredwolf.controller.server import GameServer, GameServerFactory
+from wiredwolf.controller.game_server import GameServer, GameServerFactory
 from wiredwolf.controller.server_plugins import ChatPlugin, GameLifecyclePlugin
 
 TEST_BIND_ADDRESS = ("127.0.0.1", DEFAULT_SERVER_PORT)

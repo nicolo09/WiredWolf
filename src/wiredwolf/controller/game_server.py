@@ -3,10 +3,10 @@ import logging
 from asyncio import Future, Task
 from socket import socketpair
 from wiredwolf.controller import commons
+from wiredwolf.controller.server_base import Server
 from wiredwolf.controller.connections.connections import (
     ClientConnectionHandler,
     ConnectionHandlerFactory,
-    ReconnectedOutcome,
     ServerConnectionHandler,
 )
 from wiredwolf.controller.messages import (
@@ -87,40 +87,6 @@ class ServerPlugin(abc.ABC):
         pass
     
     
-class Server(abc.ABC):
-    """Abstract base class for a server
-    """
-    
-    @abc.abstractmethod
-    async def _on_new_peer(self, peer: commons.Peer):
-        """Called when a new peer connects to the server"""
-    
-    @abc.abstractmethod
-    async def _on_peer_disconnected(self, peer: commons.Peer):
-        """Called when a peer disconnects from the server"""
-    
-    @abc.abstractmethod
-    async def _on_peer_error(self, peer: commons.Peer, outcome: Future[ReconnectedOutcome]):
-        """Called when a peer encounters an error
-        
-        Args:
-            peer (commons.Peer): The peer that encountered an error
-            outcome (Future[ReconnectedOutcome]): The future that will be completed when the peer either reconnects or fails to reconnect
-        """
-
-    @abc.abstractmethod
-    async def process_incoming_message(self, message: BaseMessage):
-        """Handles a message coming from a peer.
-
-        Args:
-            message (BaseMessage): The message to handle.
-        """
-    
-    @property
-    @abc.abstractmethod
-    async def should_recover_connections(self) -> bool:
-        """Indicates whether the connection handler this server uses should attempt to recover lost connections."""
-
 class GameServer(Server):
     """Represents a wiredwolf server that manages a game lobby and player connections."""
 
@@ -227,18 +193,18 @@ class GameServer(Server):
         except Exception as e:
             self.__logger.error("Error handling new peer %s: %s", peer, e)
 
-    async def _on_peer_error(self, peer: commons.Peer, outcome: Future[ReconnectedOutcome]):
+    async def _on_peer_error(self, peer: commons.Peer, outcome: Future[commons.ReconnectedOutcome]):
         """Called when the connection handler detect an error with a peer connection and is trying to recover
 
         Args:
             peer (commons.Peer): The peer that had an error
-            outcome (Future[ReconnectedOutcome]): The future that will be completed when the peer either reconnects or fails to reconnect
+            outcome (Future[commons.ReconnectedOutcome]): The future that will be completed when the peer either reconnects or fails to reconnect
         """
         self.__logger.warning("Peer %s has encountered a connection error. Awaiting recovery outcome.", peer)
         await self.send_to_all(PauseGameMessage(peer))
         try:
             result = await outcome
-            if result == ReconnectedOutcome.SUCCESS:
+            if result == commons.ReconnectedOutcome.SUCCESS:
                 self.__logger.info("Peer %s has successfully reconnected.", peer)
                 #TODO: send gamestatus to reconnected peer
             else:

@@ -9,7 +9,7 @@ from wiredwolf.controller.connections.connections import (
 )
 from wiredwolf.controller.lobbies import Lobby, LobbyBrowser, TcpMdnsLobbyBrowser
 from wiredwolf.controller.messages import LobbyUpdatedMessage
-from wiredwolf.controller.server import GameServer, GameServerFactory
+from wiredwolf.controller.game_server import GameServer, GameServerFactory
 
 
 class TestFactory:

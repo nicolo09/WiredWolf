@@ -8,7 +8,7 @@ from wiredwolf.controller.messages import (
     VoteBallotMessage,
     VotePlayerMessage,
 )
-from wiredwolf.controller.server import GameServer, ServerPlugin
+from wiredwolf.controller.game_server import GameServer, ServerPlugin
 from wiredwolf.model.game_phases import GamePhase
 from wiredwolf.model.player import BasicRole
 

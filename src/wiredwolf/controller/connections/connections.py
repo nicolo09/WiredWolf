@@ -9,6 +9,7 @@ from wiredwolf.controller.commons import (
     CONNECTION_TIMEOUT,
     RECEIVING_TASK_CLOSE_TIMEOUT,
     Peer,
+    ReconnectedOutcome,
 )
 from wiredwolf.controller.messages import (
     BaseMessage,
@@ -21,7 +22,7 @@ from wiredwolf.controller.messages import (
 import asyncio
 from asyncio import CancelledError, Future
 
-from wiredwolf.controller.server import Server
+from wiredwolf.controller.server_base import Server
 
 PEERNAME_EXTRA_INFO = "peername"
 HEARTBEAT_INTERVAL = 5  # seconds
@@ -421,11 +422,6 @@ class AsyncTCPMessageHandler:  # TODO: Make this implement a MessageHandler inte
         data = await self.receive(endpoint)
         return self._serializer.deserialize(data)
 
-
-class ReconnectedOutcome(Enum):
-    """Enum representing the outcome of a peer reconnection attempt."""
-    SUCCESS = 1
-    FAILURE = 2
 
 class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
     """Server connection handler implementation using asyncio and TCP sockets."""
