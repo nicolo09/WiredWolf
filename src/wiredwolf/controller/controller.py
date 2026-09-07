@@ -125,9 +125,19 @@ class GameController(Recoverable):
         
     async def _on_disconnect(self):
         """Handles the disconnection event by attempting to recover the connection."""
-        if self._game_status and self._game_status.phase in [GamePhase.VILLAGERS_VICTORY, GamePhase.WEREWOLVES_VICTORY]:
+        
+        # If there is no game in progress, do not attempt to recover the connection
+        if self._game_status is None:
+            self._logger.info("No game in progress. No need to recover connection.")
+            return
+        # If the game has ended, do not attempt to recover the connection
+        if self._game_status.phase in [GamePhase.VILLAGERS_VICTORY, GamePhase.WEREWOLVES_VICTORY]:
             self._logger.info("Game has ended. No need to recover connection.")
-            return 
+            return
+        
+        if self._server is None:
+            # This client disconnected, show the user that an error occurred
+            self._event_sender.error_occurred("Connection Lost", "Connection lost. Attempting to recover...")
         
         async def show_error_and_go_home(error: str):
             self._event_sender.error_occurred("Connection closed", error)
