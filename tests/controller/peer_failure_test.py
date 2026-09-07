@@ -62,6 +62,7 @@ async def test_peer_error_pauses_and_resumes_game_for_all_clients(
     server._game = mock.Mock()
     server._game.phase = GamePhase.NIGHT
     server._game.get_game_status.return_value = None
+    server._game.get_game_snapshot.return_value = None
     await server.start_listening()
 
     # The client stays connected and represents the remaining peer in the lobby.
@@ -87,27 +88,31 @@ async def test_peer_error_pauses_and_resumes_game_for_all_clients(
     _set_pause_resume_observer(client_handler, client_pause_event, client_resume_event)
 
     try:
-        # Simulate peer disconnection: closing the socket makes the server detect the network
-        # error and start the pause/resume recovery flow
-        failing_connection._writer.close()
-        await failing_connection._writer.wait_closed()
+        with mock.patch(
+            "wiredwolf.controller.server.game_server.Game.from_game_status",
+            return_value=server._game,
+        ):
+            # Simulate peer disconnection: closing the socket makes the server detect the network
+            # error and start the pause/resume recovery flow
+            failing_connection._writer.close()
+            await failing_connection._writer.wait_closed()
 
-        # Wait until the server has created the internal reconnect future for the disconnected peer.
-        async with asyncio.timeout(5):
-            while failing_client not in tcp_server._recovery_futures:
-                await asyncio.sleep(0.05)
+            # Wait until the server has created the internal reconnect future for the disconnected peer.
+            async with asyncio.timeout(5):
+                while failing_client not in tcp_server._recovery_futures:
+                    await asyncio.sleep(0.05)
 
-        # The server pauses the game for all still-connected peers after the disconnect is detected.
-        async with asyncio.timeout(5):
-            await asyncio.gather(owner_pause_event.wait(), client_pause_event.wait())
+            # The server pauses the game for all still-connected peers after the disconnect is detected.
+            async with asyncio.timeout(5):
+                await asyncio.gather(owner_pause_event.wait(), client_pause_event.wait())
 
-        # Once the pause is observed, resolve the server-created reconnect future to let the
-        # recovery flow complete and trigger the final resume message.
-        recovery_future = tcp_server._recovery_futures[failing_client]
-        recovery_future.set_result(reconnect_outcome)
+            # Once the pause is observed, resolve the server-created reconnect future to let the
+            # recovery flow complete and trigger the final resume message.
+            recovery_future = tcp_server._recovery_futures[failing_client]
+            recovery_future.set_result(reconnect_outcome)
 
-        async with asyncio.timeout(5):
-            await asyncio.gather(owner_resume_event.wait(), client_resume_event.wait())
+            async with asyncio.timeout(5):
+                await asyncio.gather(owner_resume_event.wait(), client_resume_event.wait())
     finally:
         await server.close()
         await owner_handler.close()

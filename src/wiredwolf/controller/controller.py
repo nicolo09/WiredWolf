@@ -135,10 +135,9 @@ class GameController(Recoverable):
             self._event_sender.error_ended_go_to_home()
         
         self._logger.warning("Connection lost. Attempting to recover...")
-        # TODO: Choose if the controller should try to recover the connection
         if self._connection_recoverer:
             try:
-                self._lobby, self._server, self._client_connection_handler, self._game_status = await self._connection_recoverer.recover(self)
+                self._lobby, self._server, self._client_connection_handler = await self._connection_recoverer.recover(self)
                 if self._server:
                     await self._server.start_game()
             except RecoveryFailedException as e:
@@ -194,6 +193,8 @@ class GameController(Recoverable):
             self._client_connection_handler = None
         # Reset the lobby status
         self._lobby = None
+        # Reset the game status
+        self._game_status = None
 
     async def stop_publishing_lobby(self):
         """Stops publishing the lobby, leaving the server open but not advertising it. This is typically called when the game starts."""
@@ -388,8 +389,9 @@ class GameController(Recoverable):
                 self._logger.info("Game has been paused.")
                 self._event_sender.error_occurred("Game Paused", "The game has been paused by the server.")
             case ResumeGameMessage():
-                # Resume the game
+                # Resume the game and sets the game status to the most recent stable version
                 self._logger.info("Game has been resumed.")
+                self._game_status = message.game_status
                 self._event_sender.error_ended()
             case _:
                 self._logger.warning("Unhandled message type: %s", type(message))

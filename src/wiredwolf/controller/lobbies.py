@@ -373,7 +373,7 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
     
     async def reconnect_to_lobby(
         self, my_self: Peer, address: tuple[str, int]
-    ) -> tuple[ClientConnectionHandler, Lobby, GameStatus]:
+    ) -> tuple[ClientConnectionHandler, Lobby]:
         """
         Attempts to reconnect to a previously joined lobby at the given address.
 
@@ -381,14 +381,14 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
             my_self (Peer): The peer object representing the client.
             address (tuple[str, int]): The (IP, port) address of the lobby to reconnect to.
         Returns:
-            tuple[ClientConnectionHandler, Lobby, GameStatus]: The connected client handler, the joined lobby, and the game status.
+            tuple[ClientConnectionHandler, Lobby]: The connected client handler and the joined lobby.
         """
         reader, writer = await self._open_connection(address)
         handler = MessageHandlerFactory.getDefault()
         await handler.send_obj(writer, my_self)
-        lobby, game_status = await handler.receive_obj(reader)
-        if isinstance(lobby, Lobby) and isinstance(game_status, GameStatus):
-            return AsyncTCPClientConnectionHandler(my_self, reader, writer, address), lobby, game_status
+        lobby = await handler.receive_obj(reader)
+        if isinstance(lobby, Lobby):
+            return AsyncTCPClientConnectionHandler(my_self, reader, writer, address), lobby
         else:
             writer.close()
             raise RuntimeError("Unexpected message received during reconnection.")

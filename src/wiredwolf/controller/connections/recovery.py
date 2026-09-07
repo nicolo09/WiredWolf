@@ -86,7 +86,7 @@ class RecoveryFailedException(Exception):
 class ConnectionRecoverer(abc.ABC):
     
     @abc.abstractmethod
-    async def recover(self, controller: Recoverable) -> tuple[Lobby, GameServer | None, ClientConnectionHandler, GameStatus]:
+    async def recover(self, controller: Recoverable) -> tuple[Lobby, GameServer | None, ClientConnectionHandler]:
         """
         Tries to recover the connection of the given Recoverable.
 
@@ -108,7 +108,7 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
         self._backups: set[commons.Peer] = set()  # Set of backup peers that can be used for recovery
         self._can_candidate: bool = False  # Flag to indicate if candidation is allowed after the timeout
 
-    async def recover(self, controller: Recoverable) -> tuple[Lobby, GameServer | None, ClientConnectionHandler, GameStatus]:
+    async def recover(self, controller: Recoverable) -> tuple[Lobby, GameServer | None, ClientConnectionHandler]:
         """
         Tries to recover the TCP connection of the given Recoverable.
 
@@ -126,9 +126,9 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
             for tries in range(DIRECT_RECONNECTION_RETRIES):
                 try:
                     async with asyncio.timeout(DIRECT_RECONNECTION_TIMEOUT):  # Set a timeout for the direct reconnection attempt
-                        restored_client_conn_handler, restored_lobby, restored_game_status = await lobby_browser.reconnect_to_lobby(controller.my_self, connection_handler.endpoint)
+                        restored_client_conn_handler, restored_lobby = await lobby_browser.reconnect_to_lobby(controller.my_self, connection_handler.endpoint)
                         self.__logger.info("Direct reconnection attempt %d succeeded.", tries + 1)
-                        return restored_lobby, None, restored_client_conn_handler, restored_game_status       
+                        return restored_lobby, None, restored_client_conn_handler       
                 except (asyncio.TimeoutError, Exception) as e:
                     # This attempt timed out or failed for another reason, log the warning and continue to the next attempt
                     self.__logger.warning("Direct reconnection attempt failed after %d tries.", tries + 1)
@@ -335,8 +335,10 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                                 new_lobby = Lobby.change_owner(lobby, controller.my_self)  # Create a new lobby with the current peer as the owner
                                                   
                                 new_game_server, new_client_conn_handler = await GameServerFactory.get_game_server(new_lobby, new_game)  # Create a new GameServer with the new lobby and game
+                                await new_game_server.start_listening()
                                 await asyncio.sleep(AWAIT_CONNECTIONS) # Wait a bit to let other peers connect to the new server
-                                return new_lobby, new_game_server, new_client_conn_handler, new_game.get_game_status()
+                                new_game_server.stop_new_connections()
+                                return new_lobby, new_game_server, new_client_conn_handler
                             else:
                                 self.__logger.error("Game instance is None after becoming the new master.")
                                 raise RuntimeError("Game instance is None after becoming the new master.")
@@ -345,12 +347,22 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                                 MasterElectedMessage(controller.my_self, self._new_master),
                                 peers_status
                             )
+                            master_address = known_peers.get(self._new_master)
+                            if master_address is not None:
+                                new_client_conn_handler, new_lobby = await lobby_browser.reconnect_to_lobby(controller.my_self, (master_address, commons.DEFAULT_SERVER_PORT))
+                                return new_lobby, None, new_client_conn_handler
+                            else:
+                                self.__logger.error("Master address is None.")
+                                raise RuntimeError("Master address is None.")
                     else:
                         self.__logger.error("Recovery failed, could not elect a new master.")
+                        raise RecoveryFailedException("Recovery failed, could not elect a new master.")
                 else:
                     self.__logger.error("Failed to connect to any peers after %d attempts.", NEW_CONNECTION_RETRIES)
+                    raise RecoveryFailedException("Failed to connect to any peers after multiple attempts.")
             else:
                 self.__logger.error("Lobby is None, cannot retrieve the list of peers to connect to.")
+                raise RuntimeError("Lobby is None, cannot retrieve the list of peers to connect to.")
         else:
             self.__logger.error("Lobby browser or connection handler is not of the expected type for TCP recovery.")
             raise ValueError("Lobby browser or connection handler is not of the expected type for TCP recovery.")

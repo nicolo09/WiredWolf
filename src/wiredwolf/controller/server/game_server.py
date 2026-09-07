@@ -204,16 +204,15 @@ class GameServer(Server):
         await self.send_to_all(PauseGameMessage(peer))
         try:
             result = await outcome
-            if result == commons.ReconnectedOutcome.SUCCESS:
-                self.__logger.info("Peer %s has successfully reconnected.", peer)
-                #TODO: send gamestatus to reconnected peer
-            else:
+            if result == commons.ReconnectedOutcome.FAILURE:
                 self.__logger.warning("Peer %s failed to reconnect. Handling disconnection.", peer)
                 await self._on_peer_disconnected(peer)
         except Exception as e:
             self.__logger.error("Error while handling peer %s recovery: %s", peer, e)
         finally:
-            await self.send_to_all(ResumeGameMessage(peer))
+            if self._game:
+                self._game = Game.from_game_status(self._game.get_game_snapshot())
+                await self.send_to_all(ResumeGameMessage(peer, self._game.get_game_snapshot()))
             
 
     async def _on_peer_disconnected(self, peer: commons.Peer):

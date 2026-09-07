@@ -329,7 +329,16 @@ class PauseGameMessage(BaseMessage):
         super().__init__(sender)
         
 class ResumeGameMessage(BaseMessage):
-    """A message sent by the server to indicate that the game has been resumed after a pause"""
+    """A message sent by the server to indicate that the game has been resumed after a pause or error"""
 
-    def __init__(self, sender: Peer | None):
+    def __init__(self, sender: Peer | None, game_status: GameStatus):
         super().__init__(sender)
+        self._game_status = game_status
+
+    @property
+    def game_status(self) -> GameStatus:
+        """Gets the status of the game after resuming.
+        Returns:
+            GameStatus: The status of the game after resuming.
+        """
+        return self._game_status
