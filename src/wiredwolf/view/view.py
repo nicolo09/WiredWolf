@@ -1668,7 +1668,9 @@ class ErrorMessageScreen(AbstractScreen):
                 #Error ended, the controller found a way to keep consistency.
                 #If a specific screen is given, go to it
                 self.reset_screen()
-                self._game_state_manager.change_screen(e.next_screen)
+                if e.next_screen!=Screens.NONE:
+                    #If a screen is set go to it
+                    self._game_state_manager.change_screen(e.next_screen)
             if isinstance(e, ChangeScreenType):
                 #Go to next screen, as called by the controller
                 self.reset_screen()
