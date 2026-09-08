@@ -137,7 +137,7 @@ class GameController(Recoverable):
         
         if self._server is None:
             # This client disconnected, show the user that an error occurred
-            self._event_sender.error_occurred("Connection Lost", "Connection lost. Attempting to recover...")
+            self._event_sender.waiting_for_reconnection()
         
         async def show_error_and_go_home(error: str):
             self._event_sender.error_occurred("Connection closed", error)

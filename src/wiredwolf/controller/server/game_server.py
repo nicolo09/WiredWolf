@@ -201,7 +201,7 @@ class GameServer(Server):
             outcome (Future[commons.ReconnectedOutcome]): The future that will be completed when the peer either reconnects or fails to reconnect
         """
         self.__logger.warning("Peer %s has encountered a connection error. Awaiting recovery outcome.", peer)
-        await self.send_to_all(PauseGameMessage(peer))
+        await self.send_to_all(PauseGameMessage())
         try:
             result = await outcome
             if result == commons.ReconnectedOutcome.FAILURE:
@@ -212,7 +212,7 @@ class GameServer(Server):
         finally:
             if self._game:
                 self._game = Game.from_game_status(self._game.get_game_snapshot())
-                await self.send_to_all(ResumeGameMessage(peer, self._game.get_game_snapshot()))
+                await self.send_to_all(ResumeGameMessage(self._game.get_game_snapshot()))
             
 
     async def _on_peer_disconnected(self, peer: commons.Peer):
@@ -332,7 +332,7 @@ class GameServer(Server):
             )
         else:
             self.__logger.info("Game resumed with players: %s", self._game.players)
-            await self.send_to_all(GameStartedMessage(self._game.get_game_status()))
+            await self.send_to_all(ResumeGameMessage(self._game.get_game_snapshot()))
             self._game_actual_phase_task = asyncio.create_task(
                 self.wait_and_advance_game(commons.PHASE_DURATION_SECONDS)
             )

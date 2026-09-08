@@ -325,14 +325,14 @@ class RemovedPeerMessage(BaseMessage):
 class PauseGameMessage(BaseMessage):
     """A message sent by the server to indicate that the game has been paused due to an error"""
 
-    def __init__(self, sender: Peer | None):
-        super().__init__(sender)
+    def __init__(self):
+        super().__init__(None)
         
 class ResumeGameMessage(BaseMessage):
     """A message sent by the server to indicate that the game has been resumed after a pause or error"""
 
-    def __init__(self, sender: Peer | None, game_status: GameStatus):
-        super().__init__(sender)
+    def __init__(self, game_status: GameStatus):
+        super().__init__(None)
         self._game_status = game_status
 
     @property
