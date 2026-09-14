@@ -19,7 +19,6 @@ from wiredwolf.controller.messages import (
     NotAcknowledgeMessage,
     PauseGameMessage,
     PhaseAdvanceMessage,
-    ResumeGameMessage,
     StartGameMessage,
     VoteBallotMessage,
     VotePlayerMessage,
@@ -148,6 +147,9 @@ class GameController(Recoverable):
         if self._connection_recoverer:
             try:
                 self._lobby, self._server, self._client_connection_handler = await self._connection_recoverer.recover(self)
+                self._client_connection_handler.set_on_message(self._on_message)
+                self._client_connection_handler.set_on_disconnect(self._on_disconnect)
+                await self._client_connection_handler.start_receiving()
                 if self._server:
                     await self._server.start_game()
             except RecoveryFailedException as e:
@@ -234,6 +236,7 @@ class GameController(Recoverable):
                 self._my_self = Peer(self._my_self.name, new_uuid)
                 self._logger.info("Updated UUID: %s. Retrying...", new_uuid)
         self._client_connection_handler.set_on_message(self._on_message)
+        self._client_connection_handler.set_on_disconnect(self._on_disconnect)
         await self._client_connection_handler.start_receiving()
         return self._lobby
 
@@ -398,11 +401,6 @@ class GameController(Recoverable):
                 # Pause the game
                 self._logger.info("Game has been paused.")
                 self._event_sender.error_occurred("Game Paused", "The game has been paused by the server.")
-            case ResumeGameMessage():
-                # Resume the game and sets the game status to the most recent stable version
-                self._logger.info("Game has been resumed.")
-                self._game_status = message.game_status
-                self._event_sender.error_ended()
             case _:
                 self._logger.warning("Unhandled message type: %s", type(message))
 

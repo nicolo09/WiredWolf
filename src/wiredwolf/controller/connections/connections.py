@@ -499,7 +499,6 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
         if should_recover:
             future = asyncio.get_event_loop().create_future()
             self._recovery_futures[peer] = future
-            await self._server._on_peer_error(peer, future)
             self._status[peer] = ConnectionStatus.RECOVERING
             try:
                 if not self._tcp_server:
@@ -522,14 +521,13 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 self._reconnect_timeout_task = asyncio.create_task(
                     self._wait_and_close_server(MAX_RECONNECT_TIMEOUT)
                 )
+                await self._server._on_peer_error(peer, future)
             except Exception:
                 # If an error occurs the peer is considered disconnected and the server will not wait for it to reconnect
                 self._endpoints.pop(peer, None)
                 self._status.pop(peer, None)
                 self._client_addresses.pop(peer, None)
-                receiving_task = self._receiving_tasks.pop(peer, None)
-                if receiving_task is not None and not receiving_task.done():
-                    receiving_task.cancel()
+                self._receiving_tasks.pop(peer, None)
                 self._recovery_futures[peer].set_result(ReconnectedOutcome.FAILURE)
                 self._recovery_futures.pop(peer, None)
                 # Inform other peers about the disconnection
@@ -540,9 +538,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
             self._endpoints.pop(peer, None)
             self._status.pop(peer, None)
             self._client_addresses.pop(peer, None)
-            receiving_task = self._receiving_tasks.pop(peer, None)
-            if receiving_task is not None and not receiving_task.done():
-                receiving_task.cancel()
+            self._receiving_tasks.pop(peer, None)
             await self._server._on_peer_disconnected(peer)
             # Inform other peers about the disconnection
             for other_peer in self._client_addresses.keys():
@@ -573,9 +569,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 self._status.pop(peer, None)
                 self._endpoints.pop(peer, None)
                 self._client_addresses.pop(peer, None)
-                receiving_task = self._receiving_tasks.pop(peer, None)
-                if receiving_task is not None and not receiving_task.done():
-                    receiving_task.cancel()
+                self._receiving_tasks.pop(peer, None)
                 # Inform other peers about the disconnection
                 for other_peer in self._client_addresses.keys():
                     await self.send_obj(other_peer, RemovedPeerMessage(peer))
@@ -600,17 +594,14 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 )
                 if peer in self._status and self._status[peer] == ConnectionStatus.RECOVERING:
                     # Peer has successfully reconnected, update its status and start receiving messages
-                    old_task = self._receiving_tasks.pop(peer, None)
-                    if old_task is not None and not old_task.done():
-                        old_task.cancel()
-                    self._endpoints[peer] = (reader, writer)
-                    # Inform the GameServer that the peer has successfully reconnected
-                    self._recovery_futures[peer].set_result(ReconnectedOutcome.SUCCESS)
-                    self._recovery_futures.pop(peer, None)
                     self._status[peer] = ConnectionStatus.CONNECTED
+                    self._receiving_tasks.pop(peer, None)
+                    self._endpoints[peer] = (reader, writer)
                     self._receiving_tasks[peer] = asyncio.create_task(
                         self._handle_peer_message(peer)
                     )
+                    self._recovery_futures[peer].set_result(ReconnectedOutcome.SUCCESS)
+                    self._recovery_futures.pop(peer, None)
                 else:
                     self._logger.warning(
                         "Received recovery connection from %s, but peer is not in recovering state.",
@@ -750,6 +741,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
             raise RuntimeError("Server is not currently accepting new connections.")
         else:
             self._tcp_server.close()
+            self._tcp_server = None
             self._logger.info("Stopped accepting new connections.")
 
     async def send_obj(self, receiver: Peer, obj: Any) -> None:

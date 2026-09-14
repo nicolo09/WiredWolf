@@ -17,7 +17,6 @@ from wiredwolf.controller.messages import (
     NotAcknowledgeMessage,
     PauseGameMessage,
     PhaseAdvanceMessage,
-    ResumeGameMessage,
 )
 from wiredwolf.controller.lobbies import Lobby
 import abc
@@ -201,24 +200,40 @@ class GameServer(Server):
             outcome (Future[commons.ReconnectedOutcome]): The future that will be completed when the peer either reconnects or fails to reconnect
         """
         self.__logger.warning("Peer %s has encountered a connection error. Awaiting recovery outcome.", peer)
+        if self._game_actual_phase_task:
+            self._game_actual_phase_task.cancel()  # Cancel the current phase advancement task
         await self.send_to_all(PauseGameMessage())
+        if self._game:
+            self._game = Game.from_game_status(self._game.get_game_snapshot())
         try:
             result = await outcome
-            if result == commons.ReconnectedOutcome.FAILURE:
+            if result == commons.ReconnectedOutcome.SUCCESS:
+                self.__logger.info("Peer %s successfully reconnected.", peer)
+                await self._server_conn_handler.send_obj(peer, self._lobby)
+            elif result == commons.ReconnectedOutcome.FAILURE:
                 self.__logger.warning("Peer %s failed to reconnect. Handling disconnection.", peer)
                 await self._on_peer_disconnected(peer)
+            else:
+                self.__logger.error("Unexpected outcome for peer %s recovery: %s", peer, result)
         except Exception as e:
             self.__logger.error("Error while handling peer %s recovery: %s", peer, e)
         finally:
-            if self._game:
-                self._game = Game.from_game_status(self._game.get_game_snapshot())
-                await self.send_to_all(ResumeGameMessage(self._game.get_game_snapshot()))
+            if self._game:               
+                self._game_actual_phase_task = asyncio.create_task(
+                    self.wait_and_advance_game(commons.PHASE_DURATION_SECONDS)
+                )
+                self._game_actual_phase_task.add_done_callback(
+                    lambda outcome: self.on_game_phase_advanced(outcome)
+                )
+                
             
 
     async def _on_peer_disconnected(self, peer: commons.Peer):
         self.__logger.info("Peer disconnected: %s", peer)
         if peer in self._lobby.peers:
             self._lobby.peers.remove(peer)
+            if self._game:
+                self._game.set_player_as_dead(peer.uuid)
             await self._notify_updated_lobby()
         else:
             self.__logger.warning("Received disconnection for unknown peer: %s", peer)
@@ -330,19 +345,23 @@ class GameServer(Server):
             self._game_actual_phase_task.add_done_callback(
                 lambda outcome: self.on_game_phase_advanced(outcome)
             )
+            self.stop_new_connections()
         else:
             self.__logger.info("Game resumed with players: %s", self._game.players)
-            await self.send_to_all(ResumeGameMessage(self._game.get_game_snapshot()))
             self._game_actual_phase_task = asyncio.create_task(
                 self.wait_and_advance_game(commons.PHASE_DURATION_SECONDS)
             )
             self._game_actual_phase_task.add_done_callback(
                 lambda outcome: self.on_game_phase_advanced(outcome)
             )
+            self.stop_new_connections()
 
     def on_game_phase_advanced(self, outcome: Task[GamePhaseOutcome]):
         # If the game is not over, set up the next phase timer
-        if outcome.result().new_phase is GamePhase.VILLAGERS_VICTORY:
+        if outcome.cancelled():
+            self.__logger.info("Game phase advancement task was cancelled.")
+            return
+        elif outcome.result().new_phase is GamePhase.VILLAGERS_VICTORY:
             self.__logger.info("Game over. Villagers have won.")
             return
         elif outcome.result().new_phase is GamePhase.WEREWOLVES_VICTORY:
