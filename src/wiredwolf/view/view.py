@@ -1667,9 +1667,9 @@ class ErrorMessageScreen(AbstractScreen):
             if isinstance(e, EndErrorType):
                 #Error ended, the controller found a way to keep consistency.
                 #If a specific screen is given, go to it
-                self.reset_screen()
                 if e.next_screen!=Screens.NONE:
                     #If a screen is set go to it
+                    self.reset_screen()
                     self._game_state_manager.change_screen(e.next_screen)
             if isinstance(e, ChangeScreenType):
                 #Go to next screen, as called by the controller
@@ -1706,12 +1706,17 @@ class WaitingForReconnectionScreen(AbstractScreen):
             self._loading_bar.percent_full=self._current_progress
 
         self._gui_manager.process_events(event) #processes pygame_gui events
-        #When lobby is created, screen changes to join lobby
         #If received custom event
         if event.type==self._global_state.custom_event:
             #parse the custom event into an object
             e=create_custom_event_from_dict(event.dict)
-            #TODO: What event need processing?
+            if isinstance(e, EndErrorType):
+                #Error ended, the controller found a way to keep consistency.
+                #If a specific screen is given, go to it
+                if e.next_screen!=Screens.NONE:
+                    #If a screen is set go to it
+                    self.reset_screen()
+                    self._game_state_manager.change_screen(e.next_screen)
             if isinstance(e, ChangeScreenType):
                 #If it's an error event, show error message
                 self.reset_screen() #Reset current screen for next time this is used
