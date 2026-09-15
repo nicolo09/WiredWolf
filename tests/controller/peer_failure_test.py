@@ -467,4 +467,159 @@ async def test_game_resumes_after_reconnection_phase_with_successful_reconnectio
             f"Reconnected peer {reconnected_peer_uuid} is not alive "
             f"in controller {controller.my_self.name} game status."
         )
-        
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("controllers", [8], indirect=True)
+async def test_two_peers_disconnect_one_reconnects(
+    controllers: list[tuple[GameController, EventSender]],
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Test that when 2 peers disconnect one second apart, and one reconnects while the other doesn't,
+    the game resumes with the correct player statuses."""
+    host_controller, host_event_sender = controllers[0]
+    reconnected_controller = controllers[-2][0]
+    disconnected_controller = controllers[-1][0]
+    reconnected_peer_uuid = reconnected_controller.my_self.uuid
+    disconnected_peer_uuid = disconnected_controller.my_self.uuid
+
+    # Patch reconnection and heartbeat timeouts so the server doesn't wait the defaults.
+    from wiredwolf.controller.connections import connections as conn_module
+    from wiredwolf.model.player import Status
+
+    monkeypatch.setattr(conn_module, "MAX_RECONNECT_TIMEOUT", 2)
+    monkeypatch.setattr(conn_module, "HEARTBEAT_INTERVAL", 1)
+
+    # Build a real lobby with enough connected peers to start a game.
+    await host_controller.create_lobby(name=LOBBY_NAME, password=None)
+
+    for controller, event_sender in controllers[1:]:
+        await make_client_join_host(
+            host_controller,
+            host_event_sender,
+            controller,
+            event_sender,
+        )
+
+    await host_controller.start_game()
+
+    # Wait for all controllers to have received the role assignment and started the first day.
+    for controller, event_sender in controllers:
+        user_role = cast(Mock, event_sender.user_role)
+        try:
+            async with asyncio.timeout(TEST_TIMEOUT):
+                while not user_role.called:
+                    await asyncio.sleep(0.1)
+        except asyncio.TimeoutError:
+            pytest.fail(
+                f"Controller {controller.my_self.name} did not receive role assignment within the timeout period."
+            )
+
+    # Record the current game phase.
+    assert host_controller.game_status is not None
+    initial_phase = host_controller.game_status.phase
+    assert initial_phase is not GamePhase.VILLAGERS_VICTORY
+    assert initial_phase is not GamePhase.WEREWOLVES_VICTORY
+
+    # Prevent the second peer from reconnecting by removing its _on_disconnect callback.
+    disconnected_handler = cast(
+        AsyncTCPClientConnectionHandler, disconnected_controller.connection_handler
+    )
+    assert disconnected_handler is not None
+    disconnected_handler._on_disconnect = None
+
+    # Patch the first peer's _handle_receive_loop_closed so that it triggers _on_disconnect
+    # (and thus attempts reconnection) when the transport closes.
+    reconnected_handler = cast(
+        AsyncTCPClientConnectionHandler, reconnected_controller.connection_handler
+    )
+    assert reconnected_handler is not None
+    assert reconnected_handler._receiving_task is not None
+
+    def patched_handle_receive_loop_closed(task: asyncio.Task[None]) -> None:
+        if reconnected_handler._on_disconnect is not None:
+            asyncio.create_task(reconnected_handler._on_disconnect())
+
+    reconnected_handler._receiving_task.remove_done_callback(
+        reconnected_handler._handle_receive_loop_closed
+    )
+    reconnected_handler._receiving_task.add_done_callback(
+        patched_handle_receive_loop_closed
+    )
+
+    # Disconnect the first peer.
+    await reconnected_handler.close()
+
+    # Wait for the game to be paused.
+    error_occurred = cast(Mock, host_event_sender.error_occurred)
+    try:
+        async with asyncio.timeout(TEST_TIMEOUT):
+            while not any(
+                call.args == (
+                    "Game Paused",
+                    "The game has been paused by the server.",
+                )
+                for call in error_occurred.call_args_list
+            ):
+                await asyncio.sleep(0.1)
+    except asyncio.TimeoutError:
+        pytest.fail("Host controller did not receive the game pause event in time")
+
+    # Wait one second before disconnecting the second peer.
+    await asyncio.sleep(1)
+
+    # Disconnect the second peer.
+    await disconnected_handler.close()
+
+    # Wait for the game to resume: the game status must be updated with the new player states.
+    try:
+        async with asyncio.timeout(15):
+            while host_controller.game_status is None:
+                await asyncio.sleep(0.1)
+            # Wait until the disconnected peer is marked as dead, confirming the game has resumed.
+            while True:
+                dead_player_ids = [
+                    p.id for p in host_controller.game_status.players if p.status == Status.DEAD
+                ]
+                if disconnected_peer_uuid in dead_player_ids:
+                    break
+                await asyncio.sleep(0.1)
+    except asyncio.TimeoutError:
+        pytest.fail(
+            "Host controller did not receive an updated game status within the timeout period."
+        )
+
+    # The game must have resumed with the correct player statuses.
+    assert host_controller.game_status is not None
+
+    # Verify that all connected controllers have a consistent game status
+    # (not just the host), that the reconnected peer is alive,
+    # and that the disconnected peer is marked as dead.
+    for controller, _ in controllers:
+        if controller is disconnected_controller:
+            continue  # Skip the disconnected controller - it lost its connection
+
+        controller_status = controller.game_status
+        assert controller_status is not None, (
+            f"Controller {controller.my_self.name} does not have an updated game status."
+        )
+        assert controller_status == host_controller.game_status, (
+            f"Controller {controller.my_self.name} game status does not match host controller's game status."
+        )
+
+        # The reconnected peer must be alive.
+        alive_player_ids = [
+            p.id for p in controller_status.players if p.status == Status.ALIVE
+        ]
+        assert reconnected_peer_uuid in alive_player_ids, (
+            f"Reconnected peer {reconnected_peer_uuid} is not alive "
+            f"in controller {controller.my_self.name} game status."
+        )
+
+        # The disconnected peer must be dead.
+        dead_player_ids = [
+            p.id for p in controller_status.players if p.status == Status.DEAD
+        ]
+        assert disconnected_peer_uuid in dead_player_ids, (
+            f"Disconnected peer {disconnected_peer_uuid} is not marked as dead "
+            f"in controller {controller.my_self.name} game status."
+        )
