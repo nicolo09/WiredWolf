@@ -77,7 +77,6 @@ class RecoveryPhase(Enum): #TODO: some phases might be useless
     APPROVED_CANDIDATE = 5
     RESTORING_GAME = 6
     LOST_CONNECTION = 7
-    RECOVERY_FAILED = 8
     
 class RecoveryFailedException(Exception):
     """Exception raised when the recovery process fails."""
@@ -161,9 +160,6 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                                     self._backups.add(message.new_master)
                                 elif message.new_master != controller.my_self:
                                     self._new_master = message.new_master
-                            else:
-                                self.__logger.warning("Cannot connect to the new master, cannot recover game") #FIXME: only if all the peers I'm connected to have a new master that is unreachable I should consider the recovery failed
-                                self._phase = RecoveryPhase.RECOVERY_FAILED
                         elif isinstance(message, ElectionFailedMessage):
                             if self._phase == RecoveryPhase.APPROVED_CANDIDATE and message.sender == self._approved_candidate:
                                 self.__logger.info("Received ElectionFailedMessage from current candidate: %s", message.sender)
@@ -255,7 +251,7 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                                     else:
                                         self.__logger.warning("No address found for peer: %s, skipping connection attempt.", peer)
                             except (asyncio.TimeoutError, Exception) as e:
-                                self.__logger.error("Attempt %d Failed to connect to peer: %s", new_connection_attempt + 1, peer)
+                                self.__logger.error("Attempt %d Failed to connect to peer: %s\n Error: %s", new_connection_attempt + 1, peer, str(e))
                     await asyncio.sleep(NEW_CONNECTION_WAIT_BETWEEN_RETRY)  # Wait a bit before retrying
 
                 if any(status != ConnectionStatus.DISCONNECTED for status in peers_status.values()):
@@ -267,7 +263,7 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
 
                     try:
                         async with asyncio.timeout(ELECTION_TIMEOUT):  # Set a timeout for the election process
-                            while not self._is_new_master_elected():
+                            while not self._new_master and len(self._get_connected_peers(peers_status)) > 0: # Peers I'm connected to now may later disconnect
                                 if self._can_become_new_master(controller.my_self, peers_connections) and self._phase != RecoveryPhase.APPROVED_CANDIDATE:
                                     if not self._can_candidate and timer_task is None:
                                         candidate_delay = random.randint(*CANDIDATE_FOR_ELECTION_DELAY_RANGE)
@@ -326,11 +322,12 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                     for client_conn_handler in self._client_conn_handlers.values():
                         await client_conn_handler.close()
 
-                    if self._new_master and self._phase != RecoveryPhase.RECOVERY_FAILED:
+                    if self._new_master:
                         self.__logger.info("New master elected: %s", self._new_master)
                         if self._new_master == controller.my_self:
                             
-                            if controller.game_status is not None:  
+                            if controller.game_status is not None:
+                                #FIXME: controller's game status is the snapshot?  
                                 new_game = Game.from_game_status(controller.game_status)  # Create a new Game instance from the current game status
                                 new_lobby = Lobby.change_owner(lobby, controller.my_self)  # Create a new lobby with the current peer as the owner
                                                   
@@ -338,6 +335,7 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                                 await new_game_server.start_listening()
                                 await asyncio.sleep(AWAIT_CONNECTIONS) # Wait a bit to let other peers connect to the new server
                                 new_game_server.stop_new_connections()
+                                #FIXME: must remove from the lobby the peers that did not reconnect
                                 return new_lobby, new_game_server, new_client_conn_handler
                             else:
                                 self.__logger.error("Game instance is None after becoming the new master.")
@@ -452,15 +450,6 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
         max_connections = max(peers_connections.values())
         preferred_peers = [peer for peer, connections in peers_connections.items() if connections == max_connections]
         return min(preferred_peers, key=lambda peer: peer.uuid)
-
-    def _is_new_master_elected(self) -> bool:
-        """
-        Checks if a new master has been elected.
-
-        Returns:
-            bool: True if a new master has been elected among the connected peers, False otherwise.
-        """
-        return self._new_master is not None or self._phase == RecoveryPhase.RECOVERY_FAILED
 
     def _can_become_new_master(self, peer: commons.Peer, peers_connections: dict[commons.Peer, int]) -> bool:
         """
