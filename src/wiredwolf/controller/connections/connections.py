@@ -7,10 +7,14 @@ from typing import Any
 import pickle
 from wiredwolf.controller.commons import (
     CONNECTION_TIMEOUT,
+    DEFAULT_SERVER_HOST,
+    DEFAULT_SERVER_PORT,
     RECEIVING_TASK_CLOSE_TIMEOUT,
     Peer,
     ReconnectedOutcome,
 )
+from wiredwolf.controller.connections.network import PsutilNetworkExplorer
+from wiredwolf.controller.lobbies import LobbyBrowser, TcpMdnsLobbyBrowser
 from wiredwolf.controller.messages import (
     BaseMessage,
     ConnectionClosedMessage,
@@ -260,6 +264,7 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
                     self._logger.error(
                         "Receive loop task encountered an error: %s", exc
                     )
+            #Exceptions raised while retrieving the exception from the task
             except asyncio.CancelledError:
                 self._logger.info("Receive loop task was cancelled.")
                 return
@@ -290,14 +295,14 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
             except asyncio.CancelledError:
                 self._logger.info("Receive loop cancelled.")
                 return
-            except TimeoutError as e:
+            except TimeoutError:
                 # Connection timed out, no heartbeat received in time
                 self._logger.error("Receive loop timed out.")
-                raise e
+                raise
             except Exception as e:
                 # Error receiving message
                 self._logger.error("Error receiving message: %s", e)
-                raise e
+                raise
 
     async def close(self) -> None:
         """Closes the client connection handler."""
@@ -881,3 +886,34 @@ class ConnectionHandlerFactory:
             ClientConnectionHandler: The created client connection handler.
         """
         return AsyncTCPClientConnectionHandler(my_self, reader, writer, endpoint)
+
+class ConnectionSuite:
+
+    @abc.abstractmethod
+    def lobby_browser(self) -> LobbyBrowser:
+        """Returns a lobby browser."""
+        raise NotImplementedError("This method should be implemented by subclasses.")
+
+class TCPConnectionSuite(ConnectionSuite):
+    """A connection suite that provides TCP-based connection handlers and lobby browsing capabilities."""
+    
+    def __init__(self):
+        """Initializes the TCPConnectionSuite."""
+        self._lobby_browser: LobbyBrowser = TcpMdnsLobbyBrowser()
+        super().__init__()
+
+    def lobby_browser(self) -> LobbyBrowser:
+        """Returns a TCP lobby browser."""
+        return self._lobby_browser
+
+    def get_local_ipv4_addresses(self) -> list[list[str]]:
+        """Returns a list of lists of local IPv4 addresses for each network interface."""
+        return PsutilNetworkExplorer.get_local_ipv4_addresses()
+
+    def get_default_bind_address(self) -> tuple[str | None, int]:
+        """Returns the default bind address for the TCP server.
+
+        Returns:
+            tuple[str | None, int]: The default bind address (IP, port).
+        """
+        return (DEFAULT_SERVER_HOST, DEFAULT_SERVER_PORT)

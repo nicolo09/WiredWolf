@@ -4,7 +4,7 @@ import logging
 from typing import Any
 
 from wiredwolf.controller import commons
-from wiredwolf.controller.connections.connections import ClientConnectionHandler
+from wiredwolf.controller.connections.connections import ClientConnectionHandler, ConnectionSuite
 from wiredwolf.controller.connections.recovery import ConnectionRecoverer, RecoveryFailedException, TCPConnectionRecoverer, Recoverable
 from wiredwolf.controller.lobbies import LobbyBrowser, LobbyBrowserFactory, LobbyInfo
 from wiredwolf.controller.lobbies import Lobby
@@ -38,8 +38,9 @@ class GameController(Recoverable):
 
     _logger = logging.getLogger(__name__)
 
-    def __init__(self, browser: LobbyBrowser, event_sender: EventSender):
-        self._lobby_browser: LobbyBrowser = browser #TODO: This should not be passed but created on need by a factory
+    def __init__(self, connection_suite: ConnectionSuite, event_sender: EventSender):
+        self._connection_suite: ConnectionSuite = connection_suite
+        self._lobby_browser: LobbyBrowser = connection_suite.lobby_browser()
         self._lobby: Lobby | None = None
         self._server: GameServer | None = None
         self._my_self: Peer
@@ -48,6 +49,15 @@ class GameController(Recoverable):
         self._waiting_for_ack: dict[str, tuple[asyncio.Event, Any]] = {}
         self._game_status: GameStatus | None = None
         self._event_sender: EventSender = event_sender
+
+    @property
+    def connection_suite(self) -> ConnectionSuite:
+        """Gets the connection suite.
+
+        Returns:
+            ConnectionSuite: The connection suite.
+        """
+        return self._connection_suite
 
     @property
     def connection_handler(self) -> ClientConnectionHandler | None:
@@ -500,19 +510,3 @@ class GameController(Recoverable):
         await self._send_message_and_wait_for_ack(
             VoteBallotMessage(self._my_self, False)
         )
-
-
-class ControllerFactory:
-    @staticmethod
-    def get_controller(
-        browser: LobbyBrowser, event_sender: EventSender
-    ) -> GameController:
-        """Creates and returns a new GameController instance.
-
-        Args:
-            browser (LobbyBrowser): The lobby browser to use.
-            event_sender (EventSender): The event sender to use.
-        Returns:
-            GameController: The created game controller.
-        """
-        return GameController(browser, event_sender)

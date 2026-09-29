@@ -392,7 +392,6 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
         else:
             writer.close()
             raise RuntimeError("Unexpected message received during reconnection.")
-        
 
     async def connect_to_lobby_by_id(
         self, my_self: Peer, lobby_id: str, lobby_password: str | None

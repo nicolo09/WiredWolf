@@ -6,7 +6,7 @@ import abc
 
 from wiredwolf.controller import commons
 from wiredwolf.controller.commons import ReconnectedOutcome
-from wiredwolf.controller.connections.connections import AsyncTCPClientConnectionHandler, ClientConnectionHandler, ConnectionHandlerFactory, ServerConnectionHandler
+from wiredwolf.controller.connections.connections import AsyncTCPClientConnectionHandler, ClientConnectionHandler, ConnectionHandlerFactory, ConnectionSuite, ServerConnectionHandler, TCPConnectionSuite
 from wiredwolf.controller.lobbies import Lobby, LobbyBrowser, TcpMdnsLobbyBrowser
 from wiredwolf.controller.messages import BaseMessage, CandidateForElectionMessage, ElectionFailedMessage, MasterElectedMessage, RecoveredConnectionsMessage, ApproveCandidateMessage
 from wiredwolf.controller.server.game_server import GameServer, GameServerFactory
@@ -15,6 +15,16 @@ from wiredwolf.model.game import Game, GameStatus
 
 class Recoverable(abc.ABC):
     """Interface for classes that can be recovered by a ConnectionRecoverer."""
+
+    @property
+    @abc.abstractmethod
+    def connection_suite(self) -> ConnectionSuite:
+        """
+        Returns the connection suite used by the recoverable.
+
+        Returns:
+            ConnectionSuite: The connection suite.
+        """
     
     @property
     @abc.abstractmethod
@@ -118,7 +128,7 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
 
         lobby_browser = controller.lobby_browser
         connection_handler = controller.connection_handler
-        if isinstance(lobby_browser, TcpMdnsLobbyBrowser) and isinstance(connection_handler, AsyncTCPClientConnectionHandler):
+        if isinstance(lobby_browser, TcpMdnsLobbyBrowser) and isinstance(connection_handler, AsyncTCPClientConnectionHandler) and isinstance(controller.connection_suite, TCPConnectionSuite):
             tries = 0
             self._phase = RecoveryPhase.RECONNECTING_TO_SERVER
             # First thing to do is to try to reconnect to the server
@@ -221,7 +231,7 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                         return True  #FIXME: Always allow recovery of connections for the backup server?
 
                 self._server_conn_handler = ConnectionHandlerFactory.get_server_connection_handler(
-                    (commons.DEFAULT_SERVER_HOST, commons.DEFAULT_SERVER_PORT),
+                    controller.connection_suite.get_default_bind_address(),
                     server=BackupServer(self, controller)
                 )
                 await self._server_conn_handler.start_listening()

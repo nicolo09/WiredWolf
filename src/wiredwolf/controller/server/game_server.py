@@ -96,6 +96,7 @@ class GameServer(Server):
         lobby: Lobby,
         owner_connection: tuple[commons.Peer, asyncio.StreamReader, asyncio.StreamWriter],
         game: Game | None = None,
+        
     ):
         """Creates a new GameServer
 
