@@ -14,7 +14,6 @@ from wiredwolf.controller.commons import (
     ReconnectedOutcome,
 )
 from wiredwolf.controller.connections.network import PsutilNetworkExplorer
-from wiredwolf.controller.lobbies import LobbyBrowser, TcpMdnsLobbyBrowser
 from wiredwolf.controller.messages import (
     BaseMessage,
     ConnectionClosedMessage,
@@ -840,53 +839,7 @@ class MessageHandlerFactory:
     def getDefault() -> AsyncTCPMessageHandler:
         return AsyncTCPMessageHandler(PickleSerializer())
 
-
-class ConnectionHandlerFactory:
-    """Factory class for creating connection handlers."""
-
-    @staticmethod
-    def get_server_connection_handler(
-        bind_address: tuple[str | None, int],
-        server: Server,
-        owner_connection: (
-            tuple[Peer, asyncio.StreamReader, asyncio.StreamWriter] | None
-        ) = None
-    ) -> ServerConnectionHandler:
-        """Creates and returns a new ServerConnectionHandler.
-
-        Args:
-            bind_address (tuple[str | None, int]): The address to bind the server to.
-            server (Server): The server instance.
-            owner_connection (tuple[Peer, asyncio.StreamReader, asyncio.StreamWriter] | None): The direct connection of the owner of the lobby to the server.
-
-        Returns:
-            ServerConnectionHandler: The created server connection handler.
-        """
-        return AsyncTCPServerConnectionHandler(
-            bind_address=bind_address,
-            server=server,
-            owner_connection=owner_connection
-        )
-
-    @staticmethod
-    def get_client_connection_handler(
-        my_self: Peer,
-        reader: asyncio.StreamReader,
-        writer: asyncio.StreamWriter,
-        endpoint: tuple[str, int],
-    ) -> ClientConnectionHandler:
-        """Creates and returns a new ClientConnectionHandler.
-
-        Args:
-            my_self (Peer): The peer representing this client.
-            reader (asyncio.StreamReader): The reader for the connection.
-            writer (asyncio.StreamWriter): The writer for the connection.
-            endpoint (tuple[str, int]): The (IP, port) endpoint of the server to connect to.
-        Returns:
-            ClientConnectionHandler: The created client connection handler.
-        """
-        return AsyncTCPClientConnectionHandler(my_self, reader, writer, endpoint)
-
+from wiredwolf.controller.lobbies import LobbyBrowser, TcpMdnsLobbyBrowser
 class ConnectionSuite:
 
     @abc.abstractmethod
@@ -917,3 +870,55 @@ class TCPConnectionSuite(ConnectionSuite):
             tuple[str | None, int]: The default bind address (IP, port).
         """
         return (DEFAULT_SERVER_HOST, DEFAULT_SERVER_PORT)
+    
+class ConnectionHandlerFactory:
+    """Factory class for creating connection handlers."""
+
+    @staticmethod
+    def get_server_connection_handler(
+        connection_suite: ConnectionSuite,
+        server: Server,
+        owner_connection: (
+            tuple[Peer, asyncio.StreamReader, asyncio.StreamWriter] | None
+        ) = None
+    ) -> ServerConnectionHandler:
+        """Creates and returns a new ServerConnectionHandler.
+
+        Args:
+            connection_suite (ConnectionSuite): The connection suite to use.
+            server (Server): The server instance.
+            owner_connection (tuple[Peer, asyncio.StreamReader, asyncio.StreamWriter] | None): The direct connection of the owner of the lobby to the server.
+
+        Returns:
+            ServerConnectionHandler: The created server connection handler.
+        """
+        if isinstance(connection_suite, TCPConnectionSuite):
+            bind_address = connection_suite.get_default_bind_address()
+        else:
+            raise ValueError(
+                "Unsupported connection suite type: {}".format(type(connection_suite))
+            )
+        return AsyncTCPServerConnectionHandler(
+            bind_address=bind_address,
+            server=server,
+            owner_connection=owner_connection
+        )
+
+    @staticmethod
+    def get_client_connection_handler(
+        my_self: Peer,
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
+        endpoint: tuple[str, int],
+    ) -> ClientConnectionHandler:
+        """Creates and returns a new ClientConnectionHandler.
+
+        Args:
+            my_self (Peer): The peer representing this client.
+            reader (asyncio.StreamReader): The reader for the connection.
+            writer (asyncio.StreamWriter): The writer for the connection.
+            endpoint (tuple[str, int]): The (IP, port) endpoint of the server to connect to.
+        Returns:
+            ClientConnectionHandler: The created client connection handler.
+        """
+        return AsyncTCPClientConnectionHandler(my_self, reader, writer, endpoint)

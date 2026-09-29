@@ -2,6 +2,7 @@ import asyncio
 import pytest
 import pytest_asyncio
 from wiredwolf.controller.commons import DEFAULT_SERVER_PORT, Peer
+from wiredwolf.controller.connections import connections
 from wiredwolf.controller.lobbies import Lobby, TcpMdnsLobbyBrowser
 from wiredwolf.controller.server.game_server import GameServer, GameServerFactory
 
@@ -13,7 +14,7 @@ PASSWORD: str = "password123"
 async def server():
     owner = Peer("Owner Peer")
     lobby = Lobby(owner=owner, name="Test Lobby", password=PASSWORD)
-    server, _ = await GameServerFactory.get_game_server(lobby)
+    server, _ = await GameServerFactory.get_game_server(lobby, connections.TCPConnectionSuite())
     await server.start_listening()
     yield server
     await server.close()

@@ -4,8 +4,6 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 import dataclasses
 import logging
-from types import CoroutineType
-from typing import Any
 
 from zeroconf import ServiceInfo
 from wiredwolf.controller.connections.connections import (
@@ -25,7 +23,7 @@ from wiredwolf.controller.commons import (
 from wiredwolf.controller.commons import PasswordRequest
 from wiredwolf.controller.messages import LobbyUpdatedMessage
 from wiredwolf.controller.services import CallbackCachedServiceListener, ServiceManager
-from wiredwolf.model.game import GameStatus
+
 
 
 SERVICE_TYPE: str = "_wiredwolflobby._tcp.local."

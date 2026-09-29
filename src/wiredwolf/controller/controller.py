@@ -187,7 +187,7 @@ class GameController(Recoverable):
             (
                 self._server,
                 self._client_connection_handler,
-            ) = await GameServerFactory.get_game_server(self.lobby)
+            ) = await GameServerFactory.get_game_server(self.lobby, self._connection_suite)
             self._client_connection_handler.set_on_message(self._on_message)
             self._client_connection_handler.set_on_disconnect(self._on_disconnect)
             await self._client_connection_handler.start_receiving()

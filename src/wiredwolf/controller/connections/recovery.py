@@ -231,7 +231,7 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                         return True  #FIXME: Always allow recovery of connections for the backup server?
 
                 self._server_conn_handler = ConnectionHandlerFactory.get_server_connection_handler(
-                    controller.connection_suite.get_default_bind_address(),
+                    controller.connection_suite,
                     server=BackupServer(self, controller)
                 )
                 await self._server_conn_handler.start_listening()
@@ -341,7 +341,7 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                                 new_game = Game.from_game_status(controller.game_status)  # Create a new Game instance from the current game status
                                 new_lobby = Lobby.change_owner(lobby, controller.my_self)  # Create a new lobby with the current peer as the owner
                                                   
-                                new_game_server, new_client_conn_handler = await GameServerFactory.get_game_server(new_lobby, new_game)  # Create a new GameServer with the new lobby and game
+                                new_game_server, new_client_conn_handler = await GameServerFactory.get_game_server(new_lobby, controller.connection_suite, new_game)  # Create a new GameServer with the new lobby and game
                                 await new_game_server.start_listening()
                                 await asyncio.sleep(AWAIT_CONNECTIONS) # Wait a bit to let other peers connect to the new server
                                 new_game_server.stop_new_connections()

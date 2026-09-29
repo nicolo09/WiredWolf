@@ -9,6 +9,7 @@ from pytest import MonkeyPatch
 import pytest_asyncio
 
 from wiredwolf.controller import commons
+from wiredwolf.controller.connections.connections import TCPConnectionSuite
 from wiredwolf.controller.controller import GameController
 from wiredwolf.controller.lobbies import TcpMdnsLobbyBrowser
 from wiredwolf.view.custom_events import EventSender
@@ -45,7 +46,7 @@ async def controllers(
     for i in range(num):
         event_sender = mock.Mock()
         controller = GameController(
-            browser=TcpMdnsLobbyBrowser(), event_sender=event_sender
+            connection_suite=TCPConnectionSuite(), event_sender=event_sender
         )
         controller.set_username(f"{TEST_USER_BASE}{i}")
         controllers.append((controller, event_sender))

@@ -7,6 +7,7 @@ from wiredwolf.controller.server.server_base import Server
 from wiredwolf.controller.connections.connections import (
     ClientConnectionHandler,
     ConnectionHandlerFactory,
+    ConnectionSuite,
     ServerConnectionHandler,
 )
 from wiredwolf.controller.messages import (
@@ -94,6 +95,7 @@ class GameServer(Server):
     def __init__(
         self,
         lobby: Lobby,
+        connection_suite: ConnectionSuite,
         owner_connection: tuple[commons.Peer, asyncio.StreamReader, asyncio.StreamWriter],
         game: Game | None = None,
         
@@ -109,7 +111,7 @@ class GameServer(Server):
         self._game: Game | None = game
         self._server_conn_handler: ServerConnectionHandler = (
             ConnectionHandlerFactory.get_server_connection_handler(
-                bind_address=(commons.DEFAULT_SERVER_HOST, commons.DEFAULT_SERVER_PORT),
+                connection_suite=connection_suite,
                 server=self,
                 owner_connection=owner_connection
             )
@@ -445,7 +447,7 @@ class GameServer(Server):
 class GameServerFactory:
     @staticmethod
     async def get_game_server(
-        lobby: Lobby, game: Game | None = None
+        lobby: Lobby, connection_suite: ConnectionSuite, game: Game | None = None
     ) -> tuple[GameServer, ClientConnectionHandler]:
         """Creates and returns a new GameServer instance and the owner ClientConnectionHandler.
 
@@ -460,7 +462,7 @@ class GameServerFactory:
         client_reader, client_writer = await asyncio.open_connection(sock=client_socket)
         server_reader, server_writer = await asyncio.open_connection(sock=server_socket)
         server = GameServer(
-            lobby, owner_connection=(lobby.owner, server_reader, server_writer), game=game
+            lobby, connection_suite, owner_connection=(lobby.owner, server_reader, server_writer), game=game
         )
         for plugin in await get_plugins_list():
             server.add_plugin(plugin)

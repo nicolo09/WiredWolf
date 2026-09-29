@@ -58,7 +58,7 @@ async def client_conn_handler():
 async def server():
     myself = Peer("Server")
     lobby = Lobby(myself, "TestLobby")
-    server, _ = await GameServerFactory.get_game_server(lobby)
+    server, _ = await GameServerFactory.get_game_server(lobby, connections.TCPConnectionSuite())
     yield server
     await server.close()
 

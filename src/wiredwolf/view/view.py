@@ -5,8 +5,9 @@ import pygame_gui
 import tkinter
 from abc import ABC, abstractmethod
 from wiredwolf.controller.commons import Peer
+from wiredwolf.controller.connections.connections import TCPConnectionSuite
 from wiredwolf.controller.controller import GameController
-from wiredwolf.controller.lobbies import Lobby, LobbyInfo, TcpMdnsLobbyBrowser
+from wiredwolf.controller.lobbies import Lobby, LobbyInfo
 from wiredwolf.view.custom_events import ChangeScreenType, ChatMessageType, CustomEventSender, DeadPlayerType, EndErrorType, ErrorType, LobbyType, EventSender, GameRoleType, TimeOutType, UsersType, create_custom_event_from_dict
 from wiredwolf.view.components import CallbackButton, VContainer, HContainer, EnabledButton, Text, TextField, DrawableComponent
 from wiredwolf.view.constants import ROLE_DESCRIPTION_DICT, FontSize, Screens
@@ -1736,7 +1737,7 @@ if __name__ == "__main__":
             loop.stop()
             return
 
-    controller=GameController(TcpMdnsLobbyBrowser(), my_app.event_sender)
+    controller=GameController(TCPConnectionSuite(), my_app.event_sender)
     my_app.set_controller(controller)
     loop = asyncio.get_event_loop()
     loop.create_task(update())

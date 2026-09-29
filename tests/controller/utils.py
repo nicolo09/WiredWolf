@@ -3,6 +3,7 @@ import logging
 from typing import Any
 
 from wiredwolf.controller.commons import DEFAULT_SERVER_PORT, Peer
+from wiredwolf.controller.connections import connections
 from wiredwolf.controller.connections.connections import (
     ClientConnectionHandler,
     AsyncTCPServerConnectionHandler
@@ -31,7 +32,7 @@ class TestFactory:
         Returns:
             tuple[GameServer, list[ClientConnectionHandler]]: The created GameServer and a list of connected clients, of which the first is the owner.
         """
-        server, owner_handler = await GameServerFactory.get_game_server(lobby)
+        server, owner_handler = await GameServerFactory.get_game_server(lobby, connections.TCPConnectionSuite())
         await server.start_listening()
         clients: list[ClientConnectionHandler] = [owner_handler]
 
