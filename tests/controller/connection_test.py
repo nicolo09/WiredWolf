@@ -88,7 +88,7 @@ async def test_send_and_receive():
     handler = connections.AsyncTCPMessageHandler(connections.PickleSerializer())
 
     async def client():
-        creader, cwriter = await asyncio.open_connection("127.0.0.1", 8888)
+        creader, cwriter = await asyncio.open_connection("127.0.0.1", DEFAULT_SERVER_PORT)
         received = await handler.receive(creader)
         assert received == b"test"
         await handler.send(cwriter, b"test")
@@ -103,7 +103,7 @@ async def test_send_and_receive():
             swriter.close()
             await swriter.wait_closed()
 
-        await asyncio.start_server(lambda r, w: client_conn_cb(r, w), "127.0.0.1", 8888)
+        await asyncio.start_server(lambda r, w: client_conn_cb(r, w), "127.0.0.1", DEFAULT_SERVER_PORT)
 
     try:
         async with timeout(TEST_TIMEOUT):

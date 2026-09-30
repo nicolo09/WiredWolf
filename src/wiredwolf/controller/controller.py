@@ -192,7 +192,7 @@ class GameController(Recoverable):
             self._client_connection_handler.set_on_disconnect(self._on_disconnect)
             await self._client_connection_handler.start_receiving()
             await self._server.start_listening()
-            self._lobby_browser = LobbyBrowserFactory.get_lobby_browser()
+            self._lobby_browser = LobbyBrowserFactory.get_lobby_browser(service_manager=self._connection_suite.service_manager())
             await self._lobby_browser.publish_lobby(
                 self._lobby.lobby_info(), DEFAULT_SERVER_PORT
             )

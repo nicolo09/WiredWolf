@@ -22,7 +22,7 @@ async def server():
 
 @pytest_asyncio.fixture
 async def browser():
-    lobby_browser = TcpMdnsLobbyBrowser()
+    lobby_browser = connections.TCPConnectionSuite().lobby_browser()
     yield lobby_browser
 
 

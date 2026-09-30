@@ -1,9 +1,15 @@
-from collections.abc import Callable
 import ipaddress
 import logging
 import socket
-from zeroconf import NonUniqueNameException, ServiceBrowser, ServiceInfo, ServiceListener, Zeroconf
-from wiredwolf.controller.connections.network import PsutilNetworkExplorer
+from collections.abc import Callable
+
+from zeroconf import (
+    NonUniqueNameException,
+    ServiceBrowser,
+    ServiceInfo,
+    ServiceListener,
+    Zeroconf,
+)
 
 
 class CallbackCachedServiceListener(ServiceListener):
@@ -71,14 +77,16 @@ class CallbackCachedServiceListener(ServiceListener):
 class ServiceManager:
     __logger = logging.getLogger(__name__)
 
-    def __init__(self, service_type: str):
+    def __init__(self, service_type: str, ip_getter: Callable[[], list[list[str]]]) -> None:
         self._zeroconf_client: Zeroconf = Zeroconf()
         self._zeroconf_server: dict[ServiceInfo, Zeroconf] = {}
         self._service_type: str = service_type
         self._closed: bool = False
+        self._ip_getter = ip_getter
 
     def _get_all_local_ips(self) -> list[list[str]]:
-        return PsutilNetworkExplorer.get_local_ipv4_addresses()
+        """Returns a list of lists of local IPv4 addresses for each network interface."""
+        return self._ip_getter()
 
     async def register_service(
         self, name: str, receiverPort: int, properties: dict[str, str]

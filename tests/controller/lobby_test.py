@@ -25,7 +25,7 @@ async def server(lobby: Lobby):
 
 @pytest_asyncio.fixture()
 async def tcp_mdns_lobby_browser():
-    browser = TcpMdnsLobbyBrowser()
+    browser = connections.TCPConnectionSuite().lobby_browser()
     yield browser
     try:
         await browser.stop_publishing_lobby()

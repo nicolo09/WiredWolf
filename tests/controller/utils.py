@@ -6,7 +6,8 @@ from wiredwolf.controller.commons import DEFAULT_SERVER_PORT, Peer
 from wiredwolf.controller.connections import connections
 from wiredwolf.controller.connections.connections import (
     ClientConnectionHandler,
-    AsyncTCPServerConnectionHandler
+    AsyncTCPServerConnectionHandler,
+    TCPConnectionSuite
 )
 from wiredwolf.controller.lobbies import Lobby, LobbyBrowser, TcpMdnsLobbyBrowser
 from wiredwolf.controller.messages import LobbyUpdatedMessage
@@ -45,15 +46,17 @@ class TestFactory:
                     return None
             owner_handler.set_on_message(on_message)
             await owner_handler.start_receiving()
-            browser: LobbyBrowser = TcpMdnsLobbyBrowser()
-            for i in range(num_clients-1):
-                client_peer = Peer(f"client_{i}")
-                client_handler, _ = await browser.connect_to_lobby_directly(
-                    client_peer,
-                    ("127.0.0.1", DEFAULT_SERVER_PORT),
-                    None
-                )
-                client_handler.set_on_message(on_message)
-                await client_handler.start_receiving()
-                clients.append(client_handler)
+            connection_suite = TCPConnectionSuite()
+            browser: LobbyBrowser = connection_suite.lobby_browser()
+            if isinstance(browser, TcpMdnsLobbyBrowser):
+                for i in range(num_clients-1):
+                    client_peer = Peer(f"client_{i}")
+                    client_handler, _ = await browser.connect_to_lobby_directly(
+                        client_peer,
+                        ("127.0.0.1", DEFAULT_SERVER_PORT),
+                        None
+                    )
+                    client_handler.set_on_message(on_message)
+                    await client_handler.start_receiving()
+                    clients.append(client_handler)
         return server, clients

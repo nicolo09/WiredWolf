@@ -10,7 +10,7 @@ from wiredwolf.controller.connections.connections import (
     AsyncTCPClientConnectionHandler,
     AsyncTCPMessageHandler,
     ClientConnectionHandler,
-    MessageHandlerFactory,
+    MessageHandlerFactory
 )
 
 from wiredwolf.controller.commons import (
@@ -172,8 +172,8 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
 
     # TODO Handle same lobby name collisions
 
-    def __init__(self):
-        self._service_manager: ServiceManager = ServiceManager(SERVICE_TYPE)
+    def __init__(self, service_manager: ServiceManager) -> None:
+        self._service_manager: ServiceManager = service_manager
         self._browser = None
         self._published_lobby_service_info: list[ServiceInfo] | None = None
         # We keep track of found lobbies to be able to remove them when they are lost
@@ -424,10 +424,10 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
 
 class LobbyBrowserFactory:
     @staticmethod
-    def get_lobby_browser() -> LobbyBrowser:
+    def get_lobby_browser(service_manager: ServiceManager) -> LobbyBrowser:
         """Creates and returns a new LobbyBrowser instance.
 
         Returns:
             LobbyBrowser: The created lobby browser.
         """
-        return TcpMdnsLobbyBrowser()
+        return TcpMdnsLobbyBrowser(service_manager)

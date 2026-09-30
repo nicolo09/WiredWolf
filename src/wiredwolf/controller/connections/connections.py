@@ -1,10 +1,13 @@
 import abc
-from collections.abc import Callable
+import asyncio
 import logging
+import pickle
+from asyncio import CancelledError, Future
+from collections.abc import Callable
 from enum import Enum
 from types import CoroutineType
 from typing import Any
-import pickle
+
 from wiredwolf.controller.commons import (
     CONNECTION_TIMEOUT,
     DEFAULT_SERVER_HOST,
@@ -16,16 +19,13 @@ from wiredwolf.controller.commons import (
 from wiredwolf.controller.connections.network import PsutilNetworkExplorer
 from wiredwolf.controller.messages import (
     BaseMessage,
-    ConnectionClosedMessage,
     HeartbeatMessage,
     NewPeerMessage,
     NotAcknowledgeMessage,
     RemovedPeerMessage,
 )
-import asyncio
-from asyncio import CancelledError, Future
-
 from wiredwolf.controller.server.server_base import Server
+from wiredwolf.controller.services import ServiceManager
 
 PEERNAME_EXTRA_INFO = "peername"
 HEARTBEAT_INTERVAL = 5  # seconds
@@ -839,7 +839,7 @@ class MessageHandlerFactory:
     def getDefault() -> AsyncTCPMessageHandler:
         return AsyncTCPMessageHandler(PickleSerializer())
 
-from wiredwolf.controller.lobbies import LobbyBrowser, TcpMdnsLobbyBrowser
+from wiredwolf.controller.lobbies import SERVICE_TYPE, LobbyBrowser, TcpMdnsLobbyBrowser
 class ConnectionSuite:
 
     @abc.abstractmethod
@@ -847,27 +847,37 @@ class ConnectionSuite:
         """Returns a lobby browser."""
         raise NotImplementedError("This method should be implemented by subclasses.")
 
+    @abc.abstractmethod
+    def service_manager(self) -> ServiceManager:
+        """Returns a service manager."""
+        raise NotImplementedError("This method should be implemented by subclasses.")
+
 class TCPConnectionSuite(ConnectionSuite):
     """A connection suite that provides TCP-based connection handlers and lobby browsing capabilities."""
     
     def __init__(self):
         """Initializes the TCPConnectionSuite."""
-        self._lobby_browser: LobbyBrowser = TcpMdnsLobbyBrowser()
+        self._service_manager: ServiceManager = ServiceManager(SERVICE_TYPE, self.get_local_ipv4_addresses)
+        self._lobby_browser: LobbyBrowser = TcpMdnsLobbyBrowser(self._service_manager)
         super().__init__()
 
     def lobby_browser(self) -> LobbyBrowser:
         """Returns a TCP lobby browser."""
         return self._lobby_browser
 
+    def service_manager(self) -> ServiceManager:
+        """Returns a service manager."""
+        return self._service_manager
+
     def get_local_ipv4_addresses(self) -> list[list[str]]:
         """Returns a list of lists of local IPv4 addresses for each network interface."""
         return PsutilNetworkExplorer.get_local_ipv4_addresses()
 
-    def get_default_bind_address(self) -> tuple[str | None, int]:
+    def get_default_bind_address(self) -> tuple[str, int]:
         """Returns the default bind address for the TCP server.
 
         Returns:
-            tuple[str | None, int]: The default bind address (IP, port).
+            tuple[str, int]: The default bind address (IP, port).
         """
         return (DEFAULT_SERVER_HOST, DEFAULT_SERVER_PORT)
     

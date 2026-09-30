@@ -22,7 +22,7 @@ TEST_USER_BASE = "TestUser"
 
 @pytest_asyncio.fixture
 async def browser():
-    lobby_browser = TcpMdnsLobbyBrowser()
+    lobby_browser = TCPConnectionSuite().lobby_browser()
     yield lobby_browser
 
 @pytest_asyncio.fixture

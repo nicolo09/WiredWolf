@@ -6,6 +6,7 @@ import pytest_asyncio
 from zeroconf import ServiceInfo
 
 from wiredwolf.controller.commons import DEFAULT_SERVER_PORT, Peer
+from wiredwolf.controller.connections.connections import TCPConnectionSuite
 from wiredwolf.controller.lobbies import Lobby, LobbyBrowser, LobbyInfo, TcpMdnsLobbyBrowser
 from wiredwolf.controller.services import ServiceManager
 
@@ -15,7 +16,7 @@ SERVICE_TYPE = "_wiredwolf._tcp.local."
 
 @pytest_asyncio.fixture
 async def service_manager():
-    yield ServiceManager(service_type=SERVICE_TYPE)
+    yield ServiceManager(service_type=SERVICE_TYPE, ip_getter=TCPConnectionSuite().get_local_ipv4_addresses)
 
 
 async def _register_service(service_manager: ServiceManager, service_name: str) -> list[ServiceInfo]:
@@ -71,7 +72,8 @@ async def test_service_discovery(service_manager: ServiceManager):
 
 @pytest_asyncio.fixture
 async def lobby_browser():
-    lb: LobbyBrowser = TcpMdnsLobbyBrowser()
+    service_manager = ServiceManager(service_type=SERVICE_TYPE, ip_getter=TCPConnectionSuite().get_local_ipv4_addresses)
+    lb: LobbyBrowser = TcpMdnsLobbyBrowser(service_manager)
     yield lb
 
 
