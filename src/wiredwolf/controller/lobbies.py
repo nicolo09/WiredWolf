@@ -1,30 +1,28 @@
 import abc
 import asyncio
-from collections.abc import Callable
-from dataclasses import dataclass, field
 import dataclasses
 import logging
+from collections.abc import Callable
+from dataclasses import dataclass, field
 
 from zeroconf import ServiceInfo
-from wiredwolf.controller.connections.connections import (
-    AsyncTCPClientConnectionHandler,
-    AsyncTCPMessageHandler,
-    ClientConnectionHandler,
-    MessageHandlerFactory
-)
 
 from wiredwolf.controller.commons import (
     CONNECTION_TIMEOUT,
     MAX_PLAYERS,
     MIN_PLAYERS,
+    PasswordRequest,
     Peer,
     lobby_id_generator,
 )
-from wiredwolf.controller.commons import PasswordRequest
+from wiredwolf.controller.connections.connections import (
+    AsyncTCPClientConnectionHandler,
+    AsyncTCPMessageHandler,
+    ClientConnectionHandler,
+    MessageHandlerFactory,
+)
 from wiredwolf.controller.messages import LobbyUpdatedMessage
 from wiredwolf.controller.services import CallbackCachedServiceListener, ServiceManager
-
-
 
 SERVICE_TYPE: str = "_wiredwolflobby._tcp.local."
 
@@ -71,7 +69,7 @@ class Lobby:
     def check_password(self, passwd: str) -> bool:
         """
         Checks if the provided password matches the lobby's password.
-        
+
         Returns:
             bool: True if the password matches, False otherwise.
         """
@@ -80,11 +78,11 @@ class Lobby:
     def is_password_protected(self) -> bool:
         """Returns whether the lobby is password-protected."""
         return self.password is not None
-    
+
     @staticmethod
     def change_owner(lobby: "Lobby", new_owner: Peer) -> "Lobby":
         """Returns a copy of the lobby object with a new owner.
-        
+
         Args:
             lobby (Lobby): The original lobby object.
             new_owner (Peer): The new owner of the lobby.
@@ -172,12 +170,17 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
 
     # TODO Handle same lobby name collisions
 
-    def __init__(self, service_manager: ServiceManager) -> None:
+    def __init__(
+        self,
+        service_manager: ServiceManager,
+        bind_address_getter: Callable[[], str] | None = None,
+    ) -> None:
         self._service_manager: ServiceManager = service_manager
         self._browser = None
         self._published_lobby_service_info: list[ServiceInfo] | None = None
         # We keep track of found lobbies to be able to remove them when they are lost
         self._found_lobbies: dict[str, LobbyInfo] = {}  # Maps lobby UUIDs to their info
+        self._bind_address_getter: Callable[[], str] | None = bind_address_getter
 
     @property
     def is_publishing_lobby(self) -> bool:
@@ -202,8 +205,8 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
         def on_lobby_found_cb(name: str, props: dict[str, str]) -> None:
             """Callback invoked when a new lobby is found. This is used to add the lobby to the discovered lobbies list."""
             try:
-                self._found_lobbies[name] = self._get_lobby_info_from_service_properties(
-                    props
+                self._found_lobbies[name] = (
+                    self._get_lobby_info_from_service_properties(props)
                 )
                 on_lobby_found(self._found_lobbies[name])
             except ValueError as e:
@@ -285,7 +288,9 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
     async def stop_publishing_lobby(self) -> None:
         """Stops publishing the lobby."""
         if self._published_lobby_service_info:
-            await self._service_manager.unregister_service(self._published_lobby_service_info)
+            await self._service_manager.unregister_service(
+                self._published_lobby_service_info
+            )
             self._published_lobby_service_info = None
         else:
             raise RuntimeError("No lobby is currently being published.")
@@ -295,7 +300,9 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
     ) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
         try:
             async with asyncio.timeout(CONNECTION_TIMEOUT):
-                return await asyncio.open_connection(endpoint[0], endpoint[1])
+                return await asyncio.open_connection(
+                    endpoint[0], endpoint[1], local_addr=(self._bind_address_getter() if self._bind_address_getter else None, 0)
+                )
         except asyncio.TimeoutError:
             raise TimeoutError("Connection to lobby timed out.")
 
@@ -305,14 +312,14 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
         endpoint: tuple[str, int],
         reader: asyncio.StreamReader,
         writer: asyncio.StreamWriter,
-        lobby_password: str | None
+        lobby_password: str | None,
     ) -> tuple[ClientConnectionHandler, Lobby]:
         msg_handler: AsyncTCPMessageHandler = AsyncTCPMessageHandler(
-                            MessageHandlerFactory.getDefaultSerializer()
-                        )
+            MessageHandlerFactory.getDefaultSerializer()
+        )
         # Sending my peer info to the server
         await msg_handler.send_obj(writer, my_self)
-        while True: #FIXME Why is there a while true here?
+        while True:  # FIXME Why is there a while true here?
             # Expecting PasswordRequest or LobbyUpdatedMessage (in case no password is required) in response
             recv_msg = await msg_handler.receive_obj(reader)
             if isinstance(recv_msg, PasswordRequest):
@@ -325,8 +332,10 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
                     writer.close()
                     raise ValueError("Lobby requires a password.")
             elif isinstance(recv_msg, LobbyUpdatedMessage):
-                return AsyncTCPClientConnectionHandler(my_self, reader, writer, endpoint), recv_msg.lobby
-            elif isinstance(recv_msg, Exception): 
+                return AsyncTCPClientConnectionHandler(
+                    my_self, reader, writer, endpoint
+                ), recv_msg.lobby
+            elif isinstance(recv_msg, Exception):
                 # The server returned an error
                 writer.close()
                 self.__logger.error("Error received from server: %s", recv_msg)
@@ -367,8 +376,10 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
         """
 
         reader, writer = await self._open_connection(address)
-        return await self._exchange_lobby_info(my_self, address, reader, writer, lobby_password)
-    
+        return await self._exchange_lobby_info(
+            my_self, address, reader, writer, lobby_password
+        )
+
     async def reconnect_to_lobby(
         self, my_self: Peer, address: tuple[str, int]
     ) -> tuple[ClientConnectionHandler, Lobby]:
@@ -386,7 +397,9 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
         await handler.send_obj(writer, my_self)
         lobby = await handler.receive_obj(reader)
         if isinstance(lobby, Lobby):
-            return AsyncTCPClientConnectionHandler(my_self, reader, writer, address), lobby
+            return AsyncTCPClientConnectionHandler(
+                my_self, reader, writer, address
+            ), lobby
         else:
             writer.close()
             raise RuntimeError("Unexpected message received during reconnection.")
@@ -412,9 +425,13 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
         for ip, port in endpoints:
             try:
                 reader, writer = await self._open_connection((ip, port))
-                return await self._exchange_lobby_info(my_self, (ip, port), reader, writer, lobby_password)
+                return await self._exchange_lobby_info(
+                    my_self, (ip, port), reader, writer, lobby_password
+                )
             except (ConnectionError, TimeoutError):
-                self.__logger.warning(f"Failed to connect to lobby {lobby_id} at {ip}:{port}, trying next endpoint if available...")
+                self.__logger.warning(
+                    f"Failed to connect to lobby {lobby_id} at {ip}:{port}, trying next endpoint if available..."
+                )
                 continue
         self.__logger.error(f"All connection attempts to lobby {lobby_id} failed.")
         raise LobbyNotFoundError(f"Could not connect to lobby '{lobby_id}'.")

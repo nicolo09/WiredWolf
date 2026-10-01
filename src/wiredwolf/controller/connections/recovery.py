@@ -1,17 +1,32 @@
-import asyncio
-from enum import Enum
-import random
-import logging
 import abc
+import asyncio
+import logging
+import random
+from enum import Enum
 
 from wiredwolf.controller import commons
 from wiredwolf.controller.commons import ReconnectedOutcome
-from wiredwolf.controller.connections.connections import AsyncTCPClientConnectionHandler, ClientConnectionHandler, ConnectionHandlerFactory, ConnectionSuite, ServerConnectionHandler, TCPConnectionSuite
+from wiredwolf.controller.connections.connections import (
+    AsyncTCPClientConnectionHandler,
+    ClientConnectionHandler,
+    ConnectionHandlerFactory,
+    ConnectionSuite,
+    ServerConnectionHandler,
+    TCPConnectionSuite,
+)
 from wiredwolf.controller.lobbies import Lobby, LobbyBrowser, TcpMdnsLobbyBrowser
-from wiredwolf.controller.messages import BaseMessage, CandidateForElectionMessage, ElectionFailedMessage, MasterElectedMessage, RecoveredConnectionsMessage, ApproveCandidateMessage
+from wiredwolf.controller.messages import (
+    ApproveCandidateMessage,
+    BaseMessage,
+    CandidateForElectionMessage,
+    ElectionFailedMessage,
+    MasterElectedMessage,
+    RecoveredConnectionsMessage,
+)
 from wiredwolf.controller.server.game_server import GameServer, GameServerFactory
 from wiredwolf.controller.server.server_base import Server
 from wiredwolf.model.game import Game, GameStatus
+
 
 class Recoverable(abc.ABC):
     """Interface for classes that can be recovered by a ConnectionRecoverer."""
@@ -151,6 +166,7 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
             known_peers = connection_handler.other_peers.copy()
             if lobby is not None:
                 peers_status: dict[commons.Peer, ConnectionStatus] = {peer: ConnectionStatus.DISCONNECTED for peer in lobby.peers if peer != controller.my_self}
+                peers_status_lock = asyncio.Lock()  # Lock to protect access to peers_status to avoid concurrent bidirectional connections between peers
                 peers_connections: dict[commons.Peer, int] = {controller.my_self: 0} # Number of active connection each peer has recovered
                 approvals: dict[commons.Peer, bool] = {}
                 candidates: list[commons.Peer] = []
@@ -197,6 +213,8 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                 class BackupServer(Server):
                     """A backup server used to recover connections with other peers after the main server becomes unreachable.
                     """
+
+                    __logger = logging.getLogger(__name__)
                     
                     def __init__(self, conn_recoverer: TCPConnectionRecoverer, controller: Recoverable):
                         super().__init__()
@@ -204,17 +222,22 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                         self._controller = controller
                 
                     async def _on_new_peer(self, peer: commons.Peer):
-                        self._conn_recoverer.__logger.info("New peer connection established with peer: %s", peer)
-                        peers_status[peer] = ConnectionStatus.CONNECTED
-                        peers_connections[peer] = 0
-                        peers_connections[controller.my_self] = len(self._conn_recoverer._get_connected_peers(peers_status))
-                        await self._conn_recoverer._send_message_to_all(
-                            RecoveredConnectionsMessage(
-                                controller.my_self,
-                                len(self._conn_recoverer._get_connected_peers(peers_status)),
-                            ),
-                            peers_status,
-                        )
+                        async with peers_status_lock:
+                            if peers_status[peer] == ConnectionStatus.DISCONNECTED:
+                                self.__logger.info("New peer connection established with peer: %s", peer)
+                                peers_status[peer] = ConnectionStatus.CONNECTED
+                                peers_connections[peer] = 0
+                                peers_connections[controller.my_self] = len(self._conn_recoverer._get_connected_peers(peers_status))
+                                await self._conn_recoverer._send_message_to_all(
+                                    RecoveredConnectionsMessage(
+                                        controller.my_self,
+                                        len(self._conn_recoverer._get_connected_peers(peers_status)),
+                                    ),
+                                    peers_status,
+                                )
+                            else:
+                                self.__logger.warning("Peer %s is already connected, ignoring new connection.", peer)
+                                raise ConnectionRefusedError(f"Peer {peer} is already connected, ignoring new connection.")
 
                     async def _on_peer_disconnected(self, peer: commons.Peer):
                         await on_peer_disconnection(peer)  # Call the on_peer_disconnection method to handle the disconnection
@@ -223,7 +246,7 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                         pass #TODO: implement error handling for peer recovery if needed
                     
                     async def process_incoming_message(self, message: BaseMessage):
-                        self._conn_recoverer.__logger.info("New message received: %s", message)
+                        self.__logger.info("New message received: %s", message)
                         on_message(message)  # Call the on_message method to handle the received message
                         
                     @property
@@ -238,30 +261,32 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                 # ...and in the meanwhile we try to connect to other peers in the lobby
                 for new_connection_attempt in range(NEW_CONNECTION_RETRIES):
                     for peer in lobby.peers:
-                        if peers_status.get(peer) == ConnectionStatus.DISCONNECTED:
-                            try:
-                                async with asyncio.timeout(NEW_CONNECTION_TIMEOUT):  # Set a timeout for the new connection attempt
-                                    address = known_peers.get(peer)
-                                    if address is not None:
-                                        client_conn_handler = await lobby_browser.connect_to_peer(controller.my_self, (address, commons.DEFAULT_SERVER_PORT))
-                                        client_conn_handler.set_on_disconnect(lambda peer=peer: on_peer_disconnection(peer)) 
-                                        self.__logger.info("Successfully connected to peer: %s", peer)
-                                        peers_status[peer] = ConnectionStatus.CONNECTED
-                                        peers_connections[peer] = 0
-                                        peers_connections[controller.my_self] = len(self._get_connected_peers(peers_status))
-                                        client_conn_handler.set_on_message(on_message)
-                                        self._client_conn_handlers[peer] = client_conn_handler
-                                        await self._send_message_to_all(
-                                            RecoveredConnectionsMessage(
-                                                controller.my_self,
-                                                len(self._get_connected_peers(peers_status)),
-                                            ),
-                                            peers_status,
-                                        )
-                                    else:
-                                        self.__logger.warning("No address found for peer: %s, skipping connection attempt.", peer)
-                            except (asyncio.TimeoutError, Exception) as e:
-                                self.__logger.error("Attempt %d Failed to connect to peer: %s\n Error: %s", new_connection_attempt + 1, peer, str(e))
+                        async with peers_status_lock:  # Ensure that we have exclusive access to peers_status while checking and updating it
+                            if peers_status.get(peer) == ConnectionStatus.DISCONNECTED:
+                                try:
+                                    async with asyncio.timeout(NEW_CONNECTION_TIMEOUT):  # Set a timeout for the new connection attempt
+                                        address = known_peers.get(peer)
+                                        if address is not None:
+                                            client_conn_handler = await lobby_browser.connect_to_peer(controller.my_self, (address[0], commons.DEFAULT_SERVER_PORT))
+                                            await client_conn_handler.send_obj(controller.my_self)  # Send my_self to the newly connected peer
+                                            client_conn_handler.set_on_disconnect(lambda peer=peer: on_peer_disconnection(peer))
+                                            self.__logger.info("Successfully connected to peer: %s", peer)
+                                            peers_status[peer] = ConnectionStatus.CONNECTED
+                                            peers_connections[peer] = 0
+                                            peers_connections[controller.my_self] = len(self._get_connected_peers(peers_status))
+                                            client_conn_handler.set_on_message(on_message)
+                                            self._client_conn_handlers[peer] = client_conn_handler
+                                            await self._send_message_to_all(
+                                                RecoveredConnectionsMessage(
+                                                    controller.my_self,
+                                                    len(self._get_connected_peers(peers_status)),
+                                                ),
+                                                peers_status,
+                                            )
+                                        else:
+                                            self.__logger.warning("No address found for peer: %s, skipping connection attempt.", peer)
+                                except (asyncio.TimeoutError, Exception) as e:
+                                    self.__logger.error("Attempt %d Failed to connect to peer: %s\n Error: %s", new_connection_attempt + 1, peer, str(e))
                     await asyncio.sleep(NEW_CONNECTION_WAIT_BETWEEN_RETRY)  # Wait a bit before retrying
 
                 if any(status != ConnectionStatus.DISCONNECTED for status in peers_status.values()):

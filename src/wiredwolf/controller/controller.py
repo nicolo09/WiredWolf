@@ -4,8 +4,16 @@ import logging
 from typing import Any
 
 from wiredwolf.controller import commons
-from wiredwolf.controller.connections.connections import ClientConnectionHandler, ConnectionSuite
-from wiredwolf.controller.connections.recovery import ConnectionRecoverer, RecoveryFailedException, TCPConnectionRecoverer, Recoverable
+from wiredwolf.controller.connections.connections import (
+    ClientConnectionHandler,
+    ConnectionSuite,
+)
+from wiredwolf.controller.connections.recovery import (
+    ConnectionRecoverer,
+    RecoveryFailedException,
+    TCPConnectionRecoverer,
+    Recoverable,
+)
 from wiredwolf.controller.lobbies import LobbyBrowser, LobbyBrowserFactory, LobbyInfo
 from wiredwolf.controller.lobbies import Lobby
 from wiredwolf.controller.messages import (
@@ -23,7 +31,11 @@ from wiredwolf.controller.messages import (
     VoteBallotMessage,
     VotePlayerMessage,
 )
-from wiredwolf.controller.server.game_server import DuplicateIdException, GameServer, GameServerFactory
+from wiredwolf.controller.server.game_server import (
+    DuplicateIdException,
+    GameServer,
+    GameServerFactory,
+)
 from wiredwolf.controller.commons import ACK_TIMEOUT_SECONDS, DEFAULT_SERVER_PORT, Peer
 from wiredwolf.model.game import GameStatus, can_perform_action_on
 from wiredwolf.model.game_phases import GamePhase, NightActionResult
@@ -45,7 +57,9 @@ class GameController(Recoverable):
         self._server: GameServer | None = None
         self._my_self: Peer
         self._client_connection_handler: ClientConnectionHandler | None = None
-        self._connection_recoverer: ConnectionRecoverer | None = TCPConnectionRecoverer() #TODO: This should not be passed but created on need by a factory
+        self._connection_recoverer: ConnectionRecoverer | None = (
+            TCPConnectionRecoverer()
+        )  # TODO: This should not be passed but created on need by a factory
         self._waiting_for_ack: dict[str, tuple[asyncio.Event, Any]] = {}
         self._game_status: GameStatus | None = None
         self._event_sender: EventSender = event_sender
@@ -92,7 +106,7 @@ class GameController(Recoverable):
             Lobby: The current lobby.
         """
         return copy.deepcopy(self._lobby)
-    
+
     @property
     def game_status(self) -> GameStatus | None:
         """Gets the current game status (this is a copy, changes are not reflected in the controller).
@@ -131,32 +145,41 @@ class GameController(Recoverable):
             username (str): The username to set.
         """
         self._my_self = Peer(username)
-        
+
     async def _on_disconnect(self):
         """Handles the disconnection event by attempting to recover the connection."""
-        
+
         # If there is no game in progress, do not attempt to recover the connection
         if self._game_status is None:
             self._logger.info("No game in progress. No need to recover connection.")
             return
         # If the game has ended, do not attempt to recover the connection
-        if self._game_status.phase in [GamePhase.VILLAGERS_VICTORY, GamePhase.WEREWOLVES_VICTORY]:
+        if self._game_status.phase in [
+            GamePhase.VILLAGERS_VICTORY,
+            GamePhase.WEREWOLVES_VICTORY,
+        ]:
             self._logger.info("Game has ended. No need to recover connection.")
             return
-        
+
         if self._server is None:
             # This client disconnected, show the user that an error occurred
             self._event_sender.waiting_for_reconnection()
-        
+
         async def show_error_and_go_home(error: str):
             self._event_sender.error_occurred("Connection closed", error)
-            await asyncio.sleep(commons.ERROR_PAUSE_TIME)  # Wait for a moment to let the user read the message
+            await asyncio.sleep(
+                commons.ERROR_PAUSE_TIME
+            )  # Wait for a moment to let the user read the message
             self._event_sender.error_ended_go_to_home()
-        
+
         self._logger.warning("Connection lost. Attempting to recover...")
         if self._connection_recoverer:
             try:
-                self._lobby, self._server, self._client_connection_handler = await self._connection_recoverer.recover(self)
+                (
+                    self._lobby,
+                    self._server,
+                    self._client_connection_handler,
+                ) = await self._connection_recoverer.recover(self)
                 self._client_connection_handler.set_on_message(self._on_message)
                 self._client_connection_handler.set_on_disconnect(self._on_disconnect)
                 await self._client_connection_handler.start_receiving()
@@ -167,7 +190,9 @@ class GameController(Recoverable):
                 asyncio.create_task(show_error_and_go_home(str(e)))
         else:
             self._logger.error("No connection recoverer available.")
-            asyncio.create_task(show_error_and_go_home("Connection lost and cannot recover it."))
+            asyncio.create_task(
+                show_error_and_go_home("Connection lost and cannot recover it.")
+            )
 
     async def create_lobby(self, name: str, password: str | None = None) -> Lobby:
         """Creates a new lobby and local server.
@@ -187,12 +212,16 @@ class GameController(Recoverable):
             (
                 self._server,
                 self._client_connection_handler,
-            ) = await GameServerFactory.get_game_server(self.lobby, self._connection_suite)
+            ) = await GameServerFactory.get_game_server(
+                self.lobby, self._connection_suite
+            )
             self._client_connection_handler.set_on_message(self._on_message)
             self._client_connection_handler.set_on_disconnect(self._on_disconnect)
             await self._client_connection_handler.start_receiving()
             await self._server.start_listening()
-            self._lobby_browser = LobbyBrowserFactory.get_lobby_browser(service_manager=self._connection_suite.service_manager())
+            self._lobby_browser = LobbyBrowserFactory.get_lobby_browser(
+                service_manager=self._connection_suite.service_manager()
+            )
             await self._lobby_browser.publish_lobby(
                 self._lobby.lobby_info(), DEFAULT_SERVER_PORT
             )
@@ -242,7 +271,9 @@ class GameController(Recoverable):
                 )
             except DuplicateIdException as e:
                 self._logger.error("Failed to join lobby: %s", e)
-                new_uuid: str = e.new_id if e.new_id is not None else commons.peer_id_generator()
+                new_uuid: str = (
+                    e.new_id if e.new_id is not None else commons.peer_id_generator()
+                )
                 self._my_self = Peer(self._my_self.name, new_uuid)
                 self._logger.info("Updated UUID: %s. Retrying...", new_uuid)
         self._client_connection_handler.set_on_message(self._on_message)
@@ -269,7 +300,7 @@ class GameController(Recoverable):
         self._lobby_browser.stop_lobby_browser()
 
     def _on_message(self, message: BaseMessage):
-        #This method is called upon receiving a message from the server
+        # This method is called upon receiving a message from the server
         match message:
             case AcknowledgeMessage():
                 # Notify the waiting coroutine that the acknowledgment has been received
@@ -362,21 +393,28 @@ class GameController(Recoverable):
                             )
                     case GamePhase.BALLOT_RESULT:
                         self._event_sender.end_ballot()
-                        if (message.outcome.someone_died()):
-                            self._logger.info("Day ballot phase ended with an execution.")
+                        if message.outcome.someone_died():
+                            self._logger.info(
+                                "Day ballot phase ended with an execution."
+                            )
                             for player in message.outcome.deaths:
                                 self._event_sender.message_player_executed(player.name)
                         else:
                             accused_player = message.outcome.get_accused_player()
                             if accused_player is not None:
-                                self._logger.info("Day ballot phase ended with no execution.")
-                                self._event_sender.message_player_spared(accused_player.name)
+                                self._logger.info(
+                                    "Day ballot phase ended with no execution."
+                                )
+                                self._event_sender.message_player_spared(
+                                    accused_player.name
+                                )
                     case GamePhase.NIGHT:
                         if self._game_status is not None:
                             my_self = self.my_self_as_player()
                             if my_self is not None and self.lobby is not None:
                                 self._event_sender.start_night(
-                                    my_self.role is BasicRole.VILLAGER, self._game_status.day_count
+                                    my_self.role is BasicRole.VILLAGER,
+                                    self._game_status.day_count,
                                 )
                                 self._event_sender.can_use_powers_on(
                                     [
@@ -410,7 +448,9 @@ class GameController(Recoverable):
             case PauseGameMessage():
                 # Pause the game
                 self._logger.info("Game has been paused.")
-                self._event_sender.error_occurred("Game Paused", "The game has been paused by the server.")
+                self._event_sender.error_occurred(
+                    "Game Paused", "The game has been paused by the server."
+                )
             case _:
                 self._logger.warning("Unhandled message type: %s", type(message))
 
@@ -426,7 +466,9 @@ class GameController(Recoverable):
             if self._waiting_for_ack[message_id][1] is not None:
                 result = self._waiting_for_ack[message_id][1]
                 if isinstance(result, Exception):
-                    self._logger.error("Error NACK received for message: %s", message_id)
+                    self._logger.error(
+                        "Error NACK received for message: %s", message_id
+                    )
                     raise result
                 else:
                     self._logger.info("ACK received for message: %s", message_id)
@@ -439,7 +481,7 @@ class GameController(Recoverable):
 
     async def _send_message_and_wait_for_ack(self, message: BaseMessage) -> Any:
         """Sends a message and waits for an acknowledgment.
-        
+
         Args:
             message (BaseMessage): The message to send.
         Raises:
@@ -462,7 +504,11 @@ class GameController(Recoverable):
         if self._client_connection_handler is None:
             raise RuntimeError("Not connected to a lobby.")
         await self._client_connection_handler.send_obj(
-            ChatMessage(self._my_self, message, self._game_status.phase if self._game_status else None)
+            ChatMessage(
+                self._my_self,
+                message,
+                self._game_status.phase if self._game_status else None,
+            )
         )
 
     async def start_game(self):
@@ -487,13 +533,17 @@ class GameController(Recoverable):
                 )
                 if result:
                     if isinstance(result, NightActionResult):
-                        self._event_sender.display_chat_message(f"You have chosen {player.name}.")
+                        self._event_sender.display_chat_message(
+                            f"You have chosen {player.name}."
+                        )
                         self._event_sender.display_chat_message(result.message)
             else:
                 await self._send_message_and_wait_for_ack(
                     VotePlayerMessage(self._my_self, player.uuid)
                 )
-                self._event_sender.display_chat_message(f"You have chosen {player.name}.")     
+                self._event_sender.display_chat_message(
+                    f"You have chosen {player.name}."
+                )
 
     async def vote_guilty(self):
         """Votes for the selected player to be guilty. This method may be called only during a

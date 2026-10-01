@@ -653,32 +653,34 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
         client_address = writer.get_extra_info(PEERNAME_EXTRA_INFO)
         self._logger.info("Accepted connection from %s", client_address)
         async with asyncio.timeout(CONNECTION_TIMEOUT):
+            peer: Peer|None = None
             try:
                 # First thing peer sends is their identification (serialized peer object)
-                peer: Peer = await self._async_message_handler.receive_obj(
+                peer = await self._async_message_handler.receive_obj(
                     reader
                 )  # TODO: Change this to a message containing the peer info instead of just the peer object
                 self._logger.info("Identified new peer: %s", peer)
-                self._client_addresses[peer] = client_address
-                self._endpoints[peer] = (reader, writer)
-                self._status[peer] = ConnectionStatus.CONNECTING
-                await self._server._on_new_peer(peer)
-                # Successful connection
-                self._logger.info("New peer connected: %s", peer)
-                self._status[peer] = ConnectionStatus.CONNECTED
-                self._receiving_tasks[peer] = asyncio.create_task(
-                    self._handle_peer_message(peer)
-                )
-                for other_peer in self._client_addresses.keys():
-                    if other_peer != peer:
-                        # Update all other clients about the new peer
-                        await self.send_obj(
-                            other_peer, NewPeerMessage(peer, client_address)
-                        )
-                        # Update the new peer about all other connected peers
-                        await self.send_obj(
-                            peer, NewPeerMessage(other_peer, self._client_addresses[other_peer])
-                        )    
+                if peer:
+                    self._client_addresses[peer] = client_address
+                    self._endpoints[peer] = (reader, writer)
+                    self._status[peer] = ConnectionStatus.CONNECTING
+                    await self._server._on_new_peer(peer)
+                    # Successful connection
+                    self._logger.info("New peer connected: %s", peer)
+                    self._status[peer] = ConnectionStatus.CONNECTED
+                    self._receiving_tasks[peer] = asyncio.create_task(
+                        self._handle_peer_message(peer)
+                    )
+                    for other_peer in self._client_addresses.keys():
+                        if other_peer != peer:
+                            # Update all other clients about the new peer
+                            await self.send_obj(
+                                other_peer, NewPeerMessage(peer, client_address)
+                            )
+                            # Update the new peer about all other connected peers
+                            await self.send_obj(
+                                peer, NewPeerMessage(other_peer, self._client_addresses[other_peer])
+                            )    
             except ConnectionClosedError:
                 # Peer tried to connect but closed the connection before ending the handshake
                 self._logger.warning(
@@ -686,6 +688,8 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 )
                 writer.close()
                 await writer.wait_closed()
+                if peer:
+                    self._status.pop(peer)
                 return
             except TimeoutError:
                 # Peer did not identify in time
@@ -695,6 +699,8 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 )
                 writer.close()
                 await writer.wait_closed()
+                if peer:
+                    self._status.pop(peer)
                 return
             except Exception as e:
                 self._logger.error(
@@ -702,6 +708,8 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 )
                 writer.close()
                 await writer.wait_closed()
+                if peer:
+                    self._status.pop(peer)
                 return
 
     async def _handle_peer_message(self, peer: Peer):
@@ -858,7 +866,7 @@ class TCPConnectionSuite(ConnectionSuite):
     def __init__(self):
         """Initializes the TCPConnectionSuite."""
         self._service_manager: ServiceManager = ServiceManager(SERVICE_TYPE, self.get_local_ipv4_addresses)
-        self._lobby_browser: LobbyBrowser = TcpMdnsLobbyBrowser(self._service_manager)
+        self._lobby_browser: LobbyBrowser = TcpMdnsLobbyBrowser(self._service_manager, lambda: self.get_default_bind_address()[0])  # Pass the default bind address getter to the lobby browser
         super().__init__()
 
     def lobby_browser(self) -> LobbyBrowser:

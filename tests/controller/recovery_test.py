@@ -1,36 +1,25 @@
-from ast import List
 import asyncio
 import logging
-import socket as stdlib_socket
-from typing import Any, AsyncGenerator, Callable
+from collections.abc import AsyncGenerator
+from unittest import mock
 
 import pytest
 import pytest_asyncio
-from unittest import mock
 
 from wiredwolf.controller.commons import DEFAULT_SERVER_PORT, Peer
-from wiredwolf.controller.connections.recovery import TCPConnectionRecoverer
-from wiredwolf.controller.controller import GameController
-from wiredwolf.controller.lobbies import (
-    Lobby,
-    LobbyBrowser,
-    LobbyInfo,
-    TcpMdnsLobbyBrowser,
-)
-from wiredwolf.controller.messages import (
-    BaseMessage,
-    ChatMessage,
-    HeartbeatMessage,
-    LobbyUpdatedMessage,
-)
-import wiredwolf.controller.connections.connections as connections
-from wiredwolf.controller.server.game_server import GameServer, GameServerFactory
-from wiredwolf.controller.server.server_plugins import ChatPlugin, GameLifecyclePlugin
 from wiredwolf.controller.connections.connections import (
     ClientConnectionHandler,
     ConnectionSuite,
     TCPConnectionSuite,
 )
+from wiredwolf.controller.controller import GameController
+from wiredwolf.controller.lobbies import (
+    Lobby,
+    LobbyBrowser,
+    TcpMdnsLobbyBrowser,
+)
+from wiredwolf.controller.server.game_server import GameServer, GameServerFactory
+from wiredwolf.controller.server.server_plugins import ChatPlugin, GameLifecyclePlugin
 from wiredwolf.view.custom_events import EventSender
 
 logger = logging.getLogger(__name__)
@@ -146,19 +135,23 @@ async def controllers() -> AsyncGenerator[tuple[GameController, list[GameControl
         lobby_info = event_sender.new_discovered_lobby.call_args[0][
             0
         ]  # Get the first argument of the first call
-        await asyncio.sleep(1)  # Small delay to ensure the lobby is fully discovered before joining
+        await asyncio.sleep(
+            1
+        )  # Small delay to ensure the lobby is fully discovered before joining
         await client.join_lobby(lobby_info, None)
         clients.append(client)
 
     yield server_controller, clients
 
     # TODO: Cleanup controllers if necessary
-    await server_controller.leave()
     for controller in clients:
         try:
             await controller.leave()  # TODO: Change this to a more robust method that ensures the controller is properly cleaned up after each test
         except Exception:
-            logger.warning("Failed to clean up client controller %s", controller.my_self.name)
+            logger.warning(
+                "Failed to clean up client controller %s", controller.my_self.name
+            )
+    await server_controller.leave()
 
 
 @pytest.mark.asyncio
@@ -210,7 +203,7 @@ async def test_multiple_clients_detect_disconnection(
 @pytest.mark.asyncio
 async def test_server_election(
     controllers: tuple[GameController, list[GameController]],
-    caplog: pytest.LogCaptureFixture
+    caplog: pytest.LogCaptureFixture,
 ):
     """
     Test that verifies that when the server crashes, a new server is elected among the clients.
@@ -228,5 +221,7 @@ async def test_server_election(
         while not server.game_status:
             await asyncio.sleep(1)
     assert server.game_status
-    #TODO Crash the server and check that a new server is elected among the clients
+    # TODO Crash the server and check that a new server is elected among the clients
+
+    await server.leave()
 

@@ -1,15 +1,17 @@
+import abc
 import asyncio
 import logging
 from asyncio import Future, Task
 from socket import socketpair
+
 from wiredwolf.controller import commons
-from wiredwolf.controller.server.server_base import Server
 from wiredwolf.controller.connections.connections import (
     ClientConnectionHandler,
     ConnectionHandlerFactory,
     ConnectionSuite,
     ServerConnectionHandler,
 )
+from wiredwolf.controller.lobbies import Lobby
 from wiredwolf.controller.messages import (
     AcknowledgeMessage,
     BaseMessage,
@@ -19,13 +21,12 @@ from wiredwolf.controller.messages import (
     PauseGameMessage,
     PhaseAdvanceMessage,
 )
-from wiredwolf.controller.lobbies import Lobby
-import abc
-
-from wiredwolf.model.game_phases import GamePhase, GamePhaseOutcome
-from wiredwolf.model.player import BasicRole, Role, create_players
+from wiredwolf.controller.server.server_base import Server
 from wiredwolf.model.game import Game
 from wiredwolf.model.game_builder import GameInfoBuilder
+from wiredwolf.model.game_phases import GamePhase, GamePhaseOutcome
+from wiredwolf.model.player import BasicRole, Role, create_players
+
 
 class DuplicateIdException(Exception):
     """Exception raised when a peer tries to connect with an ID that already exists in the lobby."""
@@ -411,7 +412,6 @@ class GameServer(Server):
 
     async def close(self):
         """Closes the server and all associated connections."""
-        self.stop_new_connections()
         await self._server_conn_handler.close()
 
     async def process_incoming_message(self, message: BaseMessage):
