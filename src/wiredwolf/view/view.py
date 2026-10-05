@@ -157,7 +157,7 @@ class PanelHandler():
                     else:
                         #If you haven't started the game, you are alive by default
                         element[0].show()
-        if screen in [Screens.HOME, Screens.NEW_LOBBY, Screens.SEARCH_LOBBY, Screens.LOBBY_WAITING, Screens.LOADING_LOBBY, Screens.LOADING_GAME, Screens.ROLE_DISPLAY, Screens.ERROR_SCREEN, Screens.NONE]:
+        if screen in [Screens.HOME, Screens.NEW_LOBBY, Screens.SEARCH_LOBBY, Screens.LOBBY_WAITING, Screens.LOADING_LOBBY, Screens.LOADING_GAME, Screens.ROLE_DISPLAY, Screens.ERROR_SCREEN, Screens.NONE, Screens.WAITING_FOR_RECONNECTION]:
             #In these screens, role panel should be hidden
             self.role_panel.hide()
         else:
