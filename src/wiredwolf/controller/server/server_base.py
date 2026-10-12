@@ -26,6 +26,14 @@ class Server(abc.ABC):
             peer (commons.Peer): The peer that encountered an error.
             outcome (Future[commons.ReconnectedOutcome]): The future that will be completed when the peer either reconnects or fails to reconnect.
         """
+        
+    @abc.abstractmethod
+    async def start_listening(self):
+        """Starts the server and begins listening for incoming connections."""
+
+    @abc.abstractmethod
+    def stop_new_connections(self):
+        """Stops the server from accepting new connections."""
 
     @abc.abstractmethod
     async def process_incoming_message(self, message: BaseMessage):
@@ -34,6 +42,19 @@ class Server(abc.ABC):
         Args:
             message (BaseMessage): The message to handle.
         """
+    
+    @abc.abstractmethod
+    async def send_to_peer(self, peer: commons.Peer, message: BaseMessage):
+        """Sends a message to a specific peer.
+
+        Args:
+            peer (commons.Peer): The peer to send the message to.
+            message (BaseMessage): The message to send.
+        """
+        
+    @abc.abstractmethod
+    async def close(self):
+        """Closes the server and all active connections."""
 
     @property
     @abc.abstractmethod
