@@ -268,8 +268,9 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                                         address = known_peers.get(peer)
                                         if address is not None:
                                             client_conn_handler = await lobby_browser.connect_to_peer(controller.my_self, (address[0], commons.DEFAULT_SERVER_PORT))
-                                            await client_conn_handler.send_obj(controller.my_self)  # Send my_self to the newly connected peer
                                             client_conn_handler.set_on_disconnect(lambda peer=peer: on_peer_disconnection(peer))
+                                            await client_conn_handler.start_receiving()  # Start receiving messages from the newly connected peer
+                                            await client_conn_handler.send_obj(controller.my_self)  # Send my_self to the newly connected peer
                                             self.__logger.info("Successfully connected to peer: %s", peer)
                                             peers_status[peer] = ConnectionStatus.CONNECTED
                                             peers_connections[peer] = 0
