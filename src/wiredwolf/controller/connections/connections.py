@@ -196,7 +196,7 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
         self._reader: asyncio.StreamReader = reader
         self._writer: asyncio.StreamWriter = writer
         self._endpoint: tuple[str, int] = endpoint
-        self._other_peers: dict[Peer, str] = {}  # Dictionary to store other peers and their addresses
+        self._other_peers: dict[Peer, tuple[str, int]] = {}  # Dictionary to store other peers and their addresses
         self._receiving_task: asyncio.Task[None] | None = None
         self._on_disconnect: Callable[[], CoroutineType[Any, Any, None]] | None = None
 
@@ -210,11 +210,11 @@ class AsyncTCPClientConnectionHandler(ClientConnectionHandler):
         return self._endpoint
     
     @property
-    def other_peers(self) -> dict[Peer, str]:
+    def other_peers(self) -> dict[Peer, tuple[str, int]]:
         """Get the dictionary of other known peers and their addresses.
 
         Returns:
-            dict[Peer, str]: The dictionary of other known peers and their addresses.
+            dict[Peer, tuple[str, int]]: The dictionary of other known peers and their addresses.
         """
         return self._other_peers
 
@@ -448,7 +448,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
         self._endpoints: dict[
             Peer, tuple[asyncio.StreamReader, asyncio.StreamWriter]
         ] = {}
-        self._client_addresses: dict[Peer, str] = {}
+        self._client_addresses: dict[Peer, tuple[str, int]] = {}
         self._status: dict[Peer, ConnectionStatus] = {}
         self._receiving_tasks: dict[Peer, asyncio.Task[None]] = {}
         self._tcp_server: asyncio.Server | None = None
@@ -650,7 +650,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
     async def _client_connected_cb(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ):
-        client_address = writer.get_extra_info(PEERNAME_EXTRA_INFO)
+        client_address: tuple[str, int] = writer.get_extra_info(PEERNAME_EXTRA_INFO)
         self._logger.info("Accepted connection from %s", client_address)
         async with asyncio.timeout(CONNECTION_TIMEOUT):
             peer: Peer|None = None

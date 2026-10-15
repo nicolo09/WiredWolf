@@ -440,7 +440,7 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                             )
                             master_address = known_peers.get(self._new_master)
                             if master_address is not None:
-                                new_client_conn_handler, new_lobby = await lobby_browser.reconnect_to_lobby(controller.my_self, (master_address, commons.DEFAULT_SERVER_PORT))
+                                new_client_conn_handler, new_lobby = await lobby_browser.reconnect_to_lobby(controller.my_self, (master_address[0], commons.DEFAULT_SERVER_PORT))
                                 return new_lobby, None, new_client_conn_handler
                             else:
                                 self.__logger.error("Master address is None.")

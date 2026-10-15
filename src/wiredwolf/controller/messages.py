@@ -286,7 +286,7 @@ class ElectionFailedMessage(BaseMessage):
 class NewPeerMessage(BaseMessage):
     """A message sent to indicate that a new peer has joined the lobby"""
 
-    def __init__(self, peer: Peer, address: str):
+    def __init__(self, peer: Peer, address: tuple[str, int]):
         super().__init__(None)
         self._new_peer = peer
         self._address = address
@@ -300,10 +300,10 @@ class NewPeerMessage(BaseMessage):
         return self._new_peer
 
     @property
-    def address(self) -> str:
+    def address(self) -> tuple[str, int]:
         """Gets the address of the new peer.
         Returns:
-            str: The address of the new peer.
+            tuple[str, int]: The address of the new peer.
         """
         return self._address
     
@@ -327,4 +327,3 @@ class PauseGameMessage(BaseMessage):
 
     def __init__(self):
         super().__init__(None)
-

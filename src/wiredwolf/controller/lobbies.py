@@ -353,7 +353,6 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
         Args:
             my_self (Peer): The peer object representing the client.
             peer_endpoint (tuple[str, int]): The (IP, port) endpoint of the peer to connect to.
-            on_disconnect (Callable[[], CoroutineType[Any, Any, None]] | None): Optional callback to be invoked when the connection is lost.
 
         Returns:
             tuple[ClientConnectionHandler]: The connected client handler.
