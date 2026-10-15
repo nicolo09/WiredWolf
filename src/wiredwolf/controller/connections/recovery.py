@@ -243,7 +243,7 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                             approvals[message.sender] = True
                         elif isinstance(message, MasterElectedMessage):
                             if message.new_master is not None and peers_status.get(message.new_master) != ConnectionStatus.DISCONNECTED:
-                                if message.new_master is not self._approved_candidate:
+                                if message.new_master != self._approved_candidate:
                                     self._backups.add(message.new_master)
                                 elif message.new_master != controller.my_self:
                                     self._new_master = message.new_master
@@ -375,10 +375,6 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                                         if len(approvals) > (len(self._get_connected_peers(peers_status)) + 1) / 2:
                                             self.__logger.info("Received majority of approvals, becoming the new master.")
                                             self._new_master = controller.my_self
-                                            await self._send_message_to_all(
-                                                MasterElectedMessage(controller.my_self, self._new_master),
-                                                peers_status
-                                            )
                                         else:
                                             self.__logger.info("Did not receive majority of approvals, waiting for the election process to complete.")
                                             self._phase = RecoveryPhase.READY_FOR_ELECTION
@@ -403,13 +399,19 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                                             peers_status
                                         )
                                         self._phase = RecoveryPhase.APPROVED_CANDIDATE
+                                candidates.clear()  # Clear candidates for the next round
                                 await asyncio.sleep(0.1)
                     except asyncio.TimeoutError as e:
                         self.__logger.error("Election process timed out, could not elect a new master.")
                     finally:
                         if timer_task is not None:
                             timer_task.cancel()  # Cancel the timer task if it's still running
-                            
+                        if self._new_master is not None:
+                            await self._send_message_to_all(
+                                MasterElectedMessage(controller.my_self, self._new_master),
+                                peers_status
+                            )
+
                     # Close all connections established during the election phase
                     await self._server.close()
                     for client_conn_handler in self._client_conn_handlers.values():
@@ -418,12 +420,12 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                     if self._new_master:
                         self.__logger.info("New master elected: %s", self._new_master)
                         if self._new_master == controller.my_self:
-                            
+
                             if controller.game_status is not None:
                                 #FIXME: controller's game status is the snapshot?  
                                 new_game = Game.from_game_status(controller.game_status)  # Create a new Game instance from the current game status
                                 new_lobby = Lobby.change_owner(lobby, controller.my_self)  # Create a new lobby with the current peer as the owner
-                                                  
+
                                 new_game_server, new_client_conn_handler = await GameServerFactory.get_game_server(new_lobby, controller.connection_suite, new_game)  # Create a new GameServer with the new lobby and game
                                 await new_game_server.start_listening()
                                 await asyncio.sleep(AWAIT_CONNECTIONS) # Wait a bit to let other peers connect to the new server
@@ -434,10 +436,6 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                                 self.__logger.error("Game instance is None after becoming the new master.")
                                 raise RuntimeError("Game instance is None after becoming the new master.")
                         else:
-                            await self._send_message_to_all(
-                                MasterElectedMessage(controller.my_self, self._new_master),
-                                peers_status
-                            )
                             master_address = known_peers.get(self._new_master)
                             if master_address is not None:
                                 new_client_conn_handler, new_lobby = await lobby_browser.reconnect_to_lobby(controller.my_self, (master_address[0], commons.DEFAULT_SERVER_PORT))
