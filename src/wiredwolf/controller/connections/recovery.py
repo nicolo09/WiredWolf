@@ -226,10 +226,10 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
             known_peers = connection_handler.other_peers.copy()
             if lobby is not None:
                 peers_status: dict[commons.Peer, ConnectionStatus] = {peer: ConnectionStatus.DISCONNECTED for peer in lobby.peers if peer != controller.my_self}
-                peers_status_lock = asyncio.Lock()  # Lock to protect access to peers_status to avoid concurrent bidirectional connections between peers
+                peers_status_lock = asyncio.Lock()  # Lock to protect access to peers_status to better handle concurrent access from multiple coroutines
                 peers_connections: dict[commons.Peer, int] = {controller.my_self: 0} # Number of active connection each peer has recovered
                 approvals: dict[commons.Peer, bool] = {}
-                candidates: list[commons.Peer] = []
+                candidates: set[commons.Peer] = set()
 
                 # Callback for incoming messages
                 def on_message(message: BaseMessage):
@@ -238,7 +238,7 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                         if isinstance(message, RecoveredConnectionsMessage):
                             peers_connections[message.sender] = message.connections
                         elif isinstance(message, CandidateForElectionMessage):
-                            candidates.append(message.sender)
+                            candidates.add(message.sender)
                         elif isinstance(message, ApproveCandidateMessage):
                             approvals[message.sender] = True
                         elif isinstance(message, MasterElectedMessage):
@@ -389,7 +389,10 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                                             timer_task = None  # Reset the timer task for the next round
 
                                 # Check if any peer has sent a CandidateForElectionMessage
-                                for candidate in candidates:
+                                candidates_to_process = candidates
+                                candidates = set()
+                                
+                                for candidate in candidates_to_process:
                                     self.__logger.info("Peer %s has sent a CandidateForElectionMessage", candidate)
                                     if candidate == self._get_preferred_new_master(peers_connections) and self._phase != RecoveryPhase.APPROVED_CANDIDATE:
                                         self._approved_candidate = candidate
@@ -399,7 +402,6 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                                             peers_status
                                         )
                                         self._phase = RecoveryPhase.APPROVED_CANDIDATE
-                                candidates.clear()  # Clear candidates for the next round
                                 await asyncio.sleep(0.1)
                     except asyncio.TimeoutError as e:
                         self.__logger.error("Election process timed out, could not elect a new master.")
