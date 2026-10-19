@@ -80,7 +80,7 @@ class Recoverable(abc.ABC):
 
 
 DIRECT_RECONNECTION_TIMEOUT = 5  # seconds
-DIRECT_RECONNECTION_RETRIES = 3  # number of retries for direct reconnection
+RECONNECTION_RETRIES = 3  # number of retries for direct reconnection
 DIRECT_RECONNECTION_WAIT_BETWEEN_RETRY = 1  # seconds to wait between retries
 
 NEW_CONNECTION_TIMEOUT = 5  # seconds
@@ -207,7 +207,7 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
             tries = 0
             self._phase = RecoveryPhase.RECONNECTING_TO_SERVER
             # First thing to do is to try to reconnect to the server
-            for tries in range(DIRECT_RECONNECTION_RETRIES):
+            for tries in range(RECONNECTION_RETRIES):
                 try:
                     async with asyncio.timeout(DIRECT_RECONNECTION_TIMEOUT):  # Set a timeout for the direct reconnection attempt
                         restored_client_conn_handler, restored_lobby = await lobby_browser.reconnect_to_lobby(controller.my_self, connection_handler.endpoint)
@@ -422,7 +422,6 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                     if self._new_master:
                         self.__logger.info("New master elected: %s", self._new_master)
                         if self._new_master == controller.my_self:
-
                             if controller.game_status is not None:
                                 #FIXME: controller's game status is the snapshot?  
                                 new_game = Game.from_game_status(controller.game_status)  # Create a new Game instance from the current game status
@@ -440,8 +439,13 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                         else:
                             master_address = known_peers.get(self._new_master)
                             if master_address is not None:
-                                new_client_conn_handler, new_lobby = await lobby_browser.reconnect_to_lobby(controller.my_self, (master_address[0], commons.DEFAULT_SERVER_PORT))
-                                return new_lobby, None, new_client_conn_handler
+                                for tries in range(RECONNECTION_RETRIES):
+                                    try:
+                                        new_client_conn_handler, new_lobby = await lobby_browser.reconnect_to_lobby(controller.my_self, (master_address[0], commons.DEFAULT_SERVER_PORT))
+                                        return new_lobby, None, new_client_conn_handler
+                                    except Exception as e:
+                                        self.__logger.error("Failed to reconnect to the new master: %s", str(e))
+                                raise RecoveryFailedException("Failed to reconnect to the new master after multiple attempts.")
                             else:
                                 self.__logger.error("Master address is None.")
                                 raise RuntimeError("Master address is None.")
