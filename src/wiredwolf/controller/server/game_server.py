@@ -213,7 +213,7 @@ class GameServer(Server):
             result = await outcome
             if result == commons.ReconnectedOutcome.SUCCESS:
                 self.__logger.info("Peer %s successfully reconnected.", peer)
-                await self._server_conn_handler.send_obj(peer, self._lobby)
+                await self._server_conn_handler.send_obj(peer, LobbyUpdatedMessage(self._lobby))
             elif result == commons.ReconnectedOutcome.FAILURE:
                 self.__logger.warning("Peer %s failed to reconnect. Handling disconnection.", peer)
                 await self._on_peer_disconnected(peer)

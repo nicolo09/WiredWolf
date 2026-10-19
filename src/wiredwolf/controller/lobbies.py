@@ -394,11 +394,11 @@ class TcpMdnsLobbyBrowser(LobbyBrowser):
         reader, writer = await self._open_connection(address)
         handler = MessageHandlerFactory.getDefault()
         await handler.send_obj(writer, my_self)
-        lobby = await handler.receive_obj(reader)
-        if isinstance(lobby, Lobby):
+        lobby_message = await handler.receive_obj(reader)
+        if isinstance(lobby_message, LobbyUpdatedMessage):
             return AsyncTCPClientConnectionHandler(
                 my_self, reader, writer, address
-            ), lobby
+            ), lobby_message.lobby
         else:
             writer.close()
             raise RuntimeError("Unexpected message received during reconnection.")
