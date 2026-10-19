@@ -690,6 +690,8 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 await writer.wait_closed()
                 if peer:
                     self._status.pop(peer)
+                    self._client_addresses.pop(peer)
+                    self._endpoints.pop(peer)
                 return
             except TimeoutError:
                 # Peer did not identify in time
@@ -701,6 +703,8 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 await writer.wait_closed()
                 if peer:
                     self._status.pop(peer)
+                    self._client_addresses.pop(peer)
+                    self._endpoints.pop(peer)
                 return
             except Exception as e:
                 self._logger.error(
@@ -710,6 +714,8 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 await writer.wait_closed()
                 if peer:
                     self._status.pop(peer)
+                    self._client_addresses.pop(peer)
+                    self._endpoints.pop(peer)
                 return
 
     async def _handle_peer_message(self, peer: Peer):
