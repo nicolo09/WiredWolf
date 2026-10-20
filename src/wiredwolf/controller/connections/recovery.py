@@ -91,7 +91,7 @@ CANDIDATE_FOR_ELECTION_DELAY_RANGE = (0, 6)  # seconds, range for random delay b
 CANDIDATION_AWAIT = 5  # seconds, timeout for candidation phase
 ELECTION_TIMEOUT = 120  # seconds, timeout for election phase #TODO: Too low? Too high?
 
-AWAIT_CONNECTIONS = 10 # seconds, time the new master waits to let the peers connect to the new game server
+AWAIT_CONNECTIONS = 15 # seconds, time the new master waits to let the peers connect to the new game server
 
 class ConnectionStatus(Enum):
     CONNECTED_TO_ME = "connected_to_server"
@@ -222,10 +222,10 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
             self.__logger.info("All direct reconnection attempts failed. Server is considered unreachable.")
             # Direct reconnection failed, we open a server conn handler to let other peer connect to us...
             self._phase = RecoveryPhase.CONNECTING_TO_PEERS
-            lobby = controller.lobby
+            old_lobby = controller.lobby
             known_peers = connection_handler.other_peers.copy()
-            if lobby is not None:
-                peers_status: dict[commons.Peer, ConnectionStatus] = {peer: ConnectionStatus.DISCONNECTED for peer in lobby.peers if peer != controller.my_self}
+            if old_lobby is not None:
+                peers_status: dict[commons.Peer, ConnectionStatus] = {peer: ConnectionStatus.DISCONNECTED for peer in old_lobby.peers if peer != controller.my_self}
                 peers_status_lock = asyncio.Lock()  # Lock to protect access to peers_status to better handle concurrent access from multiple coroutines
                 peers_connections: dict[commons.Peer, int] = {controller.my_self: 0} # Number of active connection each peer has recovered
                 approvals: dict[commons.Peer, bool] = {}
@@ -327,7 +327,7 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                 await self._server.start_listening()
                 # ...and in the meanwhile we try to connect to other peers in the lobby
                 for new_connection_attempt in range(NEW_CONNECTION_RETRIES):
-                    for peer in lobby.peers:
+                    for peer in old_lobby.peers:
                         if self._client_conn_handlers.get(peer) is None:
                             try:
                                 async with asyncio.timeout(NEW_CONNECTION_TIMEOUT):  # Set a timeout for the new connection attempt
@@ -425,13 +425,25 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                             if controller.game_status is not None:
                                 #FIXME: controller's game status is the snapshot?  
                                 new_game = Game.from_game_status(controller.game_status)  # Create a new Game instance from the current game status
-                                new_lobby = Lobby.change_owner(lobby, controller.my_self)  # Create a new lobby with the current peer as the owner
+                                new_lobby = Lobby.change_owner(old_lobby, controller.my_self)  # Create a new lobby with the current peer as the owner
 
                                 new_game_server, new_client_conn_handler = await GameServerFactory.get_game_server(new_lobby, controller.connection_suite, new_game)  # Create a new GameServer with the new lobby and game
                                 await new_game_server.start_listening()
                                 await asyncio.sleep(AWAIT_CONNECTIONS) # Wait a bit to let other peers connect to the new server
                                 new_game_server.stop_new_connections()
-                                #FIXME: must remove from the lobby the peers that did not reconnect
+                                
+                                lost_peers = (
+                                    old_lobby.peers - set(new_game_server.connection_handler.get_connected_peers()) - {controller.my_self}
+                                )
+                                # Remove peers that did not connect to the new server from the new lobby and set them as dead in the new game
+                                for peer in lost_peers:
+                                    new_lobby.peers.discard(peer)
+                                    new_game.set_player_as_dead(peer.uuid)
+                                    self.__logger.info(
+                                        "Player %s did not connect to the new server and is set as dead.",
+                                        peer.uuid,
+                                    )
+                                
                                 return new_lobby, new_game_server, new_client_conn_handler
                             else:
                                 self.__logger.error("Game instance is None after becoming the new master.")
