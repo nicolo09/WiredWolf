@@ -108,6 +108,11 @@ class ServerConnectionHandler(abc.ABC):
     async def start_listening(self) -> None:
         """Start listening for new connections."""
         pass
+    
+    @abc.abstractmethod
+    def get_connected_peers(self) -> list[Peer]:
+        """Get a list of currently connected peers."""
+        pass
 
     @abc.abstractmethod
     def stop_new_connections(self):
@@ -480,6 +485,14 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
             )
             # keep a reference to the serve_forever task so it can be awaited/cancelled on close
             self._server_task = asyncio.create_task(self._tcp_server.serve_forever())
+            
+    def get_connected_peers(self) -> list[Peer]:
+        """Get a list of currently connected peers.
+
+        Returns:
+            list[Peer]: The list of currently connected peers.
+        """
+        return [peer for peer, status in self._status.items() if status == ConnectionStatus.CONNECTED]
 
     async def _send_heartbeat(self):
         """A function that sends a heartbeat message to all connected peers regularly"""
