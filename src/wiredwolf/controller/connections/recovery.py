@@ -453,7 +453,7 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                             if master_address is not None:
                                 for tries in range(RECONNECTION_RETRIES):
                                     try:
-                                        new_client_conn_handler, new_lobby = await lobby_browser.reconnect_to_lobby(controller.my_self, (master_address[0], commons.DEFAULT_SERVER_PORT))
+                                        new_client_conn_handler, new_lobby = await lobby_browser.connect_to_lobby_directly(controller.my_self, (master_address[0], commons.DEFAULT_SERVER_PORT), old_lobby.password)
                                         return new_lobby, None, new_client_conn_handler
                                     except Exception as e:
                                         self.__logger.error("Failed to reconnect to the new master: %s", str(e))
