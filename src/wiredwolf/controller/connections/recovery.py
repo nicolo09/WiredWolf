@@ -277,7 +277,11 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                         if peers_status[peer] == ConnectionStatus.DOUBLE_CONNECTION:
                             # If there was double connection and I am the server then I'm still connected to the peer as a client
                             # Otherwise, if I am the client, then the peer is still connected to me
-                            peers_status[peer] = ConnectionStatus.CONNECTED_TO_PEER if am_i_server else ConnectionStatus.CONNECTED_TO_ME
+                            if am_i_server:
+                                peers_status[peer] = ConnectionStatus.CONNECTED_TO_PEER
+                            else:
+                                self._client_conn_handlers.pop(peer, None)
+                                peers_status[peer] = ConnectionStatus.CONNECTED_TO_ME
                         elif peers_status[peer] == ConnectionStatus.CONNECTED_TO_ME and am_i_server:
                             # If the peer was only connected to me and I am the server, we set it as disconnected
                             await remove_peer_and_update_connections(peer)
