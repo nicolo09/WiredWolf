@@ -134,7 +134,6 @@ class BackupServer(Server):
         controller: Recoverable,
         on_new_peer_cb: Callable[[commons.Peer], CoroutineType[Any, Any, None]],
         on_peer_disconnected_cb: Callable[[commons.Peer], CoroutineType[Any, Any, None]],
-        #on_peer_error_cb: Callable[[commons.Peer, asyncio.Future[ReconnectedOutcome]], CoroutineType[Any, Any, None]],
         on_message_cb: Callable[[BaseMessage], None]
         
     ):
@@ -142,7 +141,6 @@ class BackupServer(Server):
         self._controller: Recoverable = controller
         self._on_new_peer_cb: Callable[[commons.Peer], CoroutineType[Any, Any, None]] = on_new_peer_cb
         self._on_peer_disconnected_cb: Callable[[commons.Peer], CoroutineType[Any, Any, None]] = on_peer_disconnected_cb
-        #self._on_peer_error_cb: Callable[[commons.Peer, asyncio.Future[ReconnectedOutcome]], CoroutineType[Any, Any, None]] = on_peer_error_cb
         self._on_message_cb: Callable[[BaseMessage], None] = on_message_cb
         self._server_conn_handler: ServerConnectionHandler = ConnectionHandlerFactory.get_server_connection_handler(controller.connection_suite, server=self)
         
@@ -153,8 +151,8 @@ class BackupServer(Server):
         await self._on_peer_disconnected_cb(peer)  # Call the provided callback for peer disconnections
 
     async def _on_peer_error(self, peer: commons.Peer, outcome: asyncio.Future[ReconnectedOutcome]):
-        pass #TODO: implement error handling for peer recovery if needed
-        #await self._on_peer_error_cb(peer, outcome)  # Call the provided callback for peer errors
+        # If during the recovery an error happens we just consider the connection as lost and the _on_peer_disconnected callback will handle it
+        pass 
 
     async def start_listening(self):
         await self._server_conn_handler.start_listening()  # Start listening for incoming connections using the server connection handler
@@ -176,7 +174,7 @@ class BackupServer(Server):
 
     @property
     async def should_recover_connections(self) -> bool:
-        return True  #FIXME: Always allow recovery of connections for the backup server?
+        return False
 
 class TCPConnectionRecoverer(ConnectionRecoverer):
 
