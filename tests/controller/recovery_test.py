@@ -210,6 +210,8 @@ async def test_server_election(
     """
 
     caplog.set_level(logging.DEBUG)
+    
+    ELECTION_TIMEOUT = 60  # seconds
 
     server = controllers[0]
     clients = controllers[1]
@@ -221,7 +223,15 @@ async def test_server_election(
         while not server.game_status:
             await asyncio.sleep(1)
     assert server.game_status
-    # TODO Crash the server and check that a new server is elected among the clients
+    
+    # The new master should be the one with the lowest uuid since all clients should manage to connect to one another and elect a new master
+    expected_new_master = min(clients, key=lambda c: c.my_self.uuid)
 
     await server.leave()
-
+    
+    await asyncio.sleep(ELECTION_TIMEOUT)  # Wait for the election to complete
+    
+    assert expected_new_master._server is not None, f"Expected new master: {expected_new_master.my_self.name}, but it is not the master."
+    for client in clients:
+        if client != expected_new_master:
+            assert client._server is None, f"Client {client.my_self.name} shouldn't have a running server, but it does."
