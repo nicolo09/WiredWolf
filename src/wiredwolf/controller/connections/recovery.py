@@ -434,7 +434,6 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                                 new_game_server, new_client_conn_handler = await GameServerFactory.get_game_server(new_lobby, controller.connection_suite, new_game)  # Create a new GameServer with the new lobby and game
                                 await new_game_server.start_listening()
                                 await asyncio.sleep(AWAIT_CONNECTIONS) # Wait a bit to let other peers connect to the new server
-                                new_game_server.stop_new_connections()
                                 
                                 lost_peers = (
                                     old_lobby.peers - set(new_game_server.connection_handler.get_connected_peers()) - {controller.my_self}
