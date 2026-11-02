@@ -22,6 +22,7 @@ from wiredwolf.controller.messages import (
     ChatMessage,
     ConnectionClosedMessage,
     GameStartedMessage,
+    HeartbeatMessage,
     LobbyUpdatedMessage,
     NightActionMessage,
     NotAcknowledgeMessage,
@@ -451,6 +452,9 @@ class GameController(Recoverable):
                 self._event_sender.error_occurred(
                     "Game Paused", "The game has been paused by the server."
                 )
+            case HeartbeatMessage():
+                # Handle heartbeat messages if needed
+                pass
             case _:
                 self._logger.warning("Unhandled message type: %s", type(message))
 
