@@ -330,7 +330,7 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                 # ...and in the meanwhile we try to connect to other peers in the lobby
                 for new_connection_attempt in range(NEW_CONNECTION_RETRIES):
                     for peer in old_lobby.peers:
-                        if self._client_conn_handlers.get(peer) is None:
+                        if peer != controller.my_self and self._client_conn_handlers.get(peer) is None:
                             try:
                                 async with asyncio.timeout(NEW_CONNECTION_TIMEOUT):  # Set a timeout for the new connection attempt
                                     address = known_peers.get(peer)
@@ -417,8 +417,10 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                             )
 
                     # Close all connections established during the election phase
+                    
+                    conn_handlers = list(self._client_conn_handlers.values())
                     await self._server.close()
-                    for client_conn_handler in self._client_conn_handlers.values():
+                    for client_conn_handler in conn_handlers:
                         await client_conn_handler.close()
 
                     if self._new_master:
