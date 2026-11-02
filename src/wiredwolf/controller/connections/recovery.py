@@ -421,7 +421,10 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                     conn_handlers = list(self._client_conn_handlers.values())
                     await self._server.close()
                     for client_conn_handler in conn_handlers:
-                        await client_conn_handler.close()
+                        try:
+                            await client_conn_handler.close()
+                        except Exception as e:
+                            self.__logger.error("Failed to close client connection handler: %s", e)
 
                     if self._new_master:
                         self.__logger.info("New master elected: %s", self._new_master)
