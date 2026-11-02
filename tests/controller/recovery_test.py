@@ -10,7 +10,7 @@ from wiredwolf.controller.commons import DEFAULT_SERVER_PORT, Peer
 from wiredwolf.controller.connections.connections import (
     ClientConnectionHandler,
     ConnectionSuite,
-    TCPConnectionSuite,
+    FixedIPv4TCPConnectionSuite,
 )
 from wiredwolf.controller.controller import GameController
 from wiredwolf.controller.lobbies import (
@@ -26,29 +26,8 @@ logger = logging.getLogger(__name__)
 
 # Numero di client totali (1 owner + 7 clients)
 NUM_CLIENTS = 8
-TEST_BIND_ADDRESS = ("127.0.0.1", DEFAULT_SERVER_PORT)
-
-
-class MockTCPConnectionSuite(TCPConnectionSuite):
-    """
-    Mock implementation of TCPConnectionSuite for testing purposes.
-    """
-
-    def __init__(self, mock_ipv4_address: str = "127.0.0.1"):
-        self._mock_ipv4_address = mock_ipv4_address
-        super().__init__()
-
-    def get_local_ipv4_addresses(self) -> list[list[str]]:
-        """
-        Returns a list of local IPv4 addresses for testing purposes.
-        """
-        return [[self._mock_ipv4_address]]
-
-    def get_default_bind_address(self) -> tuple[str, int]:
-        """
-        Returns a default bind address for testing purposes.
-        """
-        return (self._mock_ipv4_address, DEFAULT_SERVER_PORT)
+LOCALHOST = "127.0.0.1"
+TEST_BIND_ADDRESS = (LOCALHOST, DEFAULT_SERVER_PORT)
 
 
 @pytest_asyncio.fixture
@@ -64,7 +43,7 @@ async def lobby_with_clients() -> AsyncGenerator[
     lobby = Lobby(myself, "RecoveryTestLobby")
 
     # Create the game server and start listening for connections
-    connection_suite = MockTCPConnectionSuite()
+    connection_suite = FixedIPv4TCPConnectionSuite(LOCALHOST)
     server, owner_handler = await GameServerFactory.get_game_server(
         lobby, connection_suite
     )
@@ -111,7 +90,7 @@ async def controllers() -> AsyncGenerator[tuple[GameController, list[GameControl
     """
     Creates a server controller and a list of client controllers for testing purposes.
     """
-    server_conn_suite: ConnectionSuite = MockTCPConnectionSuite()
+    server_conn_suite: ConnectionSuite = FixedIPv4TCPConnectionSuite(LOCALHOST)
     server_event_sender: EventSender = mock.Mock(spec=EventSender)
 
     server_controller = GameController(server_conn_suite, server_event_sender)
@@ -121,7 +100,7 @@ async def controllers() -> AsyncGenerator[tuple[GameController, list[GameControl
     await server_controller.create_lobby("RecoveryTestLobby")
 
     for i in range(NUM_CLIENTS):
-        connection_suite: ConnectionSuite = MockTCPConnectionSuite(
+        connection_suite: ConnectionSuite = FixedIPv4TCPConnectionSuite(
             "127.0.0." + str(i + 2)
         )  # Different local IP for each client
         event_sender: EventSender = mock.Mock(spec=EventSender)
@@ -210,7 +189,7 @@ async def test_server_election(
     """
 
     caplog.set_level(logging.DEBUG)
-    
+
     ELECTION_TIMEOUT = 60  # seconds
 
     server = controllers[0]
@@ -223,15 +202,20 @@ async def test_server_election(
         while not server.game_status:
             await asyncio.sleep(1)
     assert server.game_status
-    
+
     # The new master should be the one with the lowest uuid since all clients should manage to connect to one another and elect a new master
     expected_new_master = min(clients, key=lambda c: c.my_self.uuid)
 
     await server.leave()
-    
+
+    # TODO: Implement a more robust way to wait for the election to complete, possibly by listening to an event or checking the state of the clients.
     await asyncio.sleep(ELECTION_TIMEOUT)  # Wait for the election to complete
-    
-    assert expected_new_master._server is not None, f"Expected new master: {expected_new_master.my_self.name}, but it is not the master."
+
+    assert expected_new_master._server is not None, (
+        f"Expected new master: {expected_new_master.my_self.name}, but it is not the master."
+    )
     for client in clients:
         if client != expected_new_master:
-            assert client._server is None, f"Client {client.my_self.name} shouldn't have a running server, but it does."
+            assert client._server is None, (
+                f"Client {client.my_self.name} shouldn't have a running server, but it does."
+            )

@@ -907,7 +907,31 @@ class TCPConnectionSuite(ConnectionSuite):
             tuple[str, int]: The default bind address (IP, port).
         """
         return (DEFAULT_SERVER_HOST, DEFAULT_SERVER_PORT)
-    
+
+class FixedIPv4TCPConnectionSuite(TCPConnectionSuite):
+    """A TCP connection suite that uses a fixed IPv4 address for testing purposes."""
+
+    def __init__(self, fixed_ipv4_address: str = ""):
+        """Initializes the FixedIPv4TCPConnectionSuite with a fixed IPv4 address.
+
+        Args:
+            fixed_ipv4_address (str): The fixed IPv4 address to use. Defaults to an empty string.
+        """
+        self._fixed_ipv4_address: str = fixed_ipv4_address
+        super().__init__()
+
+    def get_local_ipv4_addresses(self) -> list[list[str]]:
+        """
+        Returns a list of local IPv4 addresses for testing purposes.
+        """
+        return [[self._fixed_ipv4_address]]
+
+    def get_default_bind_address(self) -> tuple[str, int]:
+        """
+        Returns a default bind address for testing purposes.
+        """
+        return (self._fixed_ipv4_address, DEFAULT_SERVER_PORT)
+
 class ConnectionHandlerFactory:
     """Factory class for creating connection handlers."""
 

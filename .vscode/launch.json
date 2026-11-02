@@ -10,6 +10,78 @@
             "args": [],
             "suppressMultipleSessionWarning": true
         },
+        {
+            "name": "wiredwolf 1",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "module": "wiredwolf",
+            "args": ["--address", "127.0.0.1"],
+            "suppressMultipleSessionWarning": true
+        },
+        {
+            "name": "wiredwolf 2",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "module": "wiredwolf",
+            "args": ["--address", "127.0.0.2"],
+            "suppressMultipleSessionWarning": true
+        },
+        {
+            "name": "wiredwolf 3",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "module": "wiredwolf",
+            "args": ["--address", "127.0.0.3"],
+            "suppressMultipleSessionWarning": true
+        },
+        {
+            "name": "wiredwolf 4",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "module": "wiredwolf",
+            "args": ["--address", "127.0.0.4"],
+            "suppressMultipleSessionWarning": true
+        },
+        {
+            "name": "wiredwolf 5",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "module": "wiredwolf",
+            "args": ["--address", "127.0.0.5"],
+            "suppressMultipleSessionWarning": true
+        },
+        {
+            "name": "wiredwolf 6",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "module": "wiredwolf",
+            "args": ["--address", "127.0.0.6"],
+            "suppressMultipleSessionWarning": true
+        },
+        {
+            "name": "wiredwolf 7",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "module": "wiredwolf",
+            "args": ["--address", "127.0.0.7"],
+            "suppressMultipleSessionWarning": true
+        },
+        {
+            "name": "wiredwolf 8",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "module": "wiredwolf",
+            "args": ["--address", "127.0.0.8"],
+            "suppressMultipleSessionWarning": true
+        },
     ],
     "compounds": [
         {
@@ -23,6 +95,20 @@
                 "wiredwolf",
                 "wiredwolf",
                 "wiredwolf"
+            ],
+            "suppressMultipleSessionWarning": true
+        },
+        {
+            "name": "wiredwolf fixed ip x8",
+            "configurations": [
+                "wiredwolf 1",
+                "wiredwolf 2",
+                "wiredwolf 3",
+                "wiredwolf 4",
+                "wiredwolf 5",
+                "wiredwolf 6",
+                "wiredwolf 7",
+                "wiredwolf 8"
             ],
             "suppressMultipleSessionWarning": true
         }
