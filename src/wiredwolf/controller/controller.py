@@ -538,10 +538,20 @@ class GameController(Recoverable):
                 )
                 if result:
                     if isinstance(result, NightActionResult):
-                        self._event_sender.display_chat_message(
-                            f"You have chosen {player.name}."
-                        )
-                        self._event_sender.display_chat_message(result.message)
+                        p=self.my_self_as_player()
+                        if p!=None and p.role is BasicRole.WEREWOLF:
+                            #Message for werewolves
+                            # Y: Werewolf has voted for X
+                            #This is sent to all other werewolves
+                            await self.send_chat_message(result.message)
+
+                        else:
+                            #Message for all non-werewolves
+                            #Y: You have chosen X
+                            self._event_sender.display_chat_message(
+                                f"You have chosen {player.name}."
+                            )        
+                        
             else:
                 await self._send_message_and_wait_for_ack(
                     VotePlayerMessage(self._my_self, player.uuid)
