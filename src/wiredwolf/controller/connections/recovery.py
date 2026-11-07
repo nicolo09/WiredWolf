@@ -443,7 +443,10 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                                 )
                                 # Remove peers that did not connect to the new server from the new lobby and set them as dead in the new game
                                 for peer in lost_peers:
-                                    new_lobby.peers.discard(peer)
+                                    if peer in new_lobby.peers:
+                                        #Check if peer is lobby
+                                        new_lobby.peers.remove(peer)
+                                        new_lobby.disconnected_peers.add(peer) #Add the peer to the disconnected peers list
                                     new_game.set_player_as_dead(peer.uuid)
                                     self.__logger.info(
                                         "Player %s did not connect to the new server and is set as dead.",

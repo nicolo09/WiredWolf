@@ -2,7 +2,7 @@ import abc
 import asyncio
 import dataclasses
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Set
 from dataclasses import dataclass, field
 
 from zeroconf import ServiceInfo
@@ -50,6 +50,9 @@ class Lobby:
     password: str | None = None
     peers: set[Peer] = dataclasses.field(init=False, default_factory=set[Peer])
     max_peers: int = MAX_PLAYERS
+    disconnected_peers: set[Peer] = dataclasses.field(init=False, default_factory=set[Peer])
+    #TODO: when a peer disconnects, it should be added to disconnected_peers and removed from peers
+    #TODO: make sure list is consistent on server failure
 
     def __post_init__(self):
         """Initializes the lobby by adding the owner to the peers list."""

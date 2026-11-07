@@ -944,6 +944,10 @@ class DayVotingScreen(AbstractScreen):
                 disabled_players=list(set(all_players)-set(all_active_players)) #Get all non-alive players
                 for elem in disabled_players:
                     self._add_player(elem, False) #Add non-alive players to the panel, keeping them disabled
+                #Add disconnected peers
+                disconnected_peers=self._controller.lobby.disconnected_peers # type: ignore
+                for elem in disconnected_peers:
+                    self._add_player(elem, False) #Add non-interactable players to the panel, keeping them disabled
                 self._voted_text.text="Start voting for execution!"
             if isinstance(e, ChangeScreenType):
                 #End of voting, changing screen to DayExecutionScreen
@@ -1475,6 +1479,10 @@ class NightRoleScreen(AbstractScreen):
                 all_active_players= [item[1] for item in self._players_list] #Get all players with buttons in the panel, which are the active players
                 disabled_players=list(set(all_players)-set(all_active_players)) #Get all non-alive players
                 for elem in disabled_players:
+                    self._add_player(elem, False) #Add non-interactable players to the panel, keeping them disabled
+                #Add disconnected peers
+                disconnected_peers=self._controller.lobby.disconnected_peers # type: ignore
+                for elem in disconnected_peers:
                     self._add_player(elem, False) #Add non-interactable players to the panel, keeping them disabled
             if isinstance(e, ChatMessageType):
                 self._send_message(e.message)

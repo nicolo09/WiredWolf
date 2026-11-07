@@ -236,6 +236,7 @@ class GameServer(Server):
         self.__logger.info("Peer disconnected: %s", peer)
         if peer in self._lobby.peers:
             self._lobby.peers.remove(peer)
+            self.lobby.disconnected_peers.add(peer) #Added to disconnected peers list
             if self._game:
                 self._game.set_player_as_dead(peer.uuid)
             await self._notify_updated_lobby()
