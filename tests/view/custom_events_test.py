@@ -1,6 +1,12 @@
 import unittest
 
-from wiredwolf.view.custom_events import *
+import pygame
+
+from wiredwolf.controller.commons import Peer
+from wiredwolf.controller.lobbies import LobbyInfo
+from wiredwolf.view.constants import Screens
+from wiredwolf.view.custom_events import AbstractEventType, ChangeScreenType, ChatMessageType, CustomEventSender, DeadPlayerType, EndErrorType, ErrorType, GameRoleType, LobbyType, StatusMessages, TimeOutType, UsersType, create_custom_event_from_dict
+
 
 class TestCustomEvents(unittest.TestCase):
     """Unit test for view custom events"""
@@ -38,7 +44,7 @@ class TestCustomEvents(unittest.TestCase):
         self.assertEqual(self.error, create_custom_event_from_dict(self.error.as_dictionary()))
         self.assertEqual(self.end_error, create_custom_event_from_dict(self.end_error.as_dictionary()))
         self.assertEqual(self.end_error_next_screen, create_custom_event_from_dict(self.end_error_next_screen.as_dictionary()))
-        self.assertEqual(self.dead_player, create_dead_player_type(self.dead_player.as_dictionary()))
+        self.assertEqual(self.dead_player, create_custom_event_from_dict(self.dead_player.as_dictionary()))
 
     def test_custom_event_pygame(self)->None:
         """An event sent to the game loop should be parsed correctly"""
