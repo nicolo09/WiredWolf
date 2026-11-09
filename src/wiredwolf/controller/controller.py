@@ -348,6 +348,7 @@ class GameController(Recoverable):
                 # Notify the view that the game has started and update the game status
                 self._logger.info("Game has started.")
                 self._game_status = message.status
+                self._backup = message.backup
                 self._event_sender.game_started_by_master()
                 myself = self.my_self_as_player()
                 if myself is not None:
