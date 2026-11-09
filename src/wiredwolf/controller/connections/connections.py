@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import abc
 import asyncio
 import logging
@@ -6,7 +8,10 @@ from asyncio import CancelledError, Future
 from collections.abc import Callable
 from enum import Enum
 from types import CoroutineType
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from wiredwolf.controller.lobbies import LobbyBrowser
 
 from wiredwolf.controller.commons import (
     CONNECTION_TIMEOUT,
@@ -866,7 +871,6 @@ class MessageHandlerFactory:
     def getDefault() -> AsyncTCPMessageHandler:
         return AsyncTCPMessageHandler(PickleSerializer())
 
-from wiredwolf.controller.lobbies import SERVICE_TYPE, LobbyBrowser, TcpMdnsLobbyBrowser
 class ConnectionSuite:
 
     @abc.abstractmethod
@@ -884,8 +888,16 @@ class TCPConnectionSuite(ConnectionSuite):
     
     def __init__(self):
         """Initializes the TCPConnectionSuite."""
-        self._service_manager: ServiceManager = ServiceManager(SERVICE_TYPE, self.get_local_ipv4_addresses)
-        self._lobby_browser: LobbyBrowser = TcpMdnsLobbyBrowser(self._service_manager, lambda: self.get_default_bind_address()[0])  # Pass the default bind address getter to the lobby browser
+        from wiredwolf.controller.lobbies import SERVICE_TYPE, TcpMdnsLobbyBrowser
+
+        self._service_manager: ServiceManager = ServiceManager(
+            SERVICE_TYPE,
+            self.get_local_ipv4_addresses,
+        )
+        self._lobby_browser: LobbyBrowser = TcpMdnsLobbyBrowser(
+            self._service_manager,
+            lambda: self.get_default_bind_address()[0],
+        )
         super().__init__()
 
     def lobby_browser(self) -> LobbyBrowser:
