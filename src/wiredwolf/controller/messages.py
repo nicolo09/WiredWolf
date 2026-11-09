@@ -85,9 +85,10 @@ class StartGameMessage(BaseMessage):
 class GameStartedMessage(BaseMessage):
     """A message sent by the server to all peers when the game has started"""
 
-    def __init__(self, status: GameStatus):
+    def __init__(self, status: GameStatus, backup: GameStatus):
         super().__init__(None)
         self._status = status
+        self._backup = backup
 
     @property
     def status(self) -> GameStatus:
@@ -97,14 +98,23 @@ class GameStartedMessage(BaseMessage):
         """
         return self._status
 
+    @property
+    def backup(self) -> GameStatus:
+        """Gets a stable version of the game status after the game has started.
+        Returns:
+            GameStatus: A stable version of the game status after the game has started.
+        """
+        return self._backup
+
 
 class PhaseAdvanceMessage(BaseMessage):
     """A message sent by the server to all peers when the game phase has advanced"""
 
-    def __init__(self, outcome: GamePhaseOutcome, game_status: GameStatus):
+    def __init__(self, outcome: GamePhaseOutcome, game_status: GameStatus, backup: GameStatus):
         super().__init__(None)
         self._outcome = outcome
         self._game_status = game_status
+        self._backup = backup
 
     @property
     def outcome(self) -> GamePhaseOutcome:
@@ -121,6 +131,14 @@ class PhaseAdvanceMessage(BaseMessage):
             GameStatus: The updated game status after the phase advancement.
         """
         return self._game_status
+    
+    @property
+    def backup(self) -> GameStatus:
+        """Gets a stable version of the game status after the phase advancement.
+        Returns:
+            GameStatus: A stable version of the game status after the phase advancement.
+        """
+        return self._backup
 
 
 class VotePlayerMessage(BaseMessage):

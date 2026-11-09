@@ -63,6 +63,7 @@ class GameController(Recoverable):
         )  # TODO: This should not be passed but created on need by a factory
         self._waiting_for_ack: dict[str, tuple[asyncio.Event, Any]] = {}
         self._game_status: GameStatus | None = None
+        self._backup: GameStatus | None = None
         self._event_sender: EventSender = event_sender
 
     @property
@@ -115,6 +116,14 @@ class GameController(Recoverable):
             GameStatus | None: The current game status, or None if not in a game.
         """
         return copy.deepcopy(self._game_status)
+    
+    @property
+    def backup(self) -> GameStatus | None:
+        """Gets a stable version of the game status (this is a copy, changes are not reflected in the controller).
+        Returns:
+            GameStatus | None: A stable version of the game status, or None if no state is available.
+        """
+        return copy.deepcopy(self._backup)
 
     def my_self_as_player(self) -> Player | None:
         """Gets the local player as a Player object if the lobby and game status are available.
@@ -248,6 +257,7 @@ class GameController(Recoverable):
         self._lobby = None
         # Reset the game status
         self._game_status = None
+        self._backup = None
 
     async def stop_publishing_lobby(self):
         """Stops publishing the lobby, leaving the server open but not advertising it. This is typically called when the game starts."""
@@ -347,6 +357,7 @@ class GameController(Recoverable):
                 # Notify the view that the game phase has advanced and update the game status accordingly
                 self._logger.info("Game phase has advanced, updating game status.")
                 self._game_status = message.game_status
+                self._backup = message.backup
                 if message.outcome.someone_died():
                     self._logger.info("A player has died this phase.")
                     for player in message.outcome.deaths:

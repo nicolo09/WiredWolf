@@ -224,7 +224,7 @@ class GameServer(Server):
         finally:
             if self._game:               
                 self._game_actual_phase_task = asyncio.create_task(
-                    self.wait_and_advance_game(commons.PHASE_DURATION_SECONDS)
+                    self.wait_and_advance_game(commons.RESUMED_GAME_PHASE_DURATION_SECONDS)
                 )
                 self._game_actual_phase_task.add_done_callback(
                     lambda outcome: self.on_game_phase_advanced(outcome)
@@ -343,7 +343,7 @@ class GameServer(Server):
             )
             self._game = Game(players, game_info)
             self.__logger.info("Game started with players: %s", players)
-            await self.send_to_all(GameStartedMessage(self._game.get_game_status()))
+            await self.send_to_all(GameStartedMessage(self._game.get_game_status(), self._game.get_game_snapshot()))
             self._game_actual_phase_task = asyncio.create_task(
                 self.wait_and_advance_game(commons.FIRST_DAY_PHASE_DURATION_SECONDS)
             )
@@ -354,7 +354,7 @@ class GameServer(Server):
         else:
             self.__logger.info("Game resumed with players: %s", self._game.players)
             self._game_actual_phase_task = asyncio.create_task(
-                self.wait_and_advance_game(commons.PHASE_DURATION_SECONDS)
+                self.wait_and_advance_game(commons.RESUMED_GAME_PHASE_DURATION_SECONDS)
             )
             self._game_actual_phase_task.add_done_callback(
                 lambda outcome: self.on_game_phase_advanced(outcome)
@@ -404,7 +404,7 @@ class GameServer(Server):
         await asyncio.sleep(time_seconds)
         outcome = self._game.advance_phase()
         self.__logger.info("Game phase advanced. Outcome: %s", outcome)
-        await self.send_to_all(PhaseAdvanceMessage(outcome, self._game.get_game_status()))
+        await self.send_to_all(PhaseAdvanceMessage(outcome, self._game.get_game_status(), self._game.get_game_snapshot()))
         return outcome
 
     def stop_new_connections(self):

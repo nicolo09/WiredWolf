@@ -74,9 +74,10 @@ class Recoverable(abc.ABC):
     
     @property
     @abc.abstractmethod
-    def game_status(self) -> GameStatus | None:
+    def backup(self) -> GameStatus | None:
         """
-        Returns the current game status, or None if not in a game."""
+        Returns the a stable version of the game status, or None if no state is available.
+        """
 
 
 DIRECT_RECONNECTION_TIMEOUT = 5  # seconds
@@ -429,9 +430,9 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                     if self._new_master:
                         self.__logger.info("New master elected: %s", self._new_master)
                         if self._new_master == controller.my_self:
-                            if controller.game_status is not None:
-                                #FIXME: controller's game status is the snapshot?  
-                                new_game = Game.from_game_status(controller.game_status)  # Create a new Game instance from the current game status
+                            if controller.backup is not None:
+                                # FIXME: controller's game status is the snapshot?
+                                new_game = Game.from_game_status(controller.backup)  # Create a new Game instance from the current game status
                                 new_lobby = Lobby.change_owner(old_lobby, controller.my_self)  # Create a new lobby with the current peer as the owner
 
                                 new_game_server, new_client_conn_handler = await GameServerFactory.get_game_server(new_lobby, controller.connection_suite, new_game)  # Create a new GameServer with the new lobby and game
