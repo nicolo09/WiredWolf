@@ -10,7 +10,7 @@ CONNECTION_TIMEOUT = 100  # seconds #TODO Should this be merged with the TIMEOUT
 
 
 FIRST_DAY_PHASE_DURATION_SECONDS = 10 # Duration of the first day phase, in seconds
-BALLOT_RESULT_PHASE_DURATION_SECONDS = 20 # Duration of the ballot result (show if spared or executed) phase, in seconds
+RESULT_PHASE_DURATION_SECONDS = 20 # Duration of a result phase in seconds
 RESUMED_GAME_PHASE_DURATION_SECONDS = 5 # Time to wait after a game is resumed 
 PHASE_DURATION_SECONDS = 60 # Duration of each phase after the first day phase, in seconds
 ACK_TIMEOUT_SECONDS = 10  # Timeout to wait for an acknowledgment from the server, in seconds #TODO Should this be merged with the TIMEOUT variable in __init__.py?

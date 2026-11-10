@@ -108,7 +108,7 @@ class RecoveryPhase(Enum): #TODO: some phases might be useless
     APPROVED_CANDIDATE = 5
     RESTORING_GAME = 6
     LOST_CONNECTION = 7
-    
+
 class RecoveryFailedException(Exception):
     """Exception raised when the recovery process fails."""
     pass
@@ -431,8 +431,7 @@ class TCPConnectionRecoverer(ConnectionRecoverer):
                         self.__logger.info("New master elected: %s", self._new_master)
                         if self._new_master == controller.my_self:
                             if controller.backup is not None:
-                                # FIXME: controller's game status is the snapshot?
-                                new_game = Game.from_game_status(controller.backup)  # Create a new Game instance from the current game status
+                                new_game = Game.from_game_status(controller.backup)  # Create a new Game instance from the backup
                                 new_lobby = Lobby.change_owner(old_lobby, controller.my_self)  # Create a new lobby with the current peer as the owner
 
                                 new_game_server, new_client_conn_handler = await GameServerFactory.get_game_server(new_lobby, controller.connection_suite, new_game)  # Create a new GameServer with the new lobby and game

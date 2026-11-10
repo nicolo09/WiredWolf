@@ -40,7 +40,7 @@ from wiredwolf.controller.server.game_server import (
 from wiredwolf.controller.commons import ACK_TIMEOUT_SECONDS, DEFAULT_SERVER_PORT, Peer
 from wiredwolf.model.game import GameStatus, can_perform_action_on
 from wiredwolf.model.game_phases import GamePhase, NightActionResult
-from wiredwolf.model.player import BasicRole, Player
+from wiredwolf.model.player import BasicRole, Player, Status
 from wiredwolf.view.custom_events import EventSender
 
 
@@ -362,18 +362,22 @@ class GameController(Recoverable):
                 if message.outcome.someone_died():
                     self._logger.info("A player has died this phase.")
                     for player in message.outcome.deaths:
-                        self._event_sender.display_chat_message(f"{player} has died.")
+                        if message.outcome.new_phase not in [GamePhase.DAY_DISCUSSION, GamePhase.NIGHT_RESULT, GamePhase.BALLOT_RESULT]:
+                            self._event_sender.display_chat_message(f"{player.name} has died.")
                         if self.my_self.uuid == player.id:
                             self._event_sender.player_is_dead()
                 match message.outcome.new_phase:
                     case GamePhase.DAY_DISCUSSION:
                         self._event_sender.end_night(self._game_status.day_count)
                         if message.outcome.someone_died():
-                            self._logger.info("Night phase ended with a death.")
+                            self._logger.info("Someone died during the night.")
                             for player in message.outcome.deaths:
-                                self._event_sender.message_player_killed_during_night(
-                                    player.name
-                                )
+                                if player.status is Status.REMOVED:
+                                    self._event_sender.display_chat_message(f"{player.name} has been removed from the game due to disconnection.")
+                                else:
+                                    self._event_sender.message_player_killed_during_night(
+                                        player.name
+                                    )
                     case GamePhase.DAY_ACCUSING:
                         if self._game_status is not None:
                             votable_peers = [
@@ -440,6 +444,23 @@ class GameController(Recoverable):
                                         )
                                     ]
                                 )
+                    case GamePhase.NIGHT_RESULT:
+                        self._event_sender.end_night_actions()
+                        my_self = self.my_self_as_player()
+                        if my_self is not None:
+                            if my_self.role is BasicRole.WEREWOLF:
+                                # Only show the victim killed by the werewolves, not potentially disconnected players that were removed from the game
+                                # Those will be shown during DAY_DISCUSSION
+                                victim = next((player for player in message.outcome.deaths if player.status is not Status.REMOVED), None)
+                                if victim is not None:
+                                    self._event_sender.display_chat_message("Werewolves successfully killed " + victim.name + ".")
+                                else:
+                                    self._event_sender.display_chat_message("Werewolves didn't kill anyone.")
+                            else:
+                                for action in message.outcome.get_night_actions():
+                                    if action.player.id == my_self.id:
+                                        self._event_sender.display_chat_message(action.message)
+                                        
                     case GamePhase.VILLAGERS_VICTORY | GamePhase.WEREWOLVES_VICTORY:
                         self._logger.info("Game has ended with a victory.")
                         if message.outcome.new_phase == GamePhase.VILLAGERS_VICTORY:
@@ -452,9 +473,12 @@ class GameController(Recoverable):
                     "Chat message received from %s: %s", message.sender, message.message
                 )
                 if message.sender and message.message:
-                    self._event_sender.display_chat_message(
-                        f"{message.sender.name}: {message.message}"
-                    )
+                    if message.is_info_message():
+                        self._event_sender.display_chat_message(message.message)
+                    else:
+                        self._event_sender.display_chat_message(
+                            f"{message.sender.name}: {message.message}"
+                        )
                 else:
                     self._logger.warning(
                         "Received chat message with missing sender or message content."
@@ -512,11 +536,12 @@ class GameController(Recoverable):
         await self._client_connection_handler.send_obj(message)
         return await self._wait_for_acknowledgment(message.id)
 
-    async def send_chat_message(self, message: str):
+    async def send_chat_message(self, message: str, is_info: bool = False):
         """Sends a chat message to all peers in the lobby.
 
         Args:
             message (str): The chat message to send.
+            is_info (bool): Whether the message is contains information or is a regular chat message.
         """
         if self._client_connection_handler is None:
             raise RuntimeError("Not connected to a lobby.")
@@ -525,6 +550,7 @@ class GameController(Recoverable):
                 self._my_self,
                 message,
                 self._game_status.phase if self._game_status else None,
+                is_info=is_info
             )
         )
 
@@ -545,32 +571,27 @@ class GameController(Recoverable):
         """
         if self._game_status:
             if self._game_status.phase is GamePhase.NIGHT:
-                result = await self._send_message_and_wait_for_ack(
+                await self._send_message_and_wait_for_ack(
                     NightActionMessage(self._my_self, player.uuid)
                 )
-                if result:
-                    if isinstance(result, NightActionResult):
-                        p=self.my_self_as_player()
-                        if p!=None and p.role is BasicRole.WEREWOLF:
-                            #Message for werewolves
-                            # Y: Werewolf has voted for X
-                            #This is sent to all other werewolves
-                            await self.send_chat_message(result.message)
+                my_self = self.my_self_as_player()
+                if my_self != None: 
+                    if my_self.role is BasicRole.WEREWOLF:
+                        #Message for werewolves
+                        #This is sent to all other werewolves
+                        await self.send_chat_message(f"Werewolf {my_self.name} has voted for {player.name}.", is_info=True)
 
-                        else:
-                            #Message for all non-werewolves
-                            #Y: You have chosen X
-                            self._event_sender.display_chat_message(
-                                f"You have chosen {player.name}."
-                            )        
+                    else:
+                        #Message for all non-werewolves
+                        self._event_sender.display_chat_message(
+                            f"You have chosen {player.name}."
+                        )        
                         
             else:
                 await self._send_message_and_wait_for_ack(
                     VotePlayerMessage(self._my_self, player.uuid)
                 )
-                self._event_sender.display_chat_message(
-                    f"You have chosen {player.name}."
-                )
+                await self.send_chat_message(f"{self.my_self.name} has voted for {player.name}.", is_info=True)
 
     async def vote_guilty(self):
         """Votes for the selected player to be guilty. This method may be called only during a

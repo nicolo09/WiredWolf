@@ -322,7 +322,7 @@ async def test_game_resumes_after_reconnection_phase_with_failed_reconnection(
         )
         # There must be at least one dead player (the disconnected peer).
         dead_player_ids = [
-            p.id for p in controller_status.players if p.status == Status.DEAD
+            p.id for p in controller_status.players if not p.is_alive()
         ]
         assert len(dead_player_ids) >= 1, (
             f"Controller {controller.my_self.name} has no dead players."
@@ -453,7 +453,7 @@ async def test_game_resumes_after_reconnection_phase_with_successful_reconnectio
         )
         # The reconnected peer must NOT be among the dead players.
         dead_player_ids = [
-            p.id for p in controller_status.players if p.status == Status.DEAD
+            p.id for p in controller_status.players if not p.is_alive()
         ]
         assert reconnected_peer_uuid not in dead_player_ids, (
             f"Reconnected peer {reconnected_peer_uuid} is marked as dead "
@@ -578,7 +578,7 @@ async def test_two_peers_disconnect_one_reconnects(
             # Wait until the disconnected peer is marked as dead, confirming the game has resumed.
             while True:
                 dead_player_ids = [
-                    p.id for p in host_controller.game_status.players if p.status == Status.DEAD
+                    p.id for p in host_controller.game_status.players if not p.is_alive()
                 ]
                 if disconnected_peer_uuid in dead_player_ids:
                     break
@@ -617,7 +617,7 @@ async def test_two_peers_disconnect_one_reconnects(
 
         # The disconnected peer must be dead.
         dead_player_ids = [
-            p.id for p in controller_status.players if p.status == Status.DEAD
+            p.id for p in controller_status.players if not p.is_alive()
         ]
         assert disconnected_peer_uuid in dead_player_ids, (
             f"Disconnected peer {disconnected_peer_uuid} is not marked as dead "

@@ -137,10 +137,10 @@ class NightActionsPlugin(ServerPlugin):
             raise RuntimeError("Game has not started yet.")
         if isinstance(message, NightActionMessage):
             try:
-                result = server.game.perform_night_action(
+                server.game.perform_night_action(
                     message.sender.uuid, message.target_player_uuid
                 )
-                return AcknowledgeMessage(message.id, message.sender, "Night action performed successfully.", result), True
+                return AcknowledgeMessage(message.id, message.sender, "Night action performed successfully."), True
             except Exception as e:
                 self._logger.error("Error handling night action: %s", e)
                 return NotAcknowledgeMessage(message.id, message.sender, e), True

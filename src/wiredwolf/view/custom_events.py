@@ -381,7 +381,7 @@ class EventSender(ABC):
         raise NotImplementedError("Please implement this method")
 
     @abstractmethod
-    def night_end_ballot(self)->None:
+    def end_night_actions(self)->None:
         """Ends the selecting/killing phase during the night for the non-villager roles"""
         raise NotImplementedError("Please implement this method")
 
@@ -665,6 +665,6 @@ class CustomEventSender(EventSender):
     def waiting_for_reconnection(self)->None:
         self.send_event_to_screen(Screens.WAITING_FOR_RECONNECTION)
 
-    def night_end_ballot(self)->None:
+    def end_night_actions(self)->None:
         self.send_event_timeout(False) #False signifies reaching the end of the night ballot
 

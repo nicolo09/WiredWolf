@@ -53,11 +53,12 @@ class LobbyUpdatedMessage(BaseMessage):
 class ChatMessage(BaseMessage):
     """Represents a chat message sent by a peer."""
 
-    def __init__(self, sender: Peer, message: str, game_phase: GamePhase | None):
+    def __init__(self, sender: Peer, message: str, game_phase: GamePhase | None, is_info: bool = False):
         super().__init__(sender)
         self._message: str = message
         self._game_phase: GamePhase | None = game_phase
-
+        self._is_info: bool = is_info
+        
     @property
     def message(self) -> str:
         """Gets the chat message.
@@ -73,6 +74,13 @@ class ChatMessage(BaseMessage):
             GamePhase | None: The game phase to which the chat message belongs.
         """
         return self._game_phase
+    
+    def is_info_message(self) -> bool:
+        """Checks if the chat message is an info message.
+        Returns:
+            bool: True if the chat message is an info message, False if the user actively sent it.
+        """
+        return self._is_info
 
 
 class StartGameMessage(BaseMessage):

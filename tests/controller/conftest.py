@@ -63,4 +63,4 @@ async def controllers(
 monkeypatch = MonkeyPatch()
 monkeypatch.setattr(commons, "FIRST_DAY_PHASE_DURATION_SECONDS", TEST_PHASE_DURATION_SECONDS)
 monkeypatch.setattr(commons, "PHASE_DURATION_SECONDS", TEST_PHASE_DURATION_SECONDS)
-monkeypatch.setattr(commons, "BALLOT_RESULT_PHASE_DURATION_SECONDS", TEST_BALLOT_RESULT_PHASE_DURATION_SECONDS)
+monkeypatch.setattr(commons, "RESULT_PHASE_DURATION_SECONDS", TEST_BALLOT_RESULT_PHASE_DURATION_SECONDS)

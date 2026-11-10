@@ -374,8 +374,8 @@ class GameServer(Server):
             return
         else:
             duration = (
-                commons.BALLOT_RESULT_PHASE_DURATION_SECONDS 
-                if outcome.result().new_phase is GamePhase.BALLOT_RESULT 
+                commons.RESULT_PHASE_DURATION_SECONDS 
+                if outcome.result().new_phase in [GamePhase.BALLOT_RESULT, GamePhase.NIGHT_RESULT]
                 else commons.PHASE_DURATION_SECONDS
             )
             self.__logger.info(
