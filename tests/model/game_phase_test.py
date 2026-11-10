@@ -94,4 +94,4 @@ class GamePhaseTest(unittest.TestCase):
         self.game.ballot_vote("Frank", False)
         self.game.kill_player("Bob")
         self.assertEqual(self.game.phase, GamePhase.NIGHT)
-        self.assertEqual(self.game.players[bob_index].status, Status.DEAD)
+        self.assertEqual(self.game.players[bob_index].status, Status.REMOVED)

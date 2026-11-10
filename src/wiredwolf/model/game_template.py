@@ -250,7 +250,7 @@ class GameInfoBase(AbstractGameInfo):
             case _:
                 pass
 
-        player.status = Status.DEAD
+        player.status = Status.REMOVED
 
     def end_game_conditions(self, players: list[Player]) -> GamePhase | None:
         werewolves_alive = any(

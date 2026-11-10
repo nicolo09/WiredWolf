@@ -114,9 +114,9 @@ class GameStatusTest(unittest.TestCase):
         test_game_info: AbstractGameInfo = create_game_info()
 
         test_players[get_index_by_name(test_players, "Alice")].status = (
-            Status.DEAD
+            Status.REMOVED
         )
-        test_players[get_index_by_name(test_players, "Bob")].status = Status.DEAD
+        test_players[get_index_by_name(test_players, "Bob")].status = Status.REMOVED
 
         escort: Player = test_players[get_index_by_name(test_players, "Charlie")]
         medium: Player = test_players[get_index_by_name(test_players, "Eve")]

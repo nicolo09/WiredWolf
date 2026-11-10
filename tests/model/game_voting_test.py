@@ -38,7 +38,7 @@ class GameVotingTest(unittest.TestCase):
         self.game.accuse_player("Bob", "Alice")
         self.game.kill_player("Alice")
         self.game.accuse_player("Bob", "Charlie")
-        self.assertEqual(self.game.players[alice_index].status, Status.DEAD)
+        self.assertEqual(self.game.players[alice_index].status, Status.REMOVED)
         with self.assertRaises(InvalidActionError):
             self.game.accuse_player("Bob", "Eve")
 

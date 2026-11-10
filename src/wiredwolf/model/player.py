@@ -35,6 +35,7 @@ class Status(Enum):
     ALIVE = "Alive"
     PROTECTED = "Protected"
     DEAD = "Dead"
+    REMOVED = "Removed"
 
 
 class Player:
@@ -75,7 +76,7 @@ class Player:
 
     def is_alive(self) -> bool:
         """Returns True if the player status is not set to dead."""
-        return self._status != Status.DEAD
+        return self._status not in {Status.DEAD, Status.REMOVED}
 
     def is_evil(self) -> bool:
         """Returns True if the player's role is considered evil (part of the werewolf team)."""
