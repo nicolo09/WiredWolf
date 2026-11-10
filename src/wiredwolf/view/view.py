@@ -1398,6 +1398,7 @@ class NightVillagerScreen(AbstractScreen):
                 #If a player is executed, disable every panel
                 self._panel_handler.role_panel.sets_dead()
                 self._game_state_manager.change_screen(self._screen_id) #Reload screen to disable panels properly
+            #On night result phase, nothing changes for villagers, still sleeping
     
     def reset_screen(self) -> None:
         #Static screen, nothing to change
@@ -1471,19 +1472,25 @@ class NightRoleScreen(AbstractScreen):
                     self._add_player(e.user)
                 #After timeout all non-sent players are disabled but shown
             if isinstance(e, TimeOutType):
-                player=self._controller.my_self_as_player()
-                if player!=None and player.is_alive()==True:
-                    self._voting_panel.enable() #Enable panel so that non-votable players can be shown as disabled
-                #Add non-votable peers
-                all_players=self._controller.lobby.peers # type: ignore 
-                all_active_players= [item[1] for item in self._players_list] #Get all players with buttons in the panel, which are the active players
-                disabled_players=list(set(all_players)-set(all_active_players)) #Get all non-alive players
-                for elem in disabled_players:
-                    self._add_player(elem, False) #Add non-interactable players to the panel, keeping them disabled
-                #Add disconnected peers
-                disconnected_peers=self._controller.lobby.disconnected_peers # type: ignore
-                for elem in disconnected_peers:
-                    self._add_player(elem, False) #Add non-interactable players to the panel, keeping them disabled
+                if e.action==True:
+                    #Enable panel
+                    player=self._controller.my_self_as_player()
+                    if player!=None and player.is_alive()==True:
+                        self._voting_panel.enable() #Enable panel so that non-votable players can be shown as disabled
+                    #Add non-votable peers
+                    all_players=self._controller.lobby.peers # type: ignore 
+                    all_active_players= [item[1] for item in self._players_list] #Get all players with buttons in the panel, which are the active players
+                    disabled_players=list(set(all_players)-set(all_active_players)) #Get all non-alive players
+                    for elem in disabled_players:
+                        self._add_player(elem, False) #Add non-interactable players to the panel, keeping them disabled
+                    #Add disconnected peers
+                    disconnected_peers=self._controller.lobby.disconnected_peers # type: ignore
+                    for elem in disconnected_peers:
+                        self._add_player(elem, False) #Add non-interactable players to the panel, keeping them disabled
+                else:
+                    #action==False
+                    #Disable panel
+                    self._voting_panel.disable()
             if isinstance(e, ChatMessageType):
                 self._send_message(e.message)
             if isinstance(e, ErrorType):
