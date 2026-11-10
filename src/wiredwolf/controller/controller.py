@@ -371,25 +371,39 @@ class GameController(Recoverable):
                 self._logger.info("Game phase has advanced, updating game status.")
                 self._game_status = message.game_status
                 self._backup = message.backup
+                
+                # Separate the deaths from the disconnections to better handle them
+                disconnections: list[Player] = []
+                victims: list[Player] = []
+                
                 if message.outcome.someone_died():
-                    self._logger.info("A player has died this phase.")
                     for player in message.outcome.deaths:
-                        if message.outcome.new_phase not in [GamePhase.DAY_DISCUSSION, GamePhase.NIGHT_RESULT, GamePhase.BALLOT_RESULT]:
-                            self._event_sender.display_chat_message(f"{player.name} has died.")
-                        if self.my_self.uuid == player.id:
-                            self._event_sender.player_is_dead()
+                        if player.status is Status.REMOVED:
+                            disconnections.append(player)
+                        elif player.status is Status.DEAD:
+                            victims.append(player)
+                        else:
+                            self._logger.error(
+                                "Player %s has an unexpected status: %s",
+                                player.name,
+                                player.status,
+                            )
+                            
+                if disconnections:
+                    self._logger.info("A player has died due to disconnection in this phase.")
+                    for player in disconnections:
+                        self._event_sender.display_chat_message(f"{player.name} has disconnected.")
+                if self.my_self.uuid in [player.id for player in victims]:
+                    self._event_sender.player_is_dead()
                 match message.outcome.new_phase:
                     case GamePhase.DAY_DISCUSSION:
                         self._event_sender.end_night(self._game_status.day_count)
-                        if message.outcome.someone_died():
+                        if victims:
                             self._logger.info("Someone died during the night.")
-                            for player in message.outcome.deaths:
-                                if player.status is Status.REMOVED:
-                                    self._event_sender.display_chat_message(f"{player.name} has been removed from the game due to disconnection.")
-                                else:
-                                    self._event_sender.message_player_killed_during_night(
-                                        player.name
-                                    )
+                            for player in victims:
+                                self._event_sender.message_player_killed_during_night(
+                                    player.name
+                                )
                     case GamePhase.DAY_ACCUSING:
                         if self._game_status is not None:
                             votable_peers = [
@@ -420,11 +434,11 @@ class GameController(Recoverable):
                                 if peer is not None:
                                     self._event_sender.user_to_nominated_for_ballot(peer)
                         self._event_sender.end_ballot()
-                        if message.outcome.someone_died():
+                        if victims:
                             self._logger.info(
                                 "Day ballot phase ended with an execution."
                             )
-                            for player in message.outcome.deaths:
+                            for player in victims:
                                 self._event_sender.message_player_executed(player.name)
                         else:
                             accused_player = message.outcome.get_accused_player()
@@ -474,12 +488,10 @@ class GameController(Recoverable):
                         # Disabling actions in case that the player didn't perform any action in time
                         self._event_sender.end_night_actions()
                         if my_self is not None:
-                            if my_self.role is BasicRole.WEREWOLF:
-                                # Only show the victim killed by the werewolves, not potentially disconnected players that were removed from the game
-                                # Those will be shown during DAY_DISCUSSION
-                                victim = next((player for player in message.outcome.deaths if player.status is not Status.REMOVED), None)
-                                if victim is not None:
-                                    self._event_sender.display_chat_message("Werewolves successfully killed " + victim.name + ".")
+                            if my_self.role is BasicRole.WEREWOLF:                                
+                                if victims:
+                                    for player in victims:
+                                        self._event_sender.display_chat_message("Werewolves successfully killed " + player.name + ".")
                                 else:
                                     self._event_sender.display_chat_message("Werewolves didn't kill anyone.")
                             else:

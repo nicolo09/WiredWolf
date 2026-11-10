@@ -249,8 +249,8 @@ class GameInfoBase(AbstractGameInfo):
                             del self._werewolves_votes[werewolf]
             case _:
                 pass
-
-        player.status = Status.REMOVED
+        if player.is_alive():
+            player.status = Status.REMOVED
 
     def end_game_conditions(self, players: list[Player]) -> GamePhase | None:
         werewolves_alive = any(

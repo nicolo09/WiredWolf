@@ -342,8 +342,9 @@ class Game:
         if not player:
             raise MissingPlayerError(f"Player with ID {player_id} does not exist.")
 
-        player.status = Status.REMOVED
-        self._phase_outcome_builder.add_death(player)
+        if player.is_alive():
+            player.status = Status.REMOVED
+            self._phase_outcome_builder.add_death(player)
 
     def __get_player_from_id(self, player_id: str) -> Player | None:
         """
