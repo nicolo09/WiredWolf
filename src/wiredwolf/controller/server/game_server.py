@@ -224,7 +224,7 @@ class GameServer(Server):
         finally:
             if self._game:               
                 self._game_actual_phase_task = asyncio.create_task(
-                    self.wait_and_advance_game(commons.RESUMED_GAME_PHASE_DURATION_SECONDS)
+                    self.wait_and_advance_game(commons.RESUMED_GAME_PHASE_DURATION_SECONDS, True)
                 )
                 self._game_actual_phase_task.add_done_callback(
                     lambda outcome: self.on_game_phase_advanced(outcome)
@@ -354,7 +354,7 @@ class GameServer(Server):
         else:
             self.__logger.info("Game resumed with players: %s", self._game.players)
             self._game_actual_phase_task = asyncio.create_task(
-                self.wait_and_advance_game(commons.RESUMED_GAME_PHASE_DURATION_SECONDS)
+                self.wait_and_advance_game(commons.RESUMED_GAME_PHASE_DURATION_SECONDS, True)
             )
             self._game_actual_phase_task.add_done_callback(
                 lambda outcome: self.on_game_phase_advanced(outcome)
@@ -389,11 +389,12 @@ class GameServer(Server):
             lambda outcome: self.on_game_phase_advanced(outcome)
         )
 
-    async def wait_and_advance_game(self, time_seconds: int) -> GamePhaseOutcome:
+    async def wait_and_advance_game(self, time_seconds: int, is_resumed: bool = False) -> GamePhaseOutcome:
         """Waits for the specified time and then advances the game phase.
 
         Args:
             time_seconds (int): The time to wait in seconds.
+            is_resumed (bool): Indicates if the game phase advancement is a result of resuming the game after a crash or disconnection. Defaults to False.
         """
         if not self._game:
             raise RuntimeError("Game has not been started yet.")
@@ -404,7 +405,7 @@ class GameServer(Server):
         await asyncio.sleep(time_seconds)
         outcome = self._game.advance_phase()
         self.__logger.info("Game phase advanced. Outcome: %s", outcome)
-        await self.send_to_all(PhaseAdvanceMessage(outcome, self._game.get_game_status(), self._game.get_game_snapshot()))
+        await self.send_to_all(PhaseAdvanceMessage(outcome, self._game.get_game_status(), self._game.get_game_snapshot(), is_resumed))
         return outcome
 
     def stop_new_connections(self):

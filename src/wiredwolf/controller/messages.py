@@ -118,11 +118,12 @@ class GameStartedMessage(BaseMessage):
 class PhaseAdvanceMessage(BaseMessage):
     """A message sent by the server to all peers when the game phase has advanced"""
 
-    def __init__(self, outcome: GamePhaseOutcome, game_status: GameStatus, backup: GameStatus):
+    def __init__(self, outcome: GamePhaseOutcome, game_status: GameStatus, backup: GameStatus, is_resumed: bool = False):
         super().__init__(None)
         self._outcome = outcome
         self._game_status = game_status
         self._backup = backup
+        self._is_resumed = is_resumed
 
     @property
     def outcome(self) -> GamePhaseOutcome:
@@ -147,6 +148,14 @@ class PhaseAdvanceMessage(BaseMessage):
             GameStatus: A stable version of the game status after the phase advancement.
         """
         return self._backup
+    
+    @property
+    def is_resumed(self) -> bool:
+        """Checks if the game phase advancement is a result of resuming the game after a crash or disconnection.
+        Returns:
+            bool: True if the game phase advancement is a result of resuming the game, False otherwise.
+        """
+        return self._is_resumed
 
 
 class VotePlayerMessage(BaseMessage):

@@ -147,6 +147,18 @@ class GameController(Recoverable):
                 player for player in self._game_status.players if player.id == peer.uuid
             )
         return None
+    
+    def _player_as_peer(self, player: Player) -> Peer | None:
+        """Gets a Peer object associated with the given player if the lobby is available.
+
+        Args:
+            player (Player): The player to convert.
+        """
+        if self._lobby:
+            return next(
+                peer for peer in self._lobby.peers if peer.uuid == player.id
+            )
+        return None
 
     def set_username(self, username: str):
         """Sets the username for the local player.
@@ -392,24 +404,21 @@ class GameController(Recoverable):
                             self._logger.error("Game status is not available.")
                     case GamePhase.DAY_BALLOT:
                         accused_player = message.outcome.get_accused_player()
-                        if (
-                            self._game_status is not None
-                            and self.lobby is not None
-                            and accused_player is not None
-                        ):
-                            peer = next(
-                                (
-                                    peer
-                                    for peer in self.lobby.peers
-                                    if peer.uuid == accused_player.id
-                                )
-                            )
-                            self._event_sender.user_to_nominated_for_ballot(peer)
+                        if accused_player is not None:
+                            peer = self._player_as_peer(accused_player)
+                            if peer is not None:
+                                self._event_sender.user_to_nominated_for_ballot(peer)
                         else:
                             self._logger.error(
                                 "Game status, lobby, or accused player is not available."
                             )
                     case GamePhase.BALLOT_RESULT:
+                        if message.is_resumed:
+                            accused_player = message.outcome.get_accused_player()
+                            if accused_player is not None:
+                                peer = self._player_as_peer(accused_player)
+                                if peer is not None:
+                                    self._event_sender.user_to_nominated_for_ballot(peer)
                         self._event_sender.end_ballot()
                         if message.outcome.someone_died():
                             self._logger.info(
@@ -445,8 +454,25 @@ class GameController(Recoverable):
                                     ]
                                 )
                     case GamePhase.NIGHT_RESULT:
-                        self._event_sender.end_night_actions()
                         my_self = self.my_self_as_player()
+                        # If the game is resumed we must restore the night screen
+                        if message.is_resumed and my_self is not None and self.lobby is not None:
+                            self._event_sender.start_night(
+                                my_self.role is BasicRole.VILLAGER,
+                                self._game_status.day_count,
+                            )
+                            self._event_sender.can_use_powers_on(
+                                [
+                                    peer
+                                    for peer in self.lobby.peers
+                                    if self._peer_as_player(peer)
+                                    in can_perform_action_on(
+                                        my_self, self._game_status
+                                    )
+                                ]
+                            )
+                        # Disabling actions in case that the player didn't perform any action in time
+                        self._event_sender.end_night_actions()
                         if my_self is not None:
                             if my_self.role is BasicRole.WEREWOLF:
                                 # Only show the victim killed by the werewolves, not potentially disconnected players that were removed from the game
