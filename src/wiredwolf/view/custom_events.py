@@ -110,13 +110,21 @@ class UsersType(AbstractEventType):
     
 class TimeOutType(AbstractEventType):
     """An event triggered after some time has passed"""
+    #static field name to standardize the dictionary key
+    s_action="action"
 
-    def __init__(self)->None:
+    def __init__(self, action:bool=True)->None:
         self._event=EventType.TIMEOUT
-    
+        self._action=action
+
+    @property
+    def action(self)->bool:
+        """Returns the action connected to the timeout event"""
+        return self._action
+
     def as_dictionary(self) -> dict[Any, Any]:
         """Returns all the fields of the event as a dictionary, used when creating the event in pygame.event.Event()"""
-        return {AbstractEventType.s_event:self._event}
+        return {AbstractEventType.s_event:self._event, TimeOutType.s_action:self._action}
 
 class DeadPlayerType(AbstractEventType):
     """An event triggered when the player is killed"""
@@ -245,7 +253,9 @@ def create_timeout_type(dict:dict[Any, Any])->TimeOutType:
     """Creates a timeout type from a correct dictionary"""
     event=dict.get(TimeOutType.s_event)
     assert(event!=EventType.NONE and event!=None and event==EventType.TIMEOUT)
-    return TimeOutType()
+    action=dict.get(TimeOutType.s_action)
+    assert(action!=None and isinstance(action, bool))
+    return TimeOutType(action)
 
 def create_chat_message_type(dict:dict[Any, Any])->ChatMessageType:
     """Creates a chat message type from a correct dictionary"""
@@ -371,6 +381,11 @@ class EventSender(ABC):
         raise NotImplementedError("Please implement this method")
 
     @abstractmethod
+    def night_end_ballot(self)->None:
+        """Ends the selecting/killing phase during the night for the non-villager roles"""
+        raise NotImplementedError("Please implement this method")
+
+    @abstractmethod
     def end_night(self, number_day:int)->None:
         """Ends the night screens"""
         raise NotImplementedError("Please implement this method")
@@ -480,7 +495,7 @@ class StatusMessages():
 
 class CustomEventSender(EventSender):
     """This class is used to send custom events to the GUI"""
-    def __init__(self, times:int=-1) -> None:
+    def __init__(self) -> None:
         pygame.init()
         self._custom_event=pygame.event.custom_type() #Set once by custom event sender initialization
         self._status_messages=StatusMessages()
@@ -509,9 +524,9 @@ class CustomEventSender(EventSender):
         """Sends a custom event to remove a user"""
         pygame.event.post(pygame.event.Event(self._custom_event, UsersType(user, UsersType.s_action_remove).as_dictionary()))
 
-    def send_event_timeout(self)->None:
+    def send_event_timeout(self, action:bool=True)->None:
         """Sends a custom event to say that some time has passed"""
-        pygame.event.post(pygame.event.Event(self._custom_event, TimeOutType().as_dictionary()))
+        pygame.event.post(pygame.event.Event(self._custom_event, TimeOutType(action).as_dictionary()))
 
     def send_event_dead_player(self)->None:
         """Sends a custom event to say that the player has died"""
@@ -649,4 +664,7 @@ class CustomEventSender(EventSender):
 
     def waiting_for_reconnection(self)->None:
         self.send_event_to_screen(Screens.WAITING_FOR_RECONNECTION)
+
+    def night_end_ballot(self)->None:
+        self.send_event_timeout(False) #False signifies reaching the end of the night ballot
 
