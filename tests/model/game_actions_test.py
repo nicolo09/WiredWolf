@@ -87,13 +87,17 @@ class GameActionsTest(unittest.TestCase):
     def test_clairvoyant_action(self):
         self.game.advance_phase()
         self.game.advance_phase()
-        self.assertTrue(Alignment.EVIL_ALIGNMENT.value in self.game.perform_night_action("Diana", "Bob").message)
+        self.game.perform_night_action("Diana", "Bob")
+        outcome = self.game.advance_phase()
+        self.assertTrue(Alignment.EVIL_ALIGNMENT.value in outcome.get_night_actions()[0].message)
 
     def test_medium_action(self):
         self.game.kill_player("Bob")
         self.game.advance_phase()
         self.game.advance_phase()
-        self.assertTrue(Alignment.EVIL_ALIGNMENT.value in self.game.perform_night_action("Eve", "Bob").message)
+        self.game.perform_night_action("Eve", "Bob")
+        outcome = self.game.advance_phase()
+        self.assertTrue(Alignment.EVIL_ALIGNMENT.value in outcome.get_night_actions()[0].message)
         
     def test_special_roles_targets(self):
         self.game.kill_player("Grace")

@@ -97,6 +97,7 @@ class GameTest(unittest.TestCase):
         self.game.perform_night_action("Bob", "Grace")
         self.game.perform_night_action("Frank", "Grace")
         self.game.advance_phase()
+        self.game.advance_phase()
         self.assertEqual(self.game.day_count, 2)
         self.game.kill_player("Eve")
         self.assertEqual(self.game.phase, GamePhase.WEREWOLVES_VICTORY)

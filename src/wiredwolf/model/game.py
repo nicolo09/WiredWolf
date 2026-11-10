@@ -13,7 +13,7 @@ class GameStatus:
 
     players: list[Player]
     roles: set[Role]
-    modules: set[str] 
+    modules: set[str]
     game_data: GameActionData
     phase: GamePhase
     day_count: int
@@ -184,9 +184,11 @@ class Game:
                     self._phase_outcome_builder.add_death(victim)
 
                 self._game_info.reset_actions()
+                self._phase = GamePhase.NIGHT_RESULT
+            case GamePhase.NIGHT_RESULT:
+                # This phase is just a transition to DAY_DISCUSSION, no actions are performed here.
                 self._phase = GamePhase.DAY_DISCUSSION
                 self._day_count += 1
-                
             case _:
                 # Game is over, no further phase advancement
                 return GamePhaseOutcome(self._phase)
@@ -196,19 +198,19 @@ class Game:
             self._phase = game_over
 
         outcome = self._phase_outcome_builder.set_new_phase(self._phase).build()
-        self._phase_outcome_builder.reset()  # Reset the builder for the next phase
+        # If the new phase is NIGHT_RESULT the builder is not reset
+        # Because the outcome of the night actions is still relevant for the next phase (DAY_DISCUSSION)
+        if self._phase != GamePhase.NIGHT_RESULT:
+            self._phase_outcome_builder.reset()  # Reset the builder for the next phase
         return outcome
 
-    def perform_night_action(self, actor_id: str, target_id: str) -> NightActionResult:
+    def perform_night_action(self, actor_id: str, target_id: str) -> None:
         """
         Perform a night action for a given actor and target, according to their roles.
 
         Args:
             actor_id (str): The ID of the player performing the action.
             target_id (str): The ID of the target player.
-
-        Returns:
-            NightActionResult: Result of the action, containing success status and optionally a message.
 
         Raises:
             GamePhaseError: If not in NIGHT phase
@@ -227,7 +229,9 @@ class Game:
         if target is None:
             raise MissingPlayerError(f"Target with ID {target_id} does not exist.")
 
-        return self._game_info.handle_night_actions(actor, target)
+        
+        self._phase_outcome_builder.add_night_action_result(self._game_info.handle_night_actions(actor, target))
+        
 
     def accuse_player(self, voter_id: str, target_id: str) -> None:
         """

@@ -10,9 +10,17 @@ class GamePhase(Enum):
     DAY_BALLOT = 3
     BALLOT_RESULT = 4
     NIGHT = 5
-    VILLAGERS_VICTORY = 6
-    WEREWOLVES_VICTORY = 7
+    NIGHT_RESULT = 6
+    VILLAGERS_VICTORY = 7
+    WEREWOLVES_VICTORY = 8
 
+@dataclass
+class NightActionResult:
+    """
+    Contains a message for the player who performed a night action to let them know the result.
+    """
+    player: Player
+    message: str
 
 class GamePhaseOutcome:
     """
@@ -21,12 +29,14 @@ class GamePhaseOutcome:
         new_phase (GamePhase): The new phase after the transition.
         deaths (list[Player]): List of players who died because of the phase transition.
         accused_player (Player | None): The player who was accused during the day accusing phase, if applicable.
+        night_actions (list[NightActionResult]): List of night action results.
     """
 
-    def __init__(self, new_phase: GamePhase, deaths: list[Player] = [], accused_player: Player | None = None):
+    def __init__(self, new_phase: GamePhase, deaths: list[Player] = [], accused_player: Player | None = None, night_actions: list[NightActionResult] = []):
         self.new_phase: GamePhase = new_phase
         self.deaths: list[Player] = deaths
         self._accused_player: Player | None = accused_player
+        self._night_actions: list[NightActionResult] = night_actions
 
     def someone_died(self) -> bool:
         return len(self.deaths) > 0
@@ -34,6 +44,8 @@ class GamePhaseOutcome:
     def get_accused_player(self) -> Player | None:
         return self._accused_player
     
+    def get_night_actions(self) -> list[NightActionResult]:
+        return self._night_actions
 class GamePhaseOutcomeBuilder:
     """
     Builder for creating GamePhaseOutcome instances.
@@ -43,6 +55,7 @@ class GamePhaseOutcomeBuilder:
         self._new_phase: GamePhase | None = None
         self._deaths: list[Player] = []
         self._accused_player: Player | None = None
+        self._night_actions: list[NightActionResult] = []
 
     def set_new_phase(self, new_phase: GamePhase) -> "GamePhaseOutcomeBuilder":
         """Sets the new phase for the GamePhaseOutcome being built.
@@ -73,6 +86,14 @@ class GamePhaseOutcomeBuilder:
         """
         self._accused_player = player
         return self
+    
+    def add_night_action_result(self, result: NightActionResult) -> "GamePhaseOutcomeBuilder":
+        """Adds a night action result to the list of night actions for the GamePhaseOutcome being built.
+        Args:
+            result (NightActionResult): The result of a night action.
+        """
+        self._night_actions.append(result)
+        return self
 
     def build(self) -> GamePhaseOutcome:
         """Builds and returns a GamePhaseOutcome instance based on the current state of the builder.
@@ -87,6 +108,7 @@ class GamePhaseOutcomeBuilder:
             new_phase=self._new_phase,
             deaths=self._deaths,
             accused_player=self._accused_player,
+            night_actions=self._night_actions
         )
         
     def reset(self) -> None:
@@ -94,12 +116,5 @@ class GamePhaseOutcomeBuilder:
         self._new_phase = None
         self._deaths = []
         self._accused_player = None
+        self._night_actions = []
 
-
-@dataclass
-class NightActionResult:
-    """
-    Contains a message for the player who performed a night action to let them know the result.
-    """
-
-    message: str
