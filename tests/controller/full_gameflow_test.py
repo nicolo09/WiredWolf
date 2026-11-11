@@ -8,7 +8,7 @@ import pytest
 
 from tests.controller.conftest import TEST_TIMEOUT
 from tests.controller.controller_test import test_start_game
-from wiredwolf.controller.commons import FIRST_DAY_PHASE_DURATION_SECONDS, PHASE_DURATION_SECONDS
+from wiredwolf.controller import commons
 from wiredwolf.controller.controller import GameController
 from wiredwolf.model.player import Alignment, BasicRole
 from wiredwolf.view.custom_events import EventSender
@@ -25,7 +25,7 @@ async def test_game_flow(
     caplog.set_level(logging.DEBUG)
     await test_start_game(controllers)
     #Wait for the first day phase to end
-    await asyncio.sleep(FIRST_DAY_PHASE_DURATION_SECONDS) #TODO: Mock this to avoid waiting for the actual duration
+    await asyncio.sleep(commons.FIRST_DAY_PHASE_DURATION_SECONDS) #TODO: Mock this to avoid waiting for the actual duration
     #Verify that the phase advancement message is received by all controllers and that the first night starts 
     for controller, event_sender in controllers:
         try:
@@ -41,8 +41,23 @@ async def test_game_flow(
                 "A controller did not receive first night phase advancement message within the timeout period."
             )
     
-    await asyncio.sleep(PHASE_DURATION_SECONDS) #TODO: Mock this to avoid waiting for the actual duration
-    #Verify that the second day starts
+    await asyncio.sleep(commons.PHASE_DURATION_SECONDS) #TODO: Mock this to avoid waiting for the actual duration
+    # Verify that the night result phase starts and night actions are disabled
+    for controller, event_sender in controllers:
+        try:
+            if not isinstance(event_sender, mock.Mock):
+                pytest.fail("Event sender is not a mock, cannot verify phase advancement event.")
+            async with asyncio.timeout(TEST_TIMEOUT):
+                while not event_sender.end_night_actions.called:
+                    await asyncio.sleep(0.1)
+            event_sender.end_night_actions.assert_called_once()
+        except asyncio.TimeoutError:
+            pytest.fail(
+                "A controller did not receive night result phase advancement message within the timeout period."
+            )
+
+    await asyncio.sleep(commons.RESULT_PHASE_DURATION_SECONDS) #TODO: Mock this to avoid waiting for the actual duration
+    # Verify that the second day starts
     for controller, event_sender in controllers:
         try:
             if not isinstance(event_sender, mock.Mock):
@@ -55,6 +70,8 @@ async def test_game_flow(
             pytest.fail(
                 "A controller did not receive second day phase advancement message within the timeout period."
             )
+
+    await asyncio.sleep(commons.PHASE_DURATION_SECONDS) #TODO: Mock this to avoid waiting for the actual duration
     # Get right players for each role
     villagers = [controller for controller, _ in controllers if controller.my_self_as_player().role == BasicRole.VILLAGER] # pyright: ignore[reportOptionalMemberAccess]
     werewolves = [controller for controller, _ in controllers if controller.my_self_as_player().role == BasicRole.WEREWOLF] # pyright: ignore[reportOptionalMemberAccess]
@@ -170,26 +187,38 @@ async def test_game_flow(
         if not isinstance(clairvoyant._event_sender, mock.Mock):
             pytest.fail("Clairvoyant's event sender is not a mock, cannot verify clairvoyant vision message.")
         async with asyncio.timeout(TEST_TIMEOUT):
+            async def choose_werewolves() -> None:
+                await asyncio.gather(
+                    *(
+                        controller.choose_player(villagers[1].my_self)
+                        for controller in werewolves
+                    )
+                )
+
+            werewolf_actions = asyncio.create_task(
+                choose_werewolves()
+            )
             await clairvoyant.choose_player(villagers[1].my_self)
-            while not clairvoyant._event_sender.display_chat_message.called:
+            try:
+                await werewolf_actions
+            except asyncio.TimeoutError:
+                pytest.fail(
+                    "A werewolf controller couldn't choose a player to kill within the timeout period."
+                )
+            while not any(
+                str.lower(Alignment.GOOD_ALIGNMENT.value)
+                in call.args[0].lower()
+                for call in clairvoyant._event_sender.display_chat_message.call_args_list
+            ):
                 await asyncio.sleep(0.1)
-        clairvoyant._event_sender.display_chat_message.assert_called()
-        message_arg = clairvoyant._event_sender.display_chat_message.call_args.args[0]
-        assert str.lower(Alignment.GOOD_ALIGNMENT.value) in message_arg.lower()
+        assert any(
+            str.lower(Alignment.GOOD_ALIGNMENT.value) in call.args[0].lower()
+            for call in clairvoyant._event_sender.display_chat_message.call_args_list
+        )
     except asyncio.TimeoutError:
         pytest.fail(
             "Clairvoyant did not receive vision result message within the timeout period."
         )
-
-    # The werewolves vote for a villager to be killed
-    for controller in werewolves:
-        try:
-            async with asyncio.timeout(TEST_TIMEOUT):
-                await controller.choose_player(villagers[1].my_self)
-        except asyncio.TimeoutError:
-            pytest.fail(
-                "A werewolf controller couldn't choose a player to kill within the timeout period."
-            )
 
     # Wait for the day
     for controller, event_sender in controllers:
@@ -221,4 +250,3 @@ async def test_game_flow(
             pytest.fail(
                 "A controller did not receive kill result message within the timeout period after night."
             )
-
