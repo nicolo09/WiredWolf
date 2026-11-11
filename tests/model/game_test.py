@@ -121,13 +121,14 @@ class GameStatusTest(unittest.TestCase):
         escort: Player = test_players[get_index_by_name(test_players, "Charlie")]
         medium: Player = test_players[get_index_by_name(test_players, "Eve")]
 
-        test_game_info.handle_night_actions(escort, medium)
+        result = test_game_info.handle_night_actions(escort, medium)
 
         test_status: GameStatus = GameStatus(
             test_players,
             test_game_info.get_all_handled_roles(),
             test_game_info.get_game_modules(),
             test_game_info.get_game_data(),
+            [result],
             GamePhase.NIGHT,
             1
         )

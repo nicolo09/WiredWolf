@@ -15,6 +15,7 @@ class GameStatus:
     roles: set[Role]
     modules: set[str]
     game_data: GameActionData
+    night_actions_results: list[NightActionResult]
     phase: GamePhase
     day_count: int
 
@@ -64,7 +65,7 @@ class Game:
         Returns:
             Game: A new Game instance initialized with the provided game status.
         """
-        return cls(
+        game = cls(
             game_status.players,
             GameInfoBuilder.with_game_data(
                 game_status.game_data, game_status.players
@@ -75,6 +76,9 @@ class Game:
             game_status.phase,
             game_status.day_count,
         )
+        for night_action in game_status.night_actions_results:
+            game._phase_outcome_builder.add_night_action_result(night_action)
+        return game
 
     @property
     def phase(self) -> GamePhase:
@@ -103,6 +107,7 @@ class Game:
             self._game_info.get_all_handled_roles(),
             self._game_info.get_game_modules(),
             self._game_info.get_game_data(),
+            self._phase_outcome_builder._night_actions.copy(),
             self._phase,
             self._day_count,
         )
@@ -127,7 +132,8 @@ class Game:
         - DAY_ACCUSING -> DAY_BALLOT (if single player has most votes) or NIGHT (if tie/no votes)
         - DAY_BALLOT -> BALLOT_RESULT (after processing ballot votes)
         - BALLOT_RESULT -> NIGHT 
-        - NIGHT -> DAY_DISCUSSION (after processing werewolf attacks and resetting for new day)
+        - NIGHT -> NIGHT_RESULT (after processing night actions)
+        - NIGHT_RESULT -> DAY_DISCUSSION
 
         Returns:
             GamePhaseOutcome: contains the new game phase and any deaths that occurred during the transition.
