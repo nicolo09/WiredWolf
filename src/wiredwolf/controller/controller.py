@@ -189,6 +189,7 @@ class GameController(Recoverable):
             GamePhase.WEREWOLVES_VICTORY,
         ]:
             self._logger.info("Game has ended. No need to recover connection.")
+            await show_error_and_go_home("Connection lost. Game has ended.")
             return
 
         if self._server is None:
