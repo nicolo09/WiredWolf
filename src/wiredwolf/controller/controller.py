@@ -156,7 +156,7 @@ class GameController(Recoverable):
         """
         if self._lobby:
             return next(
-                peer for peer in self._lobby.peers if peer.uuid == player.id
+                peer for peer in self._lobby.peers | self._lobby.disconnected_peers if peer.uuid == player.id
             )
         return None
 
@@ -428,28 +428,34 @@ class GameController(Recoverable):
                                 "Game status, lobby, or accused player is not available."
                             )
                     case GamePhase.BALLOT_RESULT:
-                        if message.is_resumed:
-                            accused_player = message.outcome.get_accused_player()
-                            if accused_player is not None:
+                        accused_player = message.outcome.get_accused_player()
+                        if accused_player is not None:
+                            if message.is_resumed:
                                 peer = self._player_as_peer(accused_player)
                                 if peer is not None:
                                     self._event_sender.user_to_nominated_for_ballot(peer)
-                        self._event_sender.end_ballot()
-                        if victims:
-                            self._logger.info(
-                                "Day ballot phase ended with an execution."
-                            )
-                            for player in victims:
-                                self._event_sender.message_player_executed(player.name)
-                        else:
-                            accused_player = message.outcome.get_accused_player()
-                            if accused_player is not None:
+                            self._event_sender.end_ballot()
+                            if accused_player in victims:
+                                self._logger.info(
+                                    "Day ballot phase ended with an execution."
+                                )
+                                self._event_sender.message_player_executed(accused_player.name)
+                            elif accused_player in disconnections:
+                                self._logger.info(
+                                    "Day ballot phase ended with an execution due to disconnection."
+                                )
+                                self._event_sender.display_chat_message(f"{accused_player.name} was executed due to disconnection.")
+                            else:
                                 self._logger.info(
                                     "Day ballot phase ended with no execution."
                                 )
                                 self._event_sender.message_player_spared(
                                     accused_player.name
                                 )
+                        else:
+                            self._logger.error(
+                                "Accused player is not available."
+                            )
                     case GamePhase.NIGHT:
                         if self._game_status is not None:
                             my_self = self.my_self_as_player()

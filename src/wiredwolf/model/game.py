@@ -153,7 +153,11 @@ class Game:
                 )
                 
                 if (accused_player is not None):
-                    self._phase = GamePhase.DAY_BALLOT
+                    if not accused_player.is_alive():
+                        # If the accused player is already dead it means that it was removed while being accused
+                        self._phase = GamePhase.BALLOT_RESULT
+                    else:
+                        self._phase = GamePhase.DAY_BALLOT
                     self._phase_outcome_builder.set_accused_player(accused_player)
                 else:
                     # No votes or tie in accusations, skip to night
