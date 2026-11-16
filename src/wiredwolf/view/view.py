@@ -1474,19 +1474,28 @@ class NightRoleScreen(AbstractScreen):
             if isinstance(e, TimeOutType):
                 if e.action==True:
                     #Enable panel
+                    #All enabled players buttons MUST be added BEFORE enabling the panel, then adding all disabled players buttons
+                    #This is challenging because the medium role can act on disconnected peers, seeing them as enabled.
+                    #So list of enabled players + disconnected peers (if medium), then disabled players + disconnected peers (if not medium)
                     player=self._controller.my_self_as_player()
+                    #Gets disconnected peers
+                    disconnected_peers=self._controller.lobby.disconnected_peers # type: ignore
                     if player!=None and player.is_alive()==True:
-                        self._voting_panel.enable() #Enable panel so that non-votable players can be shown as disabled
-                    #Add non-votable peers
+                        if player.role==BasicRole.MEDIUM:
+                            #Player is medium, add disconnected peers as peers to act on
+                            for elem in disconnected_peers:
+                                self._add_player(elem) #Keep disconnected players as enabled
+                        self._voting_panel.enable() #Enable panel so that all previously added buttons become enabled
+                    #Add non-votable peers (always disabled)
                     all_players=self._controller.lobby.peers # type: ignore 
                     all_active_players= [item[1] for item in self._players_list] #Get all players with buttons in the panel, which are the active players
                     disabled_players=list(set(all_players)-set(all_active_players)) #Get all non-alive players
                     for elem in disabled_players:
                         self._add_player(elem, False) #Add non-interactable players to the panel, keeping them disabled
-                    #Add disconnected peers
-                    disconnected_peers=self._controller.lobby.disconnected_peers # type: ignore
-                    for elem in disconnected_peers:
-                        self._add_player(elem, False) #Add non-interactable players to the panel, keeping them disabled
+                    if player!=None and player.role!=BasicRole.MEDIUM: 
+                        #Player isn't medium, so add disconnected peers as disabled
+                        for elem in disconnected_peers:
+                            self._add_player(elem, False)
                 else:
                     #action==False
                     #Disable panel
