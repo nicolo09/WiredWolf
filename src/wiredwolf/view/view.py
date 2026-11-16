@@ -1491,6 +1491,8 @@ class NightRoleScreen(AbstractScreen):
                     #action==False
                     #Disable panel
                     self._voting_panel.disable()
+                    #Disable chat, no need to chat anymore
+                    self._input_panel.hide()
             if isinstance(e, ChatMessageType):
                 self._send_message(e.message)
             if isinstance(e, ErrorType):
