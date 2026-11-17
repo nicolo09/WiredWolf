@@ -176,6 +176,7 @@ class GameController(Recoverable):
             await asyncio.sleep(
                 commons.ERROR_PAUSE_TIME
             )  # Wait for a moment to let the user read the message
+            await self.leave()
             self._event_sender.error_ended_go_to_home()
 
         # If there is no game in progress, do not attempt to recover the connection
