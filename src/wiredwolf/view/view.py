@@ -327,8 +327,9 @@ class View:
                     #Update the manager with the new window size
                     self._gui_manager.set_window_resolution((event.x, event.y))
             else:
-                #event is handled by the specific screen
-                self._dictionary[self._game_state_manager.current_state].run(event)
+                if self._running:
+                    #event is handled by the specific screen
+                    self._dictionary[self._game_state_manager.current_state].run(event)
 
     def update_display(self)->None:
         """Called inside the event loop, handles framerate limiting, event handling and scene switching"""
@@ -336,7 +337,9 @@ class View:
         tick=self._clock.tick(FPS)
         self._gui_manager.update(tick/1000.0)
         for event in pygame.event.get():
-            self._on_event(event) #handles generated events 
+            if self._running:
+                #if no quitting event has occurred, handle event
+                self._on_event(event) #handles generated events 
         if self._running:
             #If quit event is received->don't update
             pygame.display.update() #necessary or the screen won't draw at all
@@ -1762,18 +1765,3 @@ class WaitingForReconnectionScreen(AbstractScreen):
         #Nothing to reset, static screen
         pass 
 
-if __name__ == "__main__":
-    my_app=View()
-    async def update():
-        if my_app.app_running:
-            my_app.update_display()
-            asyncio.create_task(update())
-        else:
-            loop.stop()
-            return
-
-    controller=GameController(TCPConnectionSuite(), my_app.event_sender)
-    my_app.set_controller(controller)
-    loop = asyncio.get_event_loop()
-    loop.create_task(update())
-    loop.run_forever()
