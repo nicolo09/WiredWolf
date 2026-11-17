@@ -144,7 +144,12 @@ class GameController(Recoverable):
         """
         if self._lobby and self._game_status:
             return next(
-                player for player in self._game_status.players if player.id == peer.uuid
+                (
+                    player
+                    for player in self._game_status.players
+                    if player.id == peer.uuid
+                ),
+                None,
             )
         return None
     

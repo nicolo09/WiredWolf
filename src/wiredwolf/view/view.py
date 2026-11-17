@@ -821,9 +821,8 @@ class WaitingLobbyScreen(AbstractScreen):
 
     def _go_home(self)->None:
         """Function called by go home lobby"""
-        self.reset_screen()
-        self._game_state_manager.change_screen(Screens.HOME)
-        asyncio.create_task(self._controller.leave())
+        leave_lobby=asyncio.create_task(self._controller.leave())
+        leave_lobby.add_done_callback(self._wait_leave_lobby) #Wait for the lobby to be left before going back to home
 
     def _on_game_started(self, future: Future[None])->None:
         """The callback function called when the controller has actually started the game"""
@@ -832,6 +831,12 @@ class WaitingLobbyScreen(AbstractScreen):
             #Display exception, go back to waiting lobby
             messagebox.showwarning('Error', str(future.exception()))
             self._game_state_manager.change_screen(Screens.LOBBY_WAITING)
+
+    def _wait_leave_lobby(self, future: Future[None])->None:
+            """Await the leave lobby task to finish, then go back to home screen"""
+            #Go back to home screen
+            self.reset_screen()
+            self._game_state_manager.change_screen(Screens.HOME)
 class LoadingGameScreen(AbstractScreen):
     """A simple loading screen shown when a game is being started"""
     def __init__(self, screen:Screens, display: pygame.Surface, game_state_manager:GameStateManager, gui_manager: pygame_gui.UIManager, panel_handler: PanelHandler, global_state:GlobalState) -> None:
@@ -1127,10 +1132,8 @@ class DayEndScreen(AbstractScreen):
                     message_sent.add_done_callback(self._check_if_message_ok)
             if event.type == pygame_gui.UI_BUTTON_PRESSED:
                 if event.ui_element == self._home_button:
-                    #Go back to home screen
-                    self.reset_screen()
-                    self._game_state_manager.change_screen(Screens.HOME)
-                    asyncio.create_task(self._controller.leave()) #Leave game when going back to home
+                    leave_lobby=asyncio.create_task(self._controller.leave()) #Leave game when going back to home
+                    leave_lobby.add_done_callback(self._wait_leave_lobby) #Wait for the lobby to be left before going back to home
                 pass
         if event.type==self._global_state.custom_event:
             #parse the custom event into an object
@@ -1194,6 +1197,12 @@ class DayEndScreen(AbstractScreen):
         """Creates the go home panel"""
         self._home_button_panel=self._panel_handler.create_panel(self._screen_id, pygame.rect.Rect(10,LARGE_BTN_HEIGHT, LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT), anchors={}, enabled_even_for_dead=True)
         self._home_button=pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, 0), (LARGE_BTN_WIDTH, LARGE_BTN_HEIGHT)), text="Quit the game and go back to the start", manager=self._gui_manager, anchors={'centerx':'centerx'}, container=self._home_button_panel)
+
+    def _wait_leave_lobby(self, future: Future[None])->None:
+        """Await the leave lobby task to finish, then go back to home screen"""
+        #Go back to home screen
+        self.reset_screen()
+        self._game_state_manager.change_screen(Screens.HOME)
 
     def reset_screen(self) -> None:
         self._panel_handler.delete_panels(self._screen_id)
