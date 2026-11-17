@@ -116,7 +116,8 @@ class EscortDecorator(GameInfoDecorator):
         super().reset_actions()
         self._escort_acted = False
         if self._protected_player is not None:
-            self._protected_player.status = Status.ALIVE
+            if self._protected_player.status == Status.PROTECTED:
+                self._protected_player.status = Status.ALIVE
             self._protected_player = None
 
     def _handle_night_actions(self, actor: Player, target: Player) -> NightActionResult:
