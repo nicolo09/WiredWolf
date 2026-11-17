@@ -189,7 +189,7 @@ class Game:
                 # Get the most voted victim by werewolves (or None if tie/no votes)
                 victim = self.__get_most_voted_player(self._game_info.werewolves_votes)
 
-                if victim is not None and victim.status != Status.PROTECTED:
+                if victim is not None and victim.is_alive() and victim.status != Status.PROTECTED:
                     victim.status = Status.DEAD
                     self._phase_outcome_builder.add_death(victim)
 
