@@ -28,6 +28,10 @@ class Server(abc.ABC):
         """
         
     @abc.abstractmethod
+    async def _on_reconnection_ended(self):
+        """Called when the reconnection process has ended, either successfully or unsuccessfully."""
+        
+    @abc.abstractmethod
     async def start_listening(self):
         """Starts the server and begins listening for incoming connections."""
 

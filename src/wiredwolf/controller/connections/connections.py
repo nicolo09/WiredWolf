@@ -517,6 +517,12 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
         Args:
             peer (Peer): The peer with the error.
         """
+        def remove_peer():
+            self._endpoints.pop(peer, None)
+            self._status.pop(peer, None)
+            self._client_addresses.pop(peer, None)
+            self._receiving_tasks.pop(peer, None)
+        
         should_recover = await self._server.should_recover_connections
         if should_recover:
             future = asyncio.get_event_loop().create_future()
@@ -546,26 +552,26 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 await self._server._on_peer_error(peer, future)
             except Exception:
                 # If an error occurs the peer is considered disconnected and the server will not wait for it to reconnect
-                self._endpoints.pop(peer, None)
-                self._status.pop(peer, None)
-                self._client_addresses.pop(peer, None)
-                self._receiving_tasks.pop(peer, None)
+                remove_peer()
                 self._recovery_futures[peer].set_result(ReconnectedOutcome.FAILURE)
                 self._recovery_futures.pop(peer, None)
                 # Inform other peers about the disconnection
                 for other_peer in self._client_addresses.keys():
-                    await self.send_obj(other_peer, RemovedPeerMessage(peer))
+                    try:
+                        await self.send_obj(other_peer, RemovedPeerMessage(peer))
+                    except Exception as e:
+                        self._logger.error("Error sending RemovedPeerMessage to %s: %s", other_peer, e)
         else:
             # If the server is not set to recover connections, treat the peer as disconnected
-            self._endpoints.pop(peer, None)
-            self._status.pop(peer, None)
-            self._client_addresses.pop(peer, None)
-            self._receiving_tasks.pop(peer, None)
+            remove_peer()
             await self._server._on_peer_disconnected(peer)
             # Inform other peers about the disconnection
             for other_peer in self._client_addresses.keys():
-                await self.send_obj(other_peer, RemovedPeerMessage(peer))
-            
+                try:
+                    await self.send_obj(other_peer, RemovedPeerMessage(peer))
+                except Exception as e:
+                    self._logger.error("Error sending RemovedPeerMessage to %s: %s", other_peer, e)
+
     async def _wait_and_close_server(self, timeout: float):
         """Waits for a specified timeout and then closes the server if it's still running.
 
@@ -594,7 +600,11 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                 self._receiving_tasks.pop(peer, None)
                 # Inform other peers about the disconnection
                 for other_peer in self._client_addresses.keys():
-                    await self.send_obj(other_peer, RemovedPeerMessage(peer))
+                    try:
+                        await self.send_obj(other_peer, RemovedPeerMessage(peer))
+                    except Exception as e:
+                        self._logger.error("Error sending RemovedPeerMessage to %s: %s", other_peer, e)
+            await self._server._on_reconnection_ended()
         
     async def _client_recovery_cb(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter

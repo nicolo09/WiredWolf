@@ -207,8 +207,6 @@ class GameServer(Server):
         if self._game_actual_phase_task:
             self._game_actual_phase_task.cancel()  # Cancel the current phase advancement task
         await self.send_to_all(PauseGameMessage())
-        if self._game:
-            self._game = Game.from_game_status(self._game.get_game_snapshot())
         try:
             result = await outcome
             if result == commons.ReconnectedOutcome.SUCCESS:
@@ -221,16 +219,21 @@ class GameServer(Server):
                 self.__logger.error("Unexpected outcome for peer %s recovery: %s", peer, result)
         except Exception as e:
             self.__logger.error("Error while handling peer %s recovery: %s", peer, e)
-        finally:
-            if self._game:               
-                self._game_actual_phase_task = asyncio.create_task(
-                    self.wait_and_advance_game(commons.RESUMED_GAME_PHASE_DURATION_SECONDS, True)
-                )
-                self._game_actual_phase_task.add_done_callback(
-                    lambda outcome: self.on_game_phase_advanced(outcome)
-                )
-                
-            
+    
+    async def _on_reconnection_ended(self):
+        """
+        Called when the connection handler has finished the reconnection session, 
+        either because all peers have reconnected or because the reconnection session has timed out.
+        """
+        self.__logger.info("Reconnection session ended. Resuming game.")
+        if self._game:
+            self._game = Game.from_game_status(self._game.get_game_snapshot()) # Restores the game state from the last snapshot
+            self._game_actual_phase_task = asyncio.create_task(
+                self.wait_and_advance_game(commons.RESUMED_GAME_PHASE_DURATION_SECONDS, True)
+            )
+            self._game_actual_phase_task.add_done_callback(
+                lambda outcome: self.on_game_phase_advanced(outcome)
+            )         
 
     async def _on_peer_disconnected(self, peer: commons.Peer):
         self.__logger.info("Peer disconnected: %s", peer)

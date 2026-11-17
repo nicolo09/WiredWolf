@@ -153,6 +153,10 @@ class BackupServer(Server):
 
     async def _on_peer_error(self, peer: commons.Peer, outcome: asyncio.Future[ReconnectedOutcome]):
         # If during the recovery an error happens we just consider the connection as lost and the _on_peer_disconnected callback will handle it
+        pass
+    
+    async def _on_reconnection_ended(self):
+        # Since the _on_peer_error method is not implemented, this method will not be called
         pass 
 
     async def start_listening(self):
