@@ -95,6 +95,12 @@ class EscortDecorator(GameInfoDecorator):
             self._protected_player: Player | None = next(
                 (p for p in players if p.id == protected_id), None
             )
+            if self._protected_player is None:
+                raise ValueError(
+                    f"Protected player with id {protected_id} not found in players list."
+                )
+            else:
+                self._protected_player.status = Status.PROTECTED
         else:
             self._escort_acted: bool = False
             self._protected_player: Player | None = None
