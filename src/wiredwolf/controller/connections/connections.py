@@ -673,6 +673,7 @@ class AsyncTCPServerConnectionHandler(ServerConnectionHandler):
                     self._reconnect_timeout_task = None
                     # If no more peers are in recovering state, stop the server from accepting new connections
                     self.stop_new_connections()
+                    await self._server._on_reconnection_ended()
         
 
     async def _client_connected_cb(
